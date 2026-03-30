@@ -1,0 +1,23 @@
+# 認証情報・秘密鍵（絶対にアップロード禁止）
+blog/google_credentials.json
+blog/google_token.pickle
+blog/config.json
+*.pickle
+
+# 環境設定ファイル
+.env
+.env.local
+*.secret
+
+# macOS
+.DS_Store
+**/.DS_Store
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# 一時ファイル
+*.tmp
+*.log
