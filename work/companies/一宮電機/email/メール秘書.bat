@@ -1,3 +1,2 @@
 @echo off
-cd /d C:\Users\SEIGI-N13\my-ai-company\work\companies\一宮電機\email
-pythonw メール秘書.pyw
+powershell -ExecutionPolicy Bypass -Command "& { $dir = Split-Path -Parent '%~f0'; Start-Process python -ArgumentList \"$dir\メール秘書.pyw\" -WorkingDirectory $dir }"
