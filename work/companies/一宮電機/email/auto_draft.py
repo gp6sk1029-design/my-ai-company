@@ -38,24 +38,32 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 
 RECENT_MINUTES = 5    # 受信から何分以内を対象にするか
 LOOP_INTERVAL  = 60   # 何秒ごとにチェックするか
+KEYWORDS_FILE  = Path(__file__).parent / "keywords.json"
 
-# 迷惑メール・メルマガ・返信不要の判定パターン
-SPAM_PATTERNS = [
-    r"no.?reply",
-    r"noreply",
-    r"newsletter",
-    r"unsubscribe",
-    r"配信停止",
-    r"メルマガ",
-    r"@.*marketing",
-    r"@.*promo",
-    r"iweb_search",
-    r"mail-news",
-    r"bounce",
-    r"mailer-daemon",
-    r"自動送信",
-    r"do.not.reply",
-]
+
+def load_keywords() -> tuple[list, list]:
+    """keywords.jsonからキーワードと除外送信者を読み込む"""
+    try:
+        with open(KEYWORDS_FILE, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        patterns = data.get("手動キーワード", []) + data.get("自動学習", [])
+        senders  = data.get("除外送信者", [])
+        return patterns, senders
+    except Exception:
+        return [], []
+
+
+def add_to_learned(sender_email: str):
+    """返信不要だった送信者を自動学習に追加する"""
+    try:
+        with open(KEYWORDS_FILE, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        if sender_email not in data["自動学習"] and sender_email not in data["除外送信者"]:
+            data["自動学習"].append(sender_email)
+            with open(KEYWORDS_FILE, "w", encoding="utf-8") as f:
+                json.dump(data, f, ensure_ascii=False, indent=2)
+    except Exception:
+        pass
 
 
 # ── ユーティリティ ───────────────────────────────────────────
@@ -149,8 +157,9 @@ def is_recent(msg, minutes: int = RECENT_MINUTES) -> bool:
 
 def needs_reply(msg) -> bool:
     """返信が必要なメールかどうか判定する（Trueなら返信必要）"""
-    sender  = decode_header(msg.get("From", ""))
-    subject = decode_header(msg.get("Subject", ""))
+    sender      = decode_header(msg.get("From", ""))
+    subject     = decode_header(msg.get("Subject", ""))
+    sender_addr = email.utils.parseaddr(sender)[1].lower()
 
     # X-Spam-Statusヘッダー確認
     if "Yes" in msg.get("X-Spam-Status", ""):
@@ -160,9 +169,17 @@ def needs_reply(msg) -> bool:
     if msg.get("X-Mozilla-Status", "") == "0100":
         return False
 
-    # 自動送信・返信不要パターン確認
+    # keywords.jsonからキーワード・除外送信者を読み込んで判定
+    patterns, excluded_senders = load_keywords()
+
+    # 除外送信者チェック
+    for excl in excluded_senders:
+        if excl.lower() in sender_addr:
+            return False
+
+    # キーワードチェック（件名・送信者）
     check = (sender + " " + subject).lower()
-    for pattern in SPAM_PATTERNS:
+    for pattern in patterns:
         if re.search(pattern, check, re.IGNORECASE):
             return False
 
