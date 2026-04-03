@@ -15,6 +15,7 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 from pathlib import Path
 import ctypes
+import ctypes.wintypes
 
 # Windows 11 DPIスケーリング問題を回避
 try:
@@ -36,6 +37,70 @@ RED      = "#f38ba8"
 YELLOW   = "#f9e2af"
 TEXT     = "#cdd6f4"
 SUBTEXT  = "#a6adc8"
+
+
+# ── Windows Job Object（親終了時に子プロセスを自動終了） ────────
+def _create_job_object():
+    """JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE 付きの JobObject を作成する"""
+    try:
+        class JOBOBJECT_BASIC_LIMIT_INFORMATION(ctypes.Structure):
+            _fields_ = [
+                ("PerProcessUserTimeLimit", ctypes.c_int64),
+                ("PerJobUserTimeLimit",     ctypes.c_int64),
+                ("LimitFlags",             ctypes.c_uint32),
+                ("MinimumWorkingSetSize",  ctypes.c_size_t),
+                ("MaximumWorkingSetSize",  ctypes.c_size_t),
+                ("ActiveProcessLimit",     ctypes.c_uint32),
+                ("Affinity",              ctypes.c_size_t),
+                ("PriorityClass",         ctypes.c_uint32),
+                ("SchedulingClass",       ctypes.c_uint32),
+            ]
+        class IO_COUNTERS(ctypes.Structure):
+            _fields_ = [(f, ctypes.c_uint64) for f in
+                        ("ReadOps","WriteOps","OtherOps","ReadBytes","WriteBytes","OtherBytes")]
+        class JOBOBJECT_EXTENDED_LIMIT_INFORMATION(ctypes.Structure):
+            _fields_ = [
+                ("BasicLimitInformation", JOBOBJECT_BASIC_LIMIT_INFORMATION),
+                ("IoInfo",               IO_COUNTERS),
+                ("ProcessMemoryLimit",   ctypes.c_size_t),
+                ("JobMemoryLimit",       ctypes.c_size_t),
+                ("PeakProcessMemoryUsed", ctypes.c_size_t),
+                ("PeakJobMemoryUsed",    ctypes.c_size_t),
+            ]
+        JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE = 0x2000
+        k32  = ctypes.windll.kernel32
+        job  = k32.CreateJobObjectW(None, None)
+        info = JOBOBJECT_EXTENDED_LIMIT_INFORMATION()
+        info.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE
+        k32.SetInformationJobObject(job, 9, ctypes.byref(info), ctypes.sizeof(info))
+        return job
+    except Exception:
+        return None
+
+def _assign_to_job(job, process):
+    """プロセスを JobObject に登録する"""
+    if not job:
+        return
+    try:
+        ctypes.windll.kernel32.AssignProcessToJobObject(job, int(process._handle))
+    except Exception:
+        pass
+
+def _kill_orphan_auto_draft():
+    """起動時：前回の孤児 auto_draft.py プロセスを終了する"""
+    try:
+        result = subprocess.run(
+            ["wmic", "process", "get", "commandline,processid", "/format:csv"],
+            capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=5
+        )
+        for line in result.stdout.splitlines():
+            if "auto_draft.py" in line:
+                parts = line.split(",")
+                pid = parts[-1].strip()
+                if pid.isdigit():
+                    subprocess.run(["taskkill", "/F", "/PID", pid], capture_output=True)
+    except Exception:
+        pass
 
 
 # ── スタイルJSON ─────────────────────────────────────────────
@@ -69,8 +134,10 @@ class MailHisho(tk.Tk):
         self.geometry("520x660")
         self.resizable(False, False)
         self.configure(bg=BG)
-        self._process = None  # 自動下書きプロセス
+        self._process = None       # 自動下書きプロセス
         self._log_queue = queue.Queue()  # ログ受け取り用キュー
+        self._job = None           # Windows Job Object（孤児プロセス防止）
+        _kill_orphan_auto_draft()  # 起動時に前回の孤児プロセスを掃除
         self._build_ui()
 
     # ── UI構築 ───────────────────────────────────────────────
@@ -161,7 +228,8 @@ class MailHisho(tk.Tk):
 
     def toggle_auto(self):
         if self._process is None or self._process.poll() is not None:
-            # 開始
+            # 開始：Job Object を作成してから子プロセスを起動
+            self._job = _create_job_object()
             self._process = subprocess.Popen(
                 [sys.executable, str(SCRIPT_FILE)],
                 stdout=subprocess.PIPE,
@@ -169,6 +237,7 @@ class MailHisho(tk.Tk):
                 text=True, encoding="utf-8", errors="replace",
                 creationflags=subprocess.CREATE_NO_WINDOW
             )
+            _assign_to_job(self._job, self._process)  # Job Object に登録
             self.status_dot.config(text="▶  稼働中", fg=GREEN)
             self.toggle_btn.config(text="⏹  自動下書きを停止", bg=RED)
             self._log("自動下書きを開始しました。")
