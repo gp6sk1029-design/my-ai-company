@@ -313,8 +313,9 @@ class MailHisho(tk.Tk):
         # 口調（テキスト入力）
         tone_frame = tk.Frame(parent, bg=BG)
         tone_frame.pack(fill="x", padx=12, pady=(12, 0))
-        tk.Label(tone_frame, text="口調・全体スタイル", font=("Yu Gothic UI", 9),
-                 bg=BG, fg=SUBTEXT).pack(anchor="w")
+        tk.Label(tone_frame,
+                 text="① 口調・全体スタイル（自由に入力して「口調を保存」）",
+                 font=("Yu Gothic UI", 9), bg=BG, fg=SUBTEXT).pack(anchor="w")
         row = tk.Frame(tone_frame, bg=BG)
         row.pack(fill="x", pady=(2, 0))
         self.tone_entry = tk.Entry(row, font=("Yu Gothic UI", 11),
@@ -322,10 +323,14 @@ class MailHisho(tk.Tk):
                                    relief="flat", highlightthickness=1,
                                    highlightcolor=ACCENT, highlightbackground=SURFACE)
         self.tone_entry.pack(side="left", fill="x", expand=True, ipady=6, padx=(0, 6))
-        tk.Button(row, text="保存", font=("Yu Gothic UI", 10, "bold"),
+        tk.Button(row, text="口調を保存", font=("Yu Gothic UI", 10, "bold"),
                   bg=ACCENT, fg=BG, relief="flat", padx=12, pady=6, cursor="hand2",
                   command=self.style_save_tone).pack(side="left")
         self.tone_entry.insert(0, load_style().get("口調", ""))
+
+        tk.Label(parent,
+                 text="② 下のタブで表現リストを管理（入力して「追加」ボタン）",
+                 font=("Yu Gothic UI", 9), bg=BG, fg=SUBTEXT).pack(anchor="w", padx=12, pady=(8, 0))
 
         # リスト系タブ（よく使う表現・避けたい・癖）
         inner_nb = ttk.Notebook(parent)
@@ -359,8 +364,10 @@ class MailHisho(tk.Tk):
         sb.config(command=lb.yview)
         setattr(self, f"style_lb_{tag}", lb)
 
+        tk.Label(parent, text="↓ ここに追加したい表現を入力してEnterまたは「追加」",
+                 font=("Yu Gothic UI", 8), bg=BG, fg=YELLOW).pack(anchor="w", padx=8)
         bottom = tk.Frame(parent, bg=BG)
-        bottom.pack(fill="x", padx=8, pady=8)
+        bottom.pack(fill="x", padx=8, pady=(2, 8))
         entry = tk.Entry(bottom, font=("Yu Gothic UI", 11),
                          bg=SURFACE, fg=TEXT, insertbackground=TEXT,
                          relief="flat", highlightthickness=1,
@@ -387,7 +394,7 @@ class MailHisho(tk.Tk):
         data = load_style()
         data["口調"] = self.tone_entry.get().strip()
         save_style(data)
-        messagebox.showinfo("保存", "口調を保存しました。")
+        messagebox.showinfo("保存完了", "口調・全体スタイルを保存しました。\n次回の下書き生成から反映されます。")
 
     def style_add(self, tag):
         entry = getattr(self, f"style_entry_{tag}")
@@ -403,6 +410,7 @@ class MailHisho(tk.Tk):
         save_style(data)
         entry.delete(0, tk.END)
         self.style_refresh(tag)
+        messagebox.showinfo("追加完了", f"「{value}」を追加しました。")
 
     def style_delete(self, tag):
         lb  = getattr(self, f"style_lb_{tag}")
