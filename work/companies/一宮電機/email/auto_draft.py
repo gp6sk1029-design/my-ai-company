@@ -48,9 +48,12 @@ MY_EMAIL       = os.getenv("MY_EMAIL", "sy-kouda@ime-group.co.jp")
 MY_NAME        = os.getenv("MY_NAME", "幸田")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 
-RECENT_MINUTES = 35   # 受信から何分以内を対象にするか（30分間隔+5分バッファ）
-LOOP_INTERVAL  = 1800 # 何秒ごとにチェックするか（30分）
-KEYWORDS_FILE  = Path(__file__).parent / "keywords.json"
+RECENT_MINUTES   = 35   # 受信から何分以内を対象にするか（30分間隔+5分バッファ）
+LOOP_INTERVAL    = 1800 # 何秒ごとにチェックするか（30分）
+KEYWORDS_FILE    = Path(__file__).parent / "keywords.json"
+STYLE_FILE       = Path(__file__).parent / "style_profile.json"
+SENT_PATH        = THUNDERBIRD_MAIL_DIR / "Sent"
+STYLE_SAMPLE_MAX = 5    # 送信済みメールから取得するサンプル数
 
 
 def get_effective_msg(msg):
@@ -68,6 +71,41 @@ def get_effective_msg(msg):
             remaining = "".join(lines[i + 1:])
             return stdlib_email.message_from_string(remaining)
     return msg
+
+
+def load_style_profile() -> dict:
+    """style_profile.jsonから文体・署名設定を読み込む"""
+    try:
+        with open(STYLE_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+
+def get_sent_samples() -> list[str]:
+    """送信済みフォルダから自分のメール本文を最大STYLE_SAMPLE_MAX件取得する"""
+    if not SENT_PATH.exists():
+        return []
+    samples = []
+    try:
+        inbox = mailbox.mbox(str(SENT_PATH))
+        keys  = list(inbox.keys())
+        # 末尾（最新）から走査
+        for key in reversed(keys):
+            if len(samples) >= STYLE_SAMPLE_MAX:
+                break
+            msg      = inbox[key]
+            real_msg = get_effective_msg(msg)
+            if MY_EMAIL not in real_msg.get("From", ""):
+                continue
+            body = get_body(real_msg).strip()
+            if len(body) < 30:
+                continue
+            samples.append(body[:400])
+        inbox.close()
+    except Exception:
+        pass
+    return samples
 
 
 def load_keywords() -> tuple[list, list]:
@@ -252,8 +290,37 @@ def get_past_thread(sender_email: str, inbox: mailbox.mbox, inbox_path: Path) ->
 # ── Gemini APIで返信文生成 ───────────────────────────────────
 
 def generate_reply(subject: str, sender: str, body: str, thread: list) -> str:
-    client = genai.Client(api_key=GEMINI_API_KEY)
+    client  = genai.Client(api_key=GEMINI_API_KEY)
+    profile = load_style_profile()
+    samples = get_sent_samples()
 
+    # ── 文体プロファイル情報を組み立て ──
+    style_text = ""
+    if profile:
+        style_text += "\n\n【送信者の文体・好み（必ず反映すること）】\n"
+        if profile.get("口調"):
+            style_text += f"口調: {profile['口調']}\n"
+        if profile.get("よく使う表現"):
+            style_text += "よく使う表現:\n"
+            for expr in profile["よく使う表現"]:
+                style_text += f"  ・{expr}\n"
+        if profile.get("避けたい表現"):
+            style_text += "避けたい表現（使用禁止）:\n"
+            for expr in profile["避けたい表現"]:
+                style_text += f"  ・{expr}\n"
+        if profile.get("その他の癖・好み"):
+            style_text += "その他の癖・好み:\n"
+            for pref in profile["その他の癖・好み"]:
+                style_text += f"  ・{pref}\n"
+
+    # ── 送信済みメールの文体サンプル ──
+    sample_text = ""
+    if samples:
+        sample_text = "\n\n【実際の送信メールサンプル（この文体を真似して書くこと）】\n"
+        for i, s in enumerate(samples, 1):
+            sample_text += f"--- サンプル{i} ---\n{s}\n"
+
+    # ── 過去のやり取り ──
     thread_text = ""
     if thread:
         thread_text = "\n\n【過去のやり取り（直近5件）】\n"
@@ -265,9 +332,12 @@ def generate_reply(subject: str, sender: str, body: str, thread: list) -> str:
                 f"本文: {t['body']}\n---\n"
             )
 
+    # ── 署名 ──
+    signature = profile.get("署名", "【署名】")
+
     prompt = f"""あなたはビジネスメールの返信文を作成するアシスタントです。
 以下のメールに対する返信文を日本語で作成してください。
-
+{style_text}{sample_text}
 【受信メール情報】
 件名: {subject}
 送信者: {sender}
@@ -276,9 +346,10 @@ def generate_reply(subject: str, sender: str, body: str, thread: list) -> str:
 {thread_text}
 
 【返信文の要件】
-- ビジネスメールとして適切な敬語・文体を使用する
+- 上記の文体サンプルや好みを忠実に反映した文体・言い回しで書く
 - 受領確認・お礼・適切な対応を含める
-- 署名部分は「【署名】」というプレースホルダーにする
+- 末尾の署名は以下をそのまま使用する:
+{signature}
 - 簡潔にまとめる（長すぎない）
 
 返信文のみを出力してください。説明文は不要です。"""
