@@ -10,6 +10,7 @@
 """
 
 import mailbox
+import email as stdlib_email
 import json
 import os
 import re
@@ -25,10 +26,21 @@ from dotenv import load_dotenv
 
 load_dotenv(Path(__file__).parent / ".env")
 
+# Windows環境でのエンコードエラーを防ぐ
+import sys
+sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
 # ── 設定 ────────────────────────────────────────────────────
 THUNDERBIRD_MAIL_DIR = Path(r"C:\Users\SEIGI-N13\AppData\Roaming\Thunderbird\Profiles\ia5jx4ac.default-release\Mail\mail.ime-group.co.jp")
-INBOX_PATH           = THUNDERBIRD_MAIL_DIR / "Inbox"
 DRAFTS_PATH          = THUNDERBIRD_MAIL_DIR / "Drafts"
+
+# 監視するフォルダ（外部からのメールのみ対象・大容量フォルダは除外）
+INBOX_PATHS = [
+    THUNDERBIRD_MAIL_DIR / "Inbox",
+    THUNDERBIRD_MAIL_DIR / "Inbox.sbd" / "1_社内.sbd" / "他部署.sbd" / "2_社外",
+    THUNDERBIRD_MAIL_DIR / "Inbox.sbd" / "1_社内.sbd" / "他部署.sbd" / "3_海外",
+]
 LAST_PROCESSED_FILE  = Path(__file__).parent / "last_processed.json"
 LOG_DIR              = Path(__file__).parent / "logs"
 
@@ -36,9 +48,26 @@ MY_EMAIL       = os.getenv("MY_EMAIL", "sy-kouda@ime-group.co.jp")
 MY_NAME        = os.getenv("MY_NAME", "幸田")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 
-RECENT_MINUTES = 5    # 受信から何分以内を対象にするか
+RECENT_MINUTES = 30   # 受信から何分以内を対象にするか
 LOOP_INTERVAL  = 60   # 何秒ごとにチェックするか
 KEYWORDS_FILE  = Path(__file__).parent / "keywords.json"
+
+
+def get_effective_msg(msg):
+    """Thunderbird POP3形式のmsgを正しく解析して返す。
+    >>Fromによりヘッダーが本文扱いになっている場合に再パースする。"""
+    if msg.get("From") or msg.get("Date"):
+        return msg
+    payload = msg.get_payload()
+    if not isinstance(payload, str):
+        return msg
+    # mailboxが>Fromに変換した行を探し、その後ろを再パース
+    lines = payload.splitlines(keepends=True)
+    for i, line in enumerate(lines):
+        if re.match(r">+From ", line):
+            remaining = "".join(lines[i + 1:])
+            return stdlib_email.message_from_string(remaining)
+    return msg
 
 
 def load_keywords() -> tuple[list, list]:
@@ -202,19 +231,20 @@ def save_processed(processed: set):
 
 # ── 過去のやり取り取得 ───────────────────────────────────────
 
-def get_past_thread(sender_email: str, inbox: mailbox.mbox) -> list:
+def get_past_thread(sender_email: str, inbox: mailbox.mbox, inbox_path: Path) -> list:
     """送信者との過去のやり取りを直近5件取得"""
     thread = []
     for key in inbox.keys():
         msg = inbox[key]
-        msg_from = msg.get("From", "")
-        msg_to   = msg.get("To", "")
+        real = get_effective_msg(msg)
+        msg_from = real.get("From", "")
+        msg_to   = real.get("To", "")
         if sender_email in msg_from or sender_email in msg_to:
             thread.append({
-                "date":    decode_header(msg.get("Date", "")),
-                "from":    decode_header(msg.get("From", "")),
-                "subject": decode_header(msg.get("Subject", "")),
-                "body":    get_body(msg)[:500],
+                "date":    decode_header(real.get("Date", "")),
+                "from":    decode_header(real.get("From", "")),
+                "subject": decode_header(real.get("Subject", "")),
+                "body":    get_body(real)[:500],
             })
     return thread[-5:]
 
@@ -254,7 +284,7 @@ def generate_reply(subject: str, sender: str, body: str, thread: list) -> str:
 返信文のみを出力してください。説明文は不要です。"""
 
     response = client.models.generate_content(
-        model="gemini-2.0-flash-lite",
+        model="gemini-2.5-flash",
         contents=prompt,
     )
     return response.text
@@ -262,21 +292,56 @@ def generate_reply(subject: str, sender: str, body: str, thread: list) -> str:
 
 # ── 下書き保存 ──────────────────────────────────────────────
 
+def _restart_thunderbird():
+    """Thunderbirdを再起動して下書きmboxの変更を反映させる"""
+    tb_candidates = [
+        r"C:\Program Files\Mozilla Thunderbird\thunderbird.exe",
+        r"C:\Program Files (x86)\Mozilla Thunderbird\thunderbird.exe",
+    ]
+    tb_exe = next((p for p in tb_candidates if os.path.exists(p)), None)
+
+    # Thunderbirdを終了（強制ではなく通常終了）
+    subprocess.run(["taskkill", "/IM", "thunderbird.exe"], capture_output=True)
+    time.sleep(4)  # 終了を待つ
+
+    # .msfを削除（インデックス再構築のため）
+    msf_path = str(DRAFTS_PATH) + ".msf"
+    if os.path.exists(msf_path):
+        try:
+            os.remove(msf_path)
+        except Exception:
+            pass
+
+    # Thunderbirdを再起動
+    if tb_exe:
+        subprocess.Popen([tb_exe])
+        log("  Thunderbirdを再起動しました（下書き反映のため）")
+    else:
+        log("  ※Thunderbirdのパスが見つかりません。手動で再起動してください。")
+
+
 def write_draft(subject: str, sender: str, reply_body: str):
     """ThunderbirdのDrafts mboxに下書きを書き込む"""
     now           = datetime.now()
     date_str      = email.utils.formatdate(localtime=True)
     reply_subject = f"Re: {subject}" if not subject.startswith("Re:") else subject
 
+    # SubjectをMIMEエンコード（日本語が文字化けしないよう RFC 2047 準拠）
+    encoded_subject = email.header.Header(reply_subject, "utf-8").encode()
+
+    # X-Mozilla-Status: 0x0000 = 未読・削除なし（新規下書きとして表示される）
+    # ※ 0x0008 は Expunged（削除済み）フラグなので使わない
+    # X-Mozilla-Draft-Info が必須（これがないと Thunderbird が下書きと認識しない）
     draft = (
         f"From - {now.strftime('%a %b %d %H:%M:%S %Y')}\n"
-        f"X-Mozilla-Status: 0008\n"
+        f"X-Mozilla-Status: 0000\n"
         f"X-Mozilla-Status2: 00000000\n"
         f"X-Mozilla-Keys:\n"
+        f"X-Mozilla-Draft-Info: internal/draft; vcard=0; receipt=0; DSN=0; uuencode=0; attachmentreminder=0; deliveryformat=0\n"
         f"Date: {date_str}\n"
         f"From: {MY_NAME} <{MY_EMAIL}>\n"
         f"To: {sender}\n"
-        f"Subject: {reply_subject}\n"
+        f"Subject: {encoded_subject}\n"
         f"MIME-Version: 1.0\n"
         f"Content-Type: text/plain; charset=\"UTF-8\"\n"
         f"Content-Transfer-Encoding: 8bit\n"
@@ -288,10 +353,8 @@ def write_draft(subject: str, sender: str, reply_body: str):
     with open(DRAFTS_PATH, "a", encoding="utf-8", newline="\n") as f:
         f.write(draft)
 
-    # .msf（インデックス）を削除 → Thunderbirdが次回起動時に再インデックスする
-    msf_path = str(DRAFTS_PATH) + ".msf"
-    if os.path.exists(msf_path):
-        os.remove(msf_path)
+    # Thunderbirdを再起動して下書きを反映させる
+    _restart_thunderbird()
 
 
 # ── ログ出力 ─────────────────────────────────────────────────
@@ -307,46 +370,58 @@ def log(msg: str):
 
 # ── 1回分のチェック処理 ──────────────────────────────────────
 
-def check_once(processed: set) -> int:
-    """Inboxをチェックして新着メールの下書きを生成する。作成件数を返す"""
-    inbox     = mailbox.mbox(str(INBOX_PATH))
+def check_folder(inbox_path: Path, processed: set) -> int:
+    """指定フォルダをチェックして新着メールの下書きを生成する。作成件数を返す"""
+    if not inbox_path.exists():
+        return 0
+
+    inbox     = mailbox.mbox(str(inbox_path))
     new_count = 0
 
     for key in inbox.keys():
         msg  = inbox[key]
-        uidl = msg.get("X-UIDL", str(key))
+        # フォルダパスをIDに含めて一意にする
+        uidl = f"{inbox_path.name}:{msg.get('X-UIDL', str(key))}"
 
         # 処理済みはスキップ
         if uidl in processed:
             continue
 
+        # Thunderbird POP3形式の>>From問題を修正して再パース
+        real_msg = get_effective_msg(msg)
+
+        # Fromがないものはスキップ
+        sender_raw = real_msg.get("From", "")
+        if not sender_raw:
+            processed.add(uidl)
+            continue
+
         # 自分が送信したメールはスキップ
-        sender_raw = msg.get("From", "")
         if MY_EMAIL in sender_raw:
             processed.add(uidl)
             continue
 
-        # 受信から5分以内でないものはスキップ（古いメールを無視）
-        if not is_recent(msg, RECENT_MINUTES):
+        # 受信から30分以内でないものはスキップ（古いメールを無視）
+        if not is_recent(real_msg, RECENT_MINUTES):
             processed.add(uidl)
             continue
 
         # 返信不要（迷惑・メルマガ・自動送信）はスキップ
-        if not needs_reply(msg):
-            subject = decode_header(msg.get("Subject", ""))
+        if not needs_reply(real_msg):
+            subject = decode_header(real_msg.get("Subject", ""))
             log(f"  スキップ（返信不要）: {subject}")
             processed.add(uidl)
             continue
 
-        subject      = decode_header(msg.get("Subject", "（件名なし）"))
+        subject      = decode_header(real_msg.get("Subject", "（件名なし）"))
         sender       = decode_header(sender_raw)
-        body         = get_body(msg)
+        body         = get_body(real_msg)
         sender_email = email.utils.parseaddr(sender_raw)[1]
 
-        log(f"  新着メール検出: {subject} / {sender}")
+        log(f"  新着メール検出 [{inbox_path.name}]: {subject} / {sender}")
 
         # 過去のやり取りを取得
-        thread = get_past_thread(sender_email, inbox)
+        thread = get_past_thread(sender_email, inbox, inbox_path)
 
         # Gemini APIで返信文生成 → 下書き保存
         try:
@@ -361,6 +436,14 @@ def check_once(processed: set) -> int:
 
     inbox.close()
     return new_count
+
+
+def check_once(processed: set) -> int:
+    """全監視フォルダをチェックして新着メールの下書きを生成する。作成件数を返す"""
+    total = 0
+    for inbox_path in INBOX_PATHS:
+        total += check_folder(inbox_path, processed)
+    return total
 
 
 # ── メイン（60秒ループ） ─────────────────────────────────────

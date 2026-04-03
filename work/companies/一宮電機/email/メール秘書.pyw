@@ -7,11 +7,20 @@
 """
 
 import json
+import queue
 import subprocess
 import sys
+import threading
 import tkinter as tk
 from tkinter import ttk, messagebox
 from pathlib import Path
+import ctypes
+
+# Windows 11 DPIスケーリング問題を回避
+try:
+    ctypes.windll.shcore.SetProcessDpiAwareness(1)
+except Exception:
+    pass
 
 BASE_DIR      = Path(__file__).parent
 KEYWORDS_FILE = BASE_DIR / "keywords.json"
@@ -47,31 +56,8 @@ class MailHisho(tk.Tk):
         self.resizable(False, False)
         self.configure(bg=BG)
         self._process = None  # 自動下書きプロセス
-
-        self._set_icon()
+        self._log_queue = queue.Queue()  # ログ受け取り用キュー
         self._build_ui()
-
-    # ── アイコン生成 ─────────────────────────────────────────
-    def _set_icon(self):
-        try:
-            from PIL import Image, ImageDraw, ImageFont
-            import io, base64
-
-            img = Image.new("RGBA", (64, 64), (0, 0, 0, 0))
-            d   = ImageDraw.Draw(img)
-            # 封筒の形
-            d.rounded_rectangle([4, 14, 60, 50], radius=6, fill="#89b4fa")
-            d.polygon([(4, 14), (32, 34), (60, 14)], fill="#74c7ec")
-            # AIマーク
-            d.text((22, 36), "AI", fill="#1e1e2e")
-
-            buf = io.BytesIO()
-            img.save(buf, format="ICO", sizes=[(64, 64)])
-            buf.seek(0)
-            icon = tk.PhotoImage(data=base64.b64encode(buf.read()))
-            self.iconphoto(True, icon)
-        except Exception:
-            pass
 
     # ── UI構築 ───────────────────────────────────────────────
     def _build_ui(self):
@@ -169,7 +155,10 @@ class MailHisho(tk.Tk):
             self.status_dot.config(text="▶  稼働中", fg=GREEN)
             self.toggle_btn.config(text="⏹  自動下書きを停止", bg=RED)
             self._log("自動下書きを開始しました。")
-            self._poll_log()
+            # バックグラウンドスレッドでログを読み取る
+            t = threading.Thread(target=self._read_log, daemon=True)
+            t.start()
+            self._poll_queue()
         else:
             # 停止
             self._process.terminate()
@@ -184,15 +173,24 @@ class MailHisho(tk.Tk):
         self.log_box.see("end")
         self.log_box.config(state="disabled")
 
-    def _poll_log(self):
+    def _read_log(self):
+        """バックグラウンドスレッド: プロセスの出力をキューに流す"""
+        try:
+            for line in self._process.stdout:
+                self._log_queue.put(line.rstrip())
+        except Exception:
+            pass
+
+    def _poll_queue(self):
+        """UIスレッド: キューからログを取り出して表示する"""
+        try:
+            while True:
+                line = self._log_queue.get_nowait()
+                self._log(line)
+        except queue.Empty:
+            pass
         if self._process and self._process.poll() is None:
-            try:
-                line = self._process.stdout.readline()
-                if line:
-                    self._log(line.rstrip())
-            except Exception:
-                pass
-            self.after(500, self._poll_log)
+            self.after(300, self._poll_queue)
 
     # ── タブ②：キーワード管理 ────────────────────────────────
     def _build_tab_kw(self, parent):
@@ -303,6 +301,11 @@ class MailHisho(tk.Tk):
 
 
 if __name__ == "__main__":
-    app = MailHisho()
-    app.protocol("WM_DELETE_WINDOW", app.on_close)
-    app.mainloop()
+    import traceback
+    _log = BASE_DIR / "startup_error.log"
+    try:
+        app = MailHisho()
+        app.protocol("WM_DELETE_WINDOW", app.on_close)
+        app.mainloop()
+    except Exception:
+        _log.write_text(traceback.format_exc(), encoding="utf-8")
