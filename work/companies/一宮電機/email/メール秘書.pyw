@@ -24,6 +24,7 @@ except Exception:
 
 BASE_DIR      = Path(__file__).parent
 KEYWORDS_FILE = BASE_DIR / "keywords.json"
+STYLE_FILE    = BASE_DIR / "style_profile.json"
 SCRIPT_FILE   = BASE_DIR / "auto_draft.py"
 
 # ── カラーパレット ───────────────────────────────────────────
@@ -35,6 +36,19 @@ RED      = "#f38ba8"
 YELLOW   = "#f9e2af"
 TEXT     = "#cdd6f4"
 SUBTEXT  = "#a6adc8"
+
+
+# ── スタイルJSON ─────────────────────────────────────────────
+def load_style() -> dict:
+    try:
+        with open(STYLE_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {"口調": "", "よく使う表現": [], "避けたい表現": [], "その他の癖・好み": []}
+
+def save_style(data: dict):
+    with open(STYLE_FILE, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
 
 
 # ── キーワードJSON ───────────────────────────────────────────
@@ -52,7 +66,7 @@ class MailHisho(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title("メール秘書")
-        self.geometry("480x620")
+        self.geometry("520x660")
         self.resizable(False, False)
         self.configure(bg=BG)
         self._process = None  # 自動下書きプロセス
@@ -85,11 +99,14 @@ class MailHisho(tk.Tk):
 
         tab1 = ttk.Frame(nb)
         tab2 = ttk.Frame(nb)
+        tab3 = ttk.Frame(nb)
         nb.add(tab1, text="  🤖 自動下書き  ")
         nb.add(tab2, text="  🔑 キーワード管理  ")
+        nb.add(tab3, text="  ✏️ 文体設定  ")
 
         self._build_tab_auto(tab1)
         self._build_tab_kw(tab2)
+        self._build_tab_style(tab3)
 
     # ── タブ①：自動下書き ────────────────────────────────────
     def _build_tab_auto(self, parent):
@@ -290,6 +307,118 @@ class MailHisho(tk.Tk):
             data[key].remove(value)
             save_kw(data)
             self.kw_refresh(tag)
+
+    # ── タブ③：文体設定 ──────────────────────────────────────
+    def _build_tab_style(self, parent):
+        # 口調（テキスト入力）
+        tone_frame = tk.Frame(parent, bg=BG)
+        tone_frame.pack(fill="x", padx=12, pady=(12, 0))
+        tk.Label(tone_frame, text="口調・全体スタイル", font=("Yu Gothic UI", 9),
+                 bg=BG, fg=SUBTEXT).pack(anchor="w")
+        row = tk.Frame(tone_frame, bg=BG)
+        row.pack(fill="x", pady=(2, 0))
+        self.tone_entry = tk.Entry(row, font=("Yu Gothic UI", 11),
+                                   bg=SURFACE, fg=TEXT, insertbackground=TEXT,
+                                   relief="flat", highlightthickness=1,
+                                   highlightcolor=ACCENT, highlightbackground=SURFACE)
+        self.tone_entry.pack(side="left", fill="x", expand=True, ipady=6, padx=(0, 6))
+        tk.Button(row, text="保存", font=("Yu Gothic UI", 10, "bold"),
+                  bg=ACCENT, fg=BG, relief="flat", padx=12, pady=6, cursor="hand2",
+                  command=self.style_save_tone).pack(side="left")
+        self.tone_entry.insert(0, load_style().get("口調", ""))
+
+        # リスト系タブ（よく使う表現・避けたい・癖）
+        inner_nb = ttk.Notebook(parent)
+        inner_nb.pack(fill="both", expand=True, padx=12, pady=8)
+        style_tabs = [
+            ("よく使う表現", "like",   "Geminiがこの表現を積極的に使います"),
+            ("避けたい表現", "avoid",  "この表現は使用されなくなります"),
+            ("その他の癖・好み", "pref", "文体の傾向や好みを自由に記述"),
+        ]
+        for label, tag, desc in style_tabs:
+            f = ttk.Frame(inner_nb)
+            inner_nb.add(f, text=f"  {label}  ")
+            self._build_style_tab(f, tag, desc)
+
+    def _build_style_tab(self, parent, tag, desc):
+        tk.Label(parent, text=desc, font=("Yu Gothic UI", 9),
+                 bg=BG, fg=SUBTEXT).pack(anchor="w", padx=8, pady=(8, 4))
+
+        frame = tk.Frame(parent, bg=BG)
+        frame.pack(fill="both", expand=True, padx=8)
+
+        sb = tk.Scrollbar(frame)
+        sb.pack(side="right", fill="y")
+        lb = tk.Listbox(frame, yscrollcommand=sb.set,
+                        font=("Yu Gothic UI", 11),
+                        bg=SURFACE, fg=TEXT,
+                        selectbackground=ACCENT, selectforeground=BG,
+                        relief="flat", highlightthickness=0,
+                        activestyle="none", height=7)
+        lb.pack(side="left", fill="both", expand=True)
+        sb.config(command=lb.yview)
+        setattr(self, f"style_lb_{tag}", lb)
+
+        bottom = tk.Frame(parent, bg=BG)
+        bottom.pack(fill="x", padx=8, pady=8)
+        entry = tk.Entry(bottom, font=("Yu Gothic UI", 11),
+                         bg=SURFACE, fg=TEXT, insertbackground=TEXT,
+                         relief="flat", highlightthickness=1,
+                         highlightcolor=ACCENT, highlightbackground=SURFACE)
+        entry.pack(side="left", fill="x", expand=True, ipady=7, padx=(0, 6))
+        setattr(self, f"style_entry_{tag}", entry)
+        tk.Button(bottom, text="追加", font=("Yu Gothic UI", 10, "bold"),
+                  bg=ACCENT, fg=BG, relief="flat", padx=12, pady=7, cursor="hand2",
+                  command=lambda t=tag: self.style_add(t)).pack(side="left", padx=(0, 4))
+        tk.Button(bottom, text="削除", font=("Yu Gothic UI", 10),
+                  bg=RED, fg=BG, relief="flat", padx=12, pady=7, cursor="hand2",
+                  command=lambda t=tag: self.style_delete(t)).pack(side="left")
+        entry.bind("<Return>", lambda e, t=tag: self.style_add(t))
+        self.style_refresh(tag)
+
+    def style_refresh(self, tag):
+        lb  = getattr(self, f"style_lb_{tag}")
+        key = {"like": "よく使う表現", "avoid": "避けたい表現", "pref": "その他の癖・好み"}[tag]
+        lb.delete(0, tk.END)
+        for item in load_style().get(key, []):
+            lb.insert(tk.END, f"  {item}")
+
+    def style_save_tone(self):
+        data = load_style()
+        data["口調"] = self.tone_entry.get().strip()
+        save_style(data)
+        messagebox.showinfo("保存", "口調を保存しました。")
+
+    def style_add(self, tag):
+        entry = getattr(self, f"style_entry_{tag}")
+        value = entry.get().strip()
+        if not value:
+            return
+        key  = {"like": "よく使う表現", "avoid": "避けたい表現", "pref": "その他の癖・好み"}[tag]
+        data = load_style()
+        if value in data.get(key, []):
+            messagebox.showinfo("確認", f"「{value}」はすでに登録されています。")
+            return
+        data.setdefault(key, []).append(value)
+        save_style(data)
+        entry.delete(0, tk.END)
+        self.style_refresh(tag)
+
+    def style_delete(self, tag):
+        lb  = getattr(self, f"style_lb_{tag}")
+        sel = lb.curselection()
+        if not sel:
+            messagebox.showinfo("確認", "削除する項目を選択してください。")
+            return
+        value = lb.get(sel[0]).strip()
+        if not messagebox.askyesno("削除確認", f"「{value}」を削除しますか？"):
+            return
+        key  = {"like": "よく使う表現", "avoid": "避けたい表現", "pref": "その他の癖・好み"}[tag]
+        data = load_style()
+        if value in data.get(key, []):
+            data[key].remove(value)
+            save_style(data)
+            self.style_refresh(tag)
 
     def on_close(self):
         if self._process and self._process.poll() is None:
