@@ -332,9 +332,6 @@ def generate_reply(subject: str, sender: str, body: str, thread: list) -> str:
                 f"本文: {t['body']}\n---\n"
             )
 
-    # ── 署名 ──
-    signature = profile.get("署名", "【署名】")
-
     prompt = f"""あなたはビジネスメールの返信文を作成するアシスタントです。
 以下のメールに対する返信文を日本語で作成してください。
 {style_text}{sample_text}
@@ -348,8 +345,7 @@ def generate_reply(subject: str, sender: str, body: str, thread: list) -> str:
 【返信文の要件】
 - 上記の文体サンプルや好みを忠実に反映した文体・言い回しで書く
 - 受領確認・お礼・適切な対応を含める
-- 末尾の署名は以下をそのまま使用する:
-{signature}
+- 署名は不要（本文のみ）
 - 簡潔にまとめる（長すぎない）
 
 返信文のみを出力してください。説明文は不要です。"""
