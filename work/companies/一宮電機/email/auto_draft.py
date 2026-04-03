@@ -432,9 +432,6 @@ def write_draft(subject: str, sender: str, reply_body: str):
     with open(DRAFTS_PATH, "a", encoding="utf-8", newline="\n") as f:
         f.write(draft)
 
-    # Thunderbirdを再起動して下書きを反映させる
-    _restart_thunderbird()
-
 
 # ── ログ出力 ─────────────────────────────────────────────────
 
@@ -548,6 +545,9 @@ def main():
             count = check_once(processed)
             save_processed(processed)
             log(f"完了 - 新規下書き {count} 件作成")
+            # 下書きが1件以上あった場合のみThunderbirdを再起動（まとめて1回）
+            if count > 0:
+                _restart_thunderbird()
         except Exception as e:
             log(f"チェック中にエラー: {e}")
 
