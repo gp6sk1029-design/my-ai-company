@@ -48,8 +48,8 @@ MY_EMAIL       = os.getenv("MY_EMAIL", "sy-kouda@ime-group.co.jp")
 MY_NAME        = os.getenv("MY_NAME", "幸田")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 
-RECENT_MINUTES = 30   # 受信から何分以内を対象にするか
-LOOP_INTERVAL  = 60   # 何秒ごとにチェックするか
+RECENT_MINUTES = 35   # 受信から何分以内を対象にするか（30分間隔+5分バッファ）
+LOOP_INTERVAL  = 1800 # 何秒ごとにチェックするか（30分）
 KEYWORDS_FILE  = Path(__file__).parent / "keywords.json"
 
 
@@ -287,7 +287,19 @@ def generate_reply(subject: str, sender: str, body: str, thread: list) -> str:
         model="gemini-2.5-flash",
         contents=prompt,
     )
-    return response.text
+    return _clean_reply(response.text)
+
+
+def _clean_reply(text: str) -> str:
+    """Geminiの返信文から先頭の「件名：〜」行と余分な空行を除去する"""
+    lines = text.splitlines()
+    # 先頭から「件名：」「件名:」で始まる行を除去
+    while lines and re.match(r'^件名[：:].+', lines[0].strip()):
+        lines.pop(0)
+    # 除去後の先頭の空行も除去
+    while lines and lines[0].strip() == '':
+        lines.pop(0)
+    return '\n'.join(lines)
 
 
 # ── 下書き保存 ──────────────────────────────────────────────
