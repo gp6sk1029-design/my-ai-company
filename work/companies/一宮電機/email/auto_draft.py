@@ -35,11 +35,12 @@ sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 THUNDERBIRD_MAIL_DIR = Path(r"C:\Users\SEIGI-N13\AppData\Roaming\Thunderbird\Profiles\ia5jx4ac.default-release\Mail\mail.ime-group.co.jp")
 DRAFTS_PATH          = THUNDERBIRD_MAIL_DIR / "Drafts"
 
-# 監視するフォルダ（外部からのメールのみ対象・大容量フォルダは除外）
+# 監視するフォルダ
 INBOX_PATHS = [
     THUNDERBIRD_MAIL_DIR / "Inbox",
     THUNDERBIRD_MAIL_DIR / "Inbox.sbd" / "1_社内.sbd" / "他部署.sbd" / "2_社外",
     THUNDERBIRD_MAIL_DIR / "Inbox.sbd" / "1_社内.sbd" / "他部署.sbd" / "3_海外",
+    THUNDERBIRD_MAIL_DIR / "Inbox.sbd" / "1_社内.sbd" / "生産技術部",  # 大容量→末尾読み
 ]
 LAST_PROCESSED_FILE  = Path(__file__).parent / "last_processed.json"
 LOG_DIR              = Path(__file__).parent / "logs"
@@ -48,11 +49,13 @@ MY_EMAIL       = os.getenv("MY_EMAIL", "sy-kouda@ime-group.co.jp")
 MY_NAME        = os.getenv("MY_NAME", "幸田")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
 
-RECENT_MINUTES   = 35   # 受信から何分以内を対象にするか（30分間隔+5分バッファ）
-LOOP_INTERVAL    = 1800 # 何秒ごとにチェックするか（30分）
-KEYWORDS_FILE    = Path(__file__).parent / "keywords.json"
-STYLE_FILE       = Path(__file__).parent / "style_profile.json"
-SENT_PATH        = THUNDERBIRD_MAIL_DIR / "Sent"
+RECENT_MINUTES        = 35              # 受信から何分以内を対象にするか
+LOOP_INTERVAL         = 1800            # 何秒ごとにチェックするか（30分）
+KEYWORDS_FILE         = Path(__file__).parent / "keywords.json"
+STYLE_FILE            = Path(__file__).parent / "style_profile.json"
+SENT_PATH             = THUNDERBIRD_MAIL_DIR / "Sent"
+LARGE_FILE_THRESHOLD  = 50 * 1024 * 1024   # 50MB超は末尾読みモードに切り替え
+TAIL_SCAN_BYTES       = 5  * 1024 * 1024   # 末尾5MBだけ読む
 STYLE_SAMPLE_MAX = 5    # 送信済みメールから取得するサンプル数
 
 
@@ -253,6 +256,58 @@ def needs_reply(msg) -> bool:
     return True
 
 
+# ── 大容量mbox末尾読み ───────────────────────────────────────
+
+def _iter_tail_messages(inbox_path: Path):
+    """mboxファイルの末尾TAIL_SCAN_BYTESだけ読んでメッセージをイテレートする。
+    新着メールはmboxの末尾に追記されるため、末尾読みで十分。"""
+    with open(inbox_path, "rb") as f:
+        f.seek(0, 2)
+        file_size = f.tell()
+        f.seek(max(0, file_size - TAIL_SCAN_BYTES))
+        tail_data = f.read()
+
+    # 途中から読んだ場合の断片を除去（最初の完全なFrom行まで進む）
+    m = re.search(rb'(?:^|\n)(From [^\n]+\n)', tail_data)
+    if not m:
+        return
+    tail_data = tail_data[m.start(1):]
+
+    # \nFrom で分割してメッセージをパース
+    for raw in re.split(rb'\nFrom ', tail_data):
+        if not raw:
+            continue
+        if not raw.startswith(b'From '):
+            raw = b'From ' + raw
+        try:
+            yield stdlib_email.message_from_bytes(raw)
+        except Exception:
+            continue
+
+
+def _iter_inbox(inbox_path: Path):
+    """mboxファイルから (uidl, msg) をイテレートする。
+    50MB超の大容量ファイルは末尾のみ読む高速モードを使用する。"""
+    file_size = inbox_path.stat().st_size
+    folder    = inbox_path.name
+
+    if file_size > LARGE_FILE_THRESHOLD:
+        log(f"  大容量フォルダ検出（{file_size // 1024 // 1024}MB）: 末尾{TAIL_SCAN_BYTES // 1024 // 1024}MBのみスキャン")
+        for msg in _iter_tail_messages(inbox_path):
+            mid  = msg.get("Message-ID", "") or msg.get("X-UIDL", "")
+            uidl = f"{folder}:{mid or id(msg)}"
+            yield uidl, msg
+    else:
+        inbox = mailbox.mbox(str(inbox_path))
+        try:
+            for key in inbox.keys():
+                msg  = inbox[key]
+                uidl = f"{folder}:{msg.get('X-UIDL', str(key))}"
+                yield uidl, msg
+        finally:
+            inbox.close()
+
+
 # ── 処理済み管理 ────────────────────────────────────────────
 
 def load_processed() -> set:
@@ -447,18 +502,14 @@ def log(msg: str):
 # ── 1回分のチェック処理 ──────────────────────────────────────
 
 def check_folder(inbox_path: Path, processed: set) -> int:
-    """指定フォルダをチェックして新着メールの下書きを生成する。作成件数を返す"""
+    """指定フォルダをチェックして新着メールの下書きを生成する。作成件数を返す。
+    50MB超の大容量フォルダは末尾読みモードで高速処理する。"""
     if not inbox_path.exists():
         return 0
 
-    inbox     = mailbox.mbox(str(inbox_path))
     new_count = 0
 
-    for key in inbox.keys():
-        msg  = inbox[key]
-        # フォルダパスをIDに含めて一意にする
-        uidl = f"{inbox_path.name}:{msg.get('X-UIDL', str(key))}"
-
+    for uidl, msg in _iter_inbox(inbox_path):
         # 処理済みはスキップ
         if uidl in processed:
             continue
@@ -477,7 +528,7 @@ def check_folder(inbox_path: Path, processed: set) -> int:
             processed.add(uidl)
             continue
 
-        # 受信から30分以内でないものはスキップ（古いメールを無視）
+        # 受信から35分以内でないものはスキップ（古いメールを無視）
         if not is_recent(real_msg, RECENT_MINUTES):
             processed.add(uidl)
             continue
@@ -496,12 +547,9 @@ def check_folder(inbox_path: Path, processed: set) -> int:
 
         log(f"  新着メール検出 [{inbox_path.name}]: {subject} / {sender}")
 
-        # 過去のやり取りを取得
-        thread = get_past_thread(sender_email, inbox, inbox_path)
-
         # Gemini APIで返信文生成 → 下書き保存
         try:
-            reply = generate_reply(subject, sender, body, thread)
+            reply = generate_reply(subject, sender, body, [])
             write_draft(subject, sender, reply)
             log(f"  下書き保存完了: {subject}")
             new_count += 1
@@ -510,7 +558,6 @@ def check_folder(inbox_path: Path, processed: set) -> int:
 
         processed.add(uidl)
 
-    inbox.close()
     return new_count
 
 
