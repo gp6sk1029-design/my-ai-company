@@ -6,6 +6,7 @@
 ・キーワード管理
 """
 
+import datetime as _dt
 import email.utils as _email_utils
 import json
 import queue
@@ -594,22 +595,47 @@ class MailHisho(tk.Tk):
 
         try:
             emails = []
+            seen_ids = set()  # Message-ID重複除去用
+
             for _uidl, msg in _iter_inbox(inbox_path):
                 real    = get_effective_msg(msg)
+
+                # Fromがない不正メッセージはスキップ
+                if not real.get("From") and not real.get("Date"):
+                    continue
+
+                # Message-IDで重複除去（mboxの誤分割対策）
+                mid = real.get("Message-ID", "").strip()
+                if mid:
+                    if mid in seen_ids:
+                        continue
+                    seen_ids.add(mid)
+
                 subject = decode_header(real.get("Subject", "（件名なし）"))
                 sender  = decode_header(real.get("From", "（不明）"))
                 date    = decode_header(real.get("Date", ""))
+
+                # 日付をdatetimeに変換（ソート用）
+                try:
+                    dt = _email_utils.parsedate_to_datetime(date)
+                except Exception:
+                    dt = None
+
                 emails.append({
                     "msg":     real,
                     "subject": subject,
                     "sender":  sender,
                     "date":    date,
+                    "dt":      dt,
                     "path":    inbox_path,
                 })
 
-            # 最新30件を新しい順で表示
-            emails = emails[-30:]
-            emails.reverse()
+            # 日付降順ソート（日付不明は末尾）→ 最新30件
+            _epoch = _dt.datetime.min.replace(tzinfo=_dt.timezone.utc)
+            emails.sort(
+                key=lambda e: e["dt"] if e["dt"] else _epoch,
+                reverse=True)
+            emails = emails[:30]
             self._manual_emails = emails
 
             for e in emails:

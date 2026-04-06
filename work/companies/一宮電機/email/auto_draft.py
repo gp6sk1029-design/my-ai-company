@@ -267,18 +267,32 @@ def _iter_tail_messages(inbox_path: Path):
         f.seek(max(0, file_size - TAIL_SCAN_BYTES))
         tail_data = f.read()
 
-    # 途中から読んだ場合の断片を除去（最初の完全なFrom行まで進む）
-    m = re.search(rb'(?:^|\n)(From [^\n]+\n)', tail_data)
-    if not m:
-        return
-    tail_data = tail_data[m.start(1):]
+    # mbox の From_ 行は必ず「From 送信者 曜日3文字 ...」の形式
+    # 本文中の "From " 行（引用・転送）と区別するため曜日パターンで厳格に判定する
+    # 例: From sender@example.com Mon Mar 15 12:00:00 2024
+    FROM_LINE = rb'\nFrom \S+ (?:Mon|Tue|Wed|Thu|Fri|Sat|Sun) '
 
-    # \nFrom で分割してメッセージをパース
-    for raw in re.split(rb'\nFrom ', tail_data):
+    # 最初の正規 From_ 行を探して断片を除去
+    m = re.search(FROM_LINE, b'\n' + tail_data)
+    if not m:
+        # フォールバック：緩いパターンで再試行
+        m = re.search(rb'(?:^|\n)(From [^\n]+\n)', tail_data)
+        if not m:
+            return
+        tail_data = tail_data[m.start(1):]
+    else:
+        # b'\n' を先頭に付けて検索したので start を 1 ずらす
+        start = m.start()  # \n の位置
+        tail_data = tail_data[max(0, start - 1):]  # \nを除いた先頭から
+
+    # 正規 From_ パターンで分割（本文中の From は誤判定しない）
+    parts = re.split(FROM_LINE, tail_data)
+    for i, raw in enumerate(parts):
         if not raw:
             continue
+        # 分割後の各パートに From_ ヘッダーを補う
         if not raw.startswith(b'From '):
-            raw = b'From ' + raw
+            raw = b'From UNKNOWN Mon Jan  1 00:00:00 2000\n' + raw
         try:
             yield stdlib_email.message_from_bytes(raw)
         except Exception:
