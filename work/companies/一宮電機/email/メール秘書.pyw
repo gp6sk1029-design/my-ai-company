@@ -6,6 +6,7 @@
 ・キーワード管理
 """
 
+import email.utils as _email_utils
 import json
 import queue
 import subprocess
@@ -27,6 +28,22 @@ BASE_DIR      = Path(__file__).parent
 KEYWORDS_FILE = BASE_DIR / "keywords.json"
 STYLE_FILE    = BASE_DIR / "style_profile.json"
 SCRIPT_FILE   = BASE_DIR / "auto_draft.py"
+
+# auto_draft.py から必要な関数・定数をインポート
+sys.path.insert(0, str(BASE_DIR))
+from auto_draft import (  # noqa: E402
+    _iter_inbox, get_effective_msg, decode_header, get_body,
+    generate_reply, write_draft, _restart_thunderbird,
+    get_thread_simple, INBOX_PATHS,
+)
+
+# 手動下書きタブ用フォルダマップ（表示名 → Path）
+MANUAL_FOLDER_MAP = {
+    "受信トレイ":   INBOX_PATHS[0],
+    "社外":        INBOX_PATHS[1],
+    "海外":        INBOX_PATHS[2],
+    "生産技術部":   INBOX_PATHS[3],
+}
 
 # ── カラーパレット ───────────────────────────────────────────
 BG       = "#1e1e2e"
@@ -131,7 +148,7 @@ class MailHisho(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title("メール秘書")
-        self.geometry("520x660")
+        self.geometry("520x720")
         self.resizable(False, False)
         self.configure(bg=BG)
         self._process = None       # 自動下書きプロセス
@@ -167,13 +184,16 @@ class MailHisho(tk.Tk):
         tab1 = ttk.Frame(nb)
         tab2 = ttk.Frame(nb)
         tab3 = ttk.Frame(nb)
+        tab4 = ttk.Frame(nb)
         nb.add(tab1, text="  🤖 自動下書き  ")
         nb.add(tab2, text="  🔑 キーワード管理  ")
         nb.add(tab3, text="  ✏️ 文体設定  ")
+        nb.add(tab4, text="  📝 手動下書き  ")
 
         self._build_tab_auto(tab1)
         self._build_tab_kw(tab2)
         self._build_tab_style(tab3)
+        self._build_tab_manual(tab4)
 
     # ── タブ①：自動下書き ────────────────────────────────────
     def _build_tab_auto(self, parent):
@@ -496,6 +516,150 @@ class MailHisho(tk.Tk):
             data[key].remove(value)
             save_style(data)
             self.style_refresh(tag)
+
+    # ── タブ④：手動下書き ────────────────────────────────────
+    def _build_tab_manual(self, parent):
+        self._manual_emails = []
+
+        # フォルダ選択行
+        top = tk.Frame(parent, bg=BG)
+        top.pack(fill="x", padx=12, pady=(12, 6))
+
+        tk.Label(top, text="フォルダ:", font=("Yu Gothic UI", 10),
+                 bg=BG, fg=SUBTEXT).pack(side="left", padx=(0, 6))
+
+        self._manual_folder_var = tk.StringVar(value="受信トレイ")
+        folder_choices = list(MANUAL_FOLDER_MAP.keys())
+        opt = tk.OptionMenu(top, self._manual_folder_var, *folder_choices)
+        opt.config(font=("Yu Gothic UI", 10), bg=SURFACE, fg=TEXT,
+                   relief="flat", highlightthickness=0,
+                   activebackground=ACCENT, activeforeground=BG)
+        opt["menu"].config(bg=SURFACE, fg=TEXT, font=("Yu Gothic UI", 10),
+                           activebackground=ACCENT, activeforeground=BG)
+        opt.pack(side="left", padx=(0, 8))
+
+        tk.Button(top, text="📥 一覧を取得",
+                  font=("Yu Gothic UI", 10, "bold"),
+                  bg=ACCENT, fg=BG, relief="flat",
+                  padx=12, pady=6, cursor="hand2",
+                  command=self._manual_load_emails).pack(side="left")
+
+        # メール一覧
+        list_frame = tk.Frame(parent, bg=SURFACE)
+        list_frame.pack(fill="both", expand=True, padx=12, pady=4)
+
+        sb = tk.Scrollbar(list_frame)
+        sb.pack(side="right", fill="y")
+
+        self.manual_lb = tk.Listbox(
+            list_frame, yscrollcommand=sb.set,
+            font=("Consolas", 9),
+            bg=SURFACE, fg=TEXT,
+            selectbackground=ACCENT, selectforeground=BG,
+            relief="flat", highlightthickness=0,
+            activestyle="none", height=11)
+        self.manual_lb.pack(side="left", fill="both", expand=True, padx=4, pady=4)
+        sb.config(command=self.manual_lb.yview)
+
+        # 下書き作成ボタン
+        tk.Button(parent, text="📝 この件を下書き作成",
+                  font=("Yu Gothic UI", 13, "bold"),
+                  bg=GREEN, fg=BG, relief="flat",
+                  padx=20, pady=12, cursor="hand2",
+                  command=self._manual_create_draft).pack(fill="x", padx=12, pady=(8, 4))
+
+        # ステータスラベル
+        self.manual_status = tk.Label(
+            parent, text="← メールを選択して「下書き作成」",
+            font=("Yu Gothic UI", 9),
+            bg=BG, fg=SUBTEXT)
+        self.manual_status.pack(anchor="w", padx=14)
+
+    def _manual_load_emails(self):
+        """選択中フォルダのメール一覧を取得してListboxに表示する"""
+        folder_name = self._manual_folder_var.get()
+        inbox_path  = MANUAL_FOLDER_MAP[folder_name]
+
+        if not inbox_path.exists():
+            messagebox.showerror("エラー", f"フォルダが見つかりません:\n{inbox_path}")
+            return
+
+        self.manual_lb.delete(0, tk.END)
+        self._manual_emails = []
+        self.manual_status.config(text="⏳ 読み込み中...", fg=YELLOW)
+        self.update_idletasks()
+
+        try:
+            emails = []
+            for _uidl, msg in _iter_inbox(inbox_path):
+                real    = get_effective_msg(msg)
+                subject = decode_header(real.get("Subject", "（件名なし）"))
+                sender  = decode_header(real.get("From", "（不明）"))
+                date    = decode_header(real.get("Date", ""))
+                emails.append({
+                    "msg":     real,
+                    "subject": subject,
+                    "sender":  sender,
+                    "date":    date,
+                    "path":    inbox_path,
+                })
+
+            # 最新30件を新しい順で表示
+            emails = emails[-30:]
+            emails.reverse()
+            self._manual_emails = emails
+
+            for e in emails:
+                subj_disp   = e["subject"][:28]
+                sender_disp = e["sender"][:22]
+                date_disp   = e["date"][:16]
+                self.manual_lb.insert(
+                    tk.END,
+                    f"  {subj_disp:<28}  {sender_disp:<22}  {date_disp}")
+
+            self.manual_status.config(
+                text=f"✅ {len(emails)} 件取得 — 返信したいメールを選択してください",
+                fg=GREEN)
+
+        except Exception as ex:
+            self.manual_status.config(text=f"❌ エラー: {ex}", fg=RED)
+
+    def _manual_create_draft(self):
+        """選択中のメールに対してGeminiで返信文を生成し下書きに保存する"""
+        sel = self.manual_lb.curselection()
+        if not sel:
+            messagebox.showinfo("確認", "返信したいメールを選択してください。")
+            return
+        if not self._manual_emails:
+            messagebox.showinfo("確認", "先に「📥 一覧を取得」を押してください。")
+            return
+
+        idx        = sel[0]
+        email_data = self._manual_emails[idx]
+
+        self.manual_status.config(text="⏳ Geminiが返信文を生成中...", fg=YELLOW)
+        self.update_idletasks()
+
+        def worker():
+            try:
+                real        = email_data["msg"]
+                subject     = email_data["subject"]
+                sender      = email_data["sender"]
+                body        = get_body(real)
+                sender_addr = _email_utils.parseaddr(real.get("From", ""))[1]
+                thread      = get_thread_simple(sender_addr, email_data["path"])
+                reply       = generate_reply(subject, sender, body, thread)
+                write_draft(subject, sender, reply)
+                self.after(0, lambda: self.manual_status.config(
+                    text=f"✅ 下書き保存完了: Re: {subject[:30]}",
+                    fg=GREEN))
+                self.after(500, _restart_thunderbird)
+            except Exception as ex:
+                err = str(ex)
+                self.after(0, lambda: self.manual_status.config(
+                    text=f"❌ エラー: {err}", fg=RED))
+
+        threading.Thread(target=worker, daemon=True).start()
 
     def on_close(self):
         if self._process and self._process.poll() is None:

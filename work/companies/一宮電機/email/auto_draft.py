@@ -342,6 +342,36 @@ def get_past_thread(sender_email: str, inbox: mailbox.mbox, inbox_path: Path) ->
     return thread[-5:]
 
 
+def get_thread_simple(sender_email: str, inbox_path: Path) -> list:
+    """指定フォルダから送信者との過去スレッドを取得（手動下書き用）。
+    パスだけ渡せば動くシンプル版。大容量フォルダは末尾読みを使用する。"""
+    thread = []
+    if not inbox_path.exists():
+        return thread
+    file_size = inbox_path.stat().st_size
+    try:
+        if file_size > LARGE_FILE_THRESHOLD:
+            msgs = list(_iter_tail_messages(inbox_path))
+        else:
+            mbox = mailbox.mbox(str(inbox_path))
+            msgs = [mbox[k] for k in mbox.keys()]
+            mbox.close()
+        for msg in msgs:
+            real = get_effective_msg(msg)
+            msg_from = real.get("From", "")
+            msg_to   = real.get("To", "")
+            if sender_email in msg_from or sender_email in msg_to:
+                thread.append({
+                    "date":    decode_header(real.get("Date", "")),
+                    "from":    decode_header(real.get("From", "")),
+                    "subject": decode_header(real.get("Subject", "")),
+                    "body":    get_body(real)[:500],
+                })
+    except Exception:
+        pass
+    return thread[-5:]
+
+
 # ── Gemini APIで返信文生成 ───────────────────────────────────
 
 def generate_reply(subject: str, sender: str, body: str, thread: list) -> str:
