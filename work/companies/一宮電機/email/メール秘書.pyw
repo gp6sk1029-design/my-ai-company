@@ -561,12 +561,15 @@ class MailHisho(tk.Tk):
         self.manual_lb.pack(side="left", fill="both", expand=True, padx=4, pady=4)
         sb.config(command=self.manual_lb.yview)
 
-        # 下書き作成ボタン
-        tk.Button(parent, text="📝 この件を下書き作成",
-                  font=("Yu Gothic UI", 13, "bold"),
-                  bg=GREEN, fg=BG, relief="flat",
-                  padx=20, pady=12, cursor="hand2",
-                  command=self._manual_create_draft).pack(fill="x", padx=12, pady=(8, 4))
+        # 下書き作成ボタン（生成中は無効化して多重実行を防ぐ）
+        self.manual_create_btn = tk.Button(
+            parent, text="📝 この件を下書き作成",
+            font=("Yu Gothic UI", 13, "bold"),
+            bg=GREEN, fg=BG, relief="flat",
+            padx=20, pady=12, cursor="hand2",
+            command=self._manual_create_draft)
+        self.manual_create_btn.pack(fill="x", padx=12, pady=(8, 4))
+        self._manual_creating = False  # 多重実行ガード
 
         # ステータスラベル
         self.manual_status = tk.Label(
@@ -626,6 +629,10 @@ class MailHisho(tk.Tk):
 
     def _manual_create_draft(self):
         """選択中のメールに対してGeminiで返信文を生成し下書きに保存する"""
+        # 多重実行ガード（生成中に再度押されても無視）
+        if self._manual_creating:
+            return
+
         sel = self.manual_lb.curselection()
         if not sel:
             messagebox.showinfo("確認", "返信したいメールを選択してください。")
@@ -637,6 +644,9 @@ class MailHisho(tk.Tk):
         idx        = sel[0]
         email_data = self._manual_emails[idx]
 
+        # ボタン無効化（生成完了まで押せないようにする）
+        self._manual_creating = True
+        self.manual_create_btn.config(state="disabled", bg=SURFACE, text="⏳ 生成中...")
         self.manual_status.config(text="⏳ Geminiが返信文を生成中...", fg=YELLOW)
         self.update_idletasks()
 
@@ -650,14 +660,28 @@ class MailHisho(tk.Tk):
                 thread      = get_thread_simple(sender_addr, email_data["path"])
                 reply       = generate_reply(subject, sender, body, thread)
                 write_draft(subject, sender, reply)
-                self.after(0, lambda: self.manual_status.config(
-                    text=f"✅ 下書き保存完了: Re: {subject[:30]}",
-                    fg=GREEN))
+
+                def on_done():
+                    self.manual_status.config(
+                        text=f"✅ 下書き保存完了: Re: {subject[:30]}",
+                        fg=GREEN)
+                    self.manual_create_btn.config(
+                        state="normal", bg=GREEN, text="📝 この件を下書き作成")
+                    self._manual_creating = False
+
+                self.after(0, on_done)
                 self.after(500, _restart_thunderbird)
+
             except Exception as ex:
                 err = str(ex)
-                self.after(0, lambda: self.manual_status.config(
-                    text=f"❌ エラー: {err}", fg=RED))
+
+                def on_error():
+                    self.manual_status.config(text=f"❌ エラー: {err}", fg=RED)
+                    self.manual_create_btn.config(
+                        state="normal", bg=GREEN, text="📝 この件を下書き作成")
+                    self._manual_creating = False
+
+                self.after(0, on_error)
 
         threading.Thread(target=worker, daemon=True).start()
 
