@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import type { ProjectData, TabId, ChatMessage } from './types';
+import type { ProjectData, TabId, ChatMessage, AnalysisIssue } from './types';
 import Sidebar from './components/Sidebar';
 import FileUpload from './components/FileUpload';
 import AnalysisResult from './components/AnalysisResult';
+import ProgramGenerateTab from './components/ProgramGenerateTab';
 import TroubleshootChat from './components/TroubleshootChat';
 import HelpGuide from './components/HelpGuide';
 
@@ -11,6 +12,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<TabId>('plc');
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isAnalyzingProgram, setIsAnalyzingProgram] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
 
   const handleFilesUploaded = async (files: File[]) => {
@@ -50,6 +52,44 @@ export default function App() {
     } finally {
       setIsAnalyzing(false);
     }
+  };
+
+  const handleAnalyzeProgram = async () => {
+    if (!projectData) return;
+    setIsAnalyzingProgram(true);
+    try {
+      const res = await fetch('/api/analyze-program', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ projectId: projectData.projectId }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        console.error('プログラム解析APIエラー:', err);
+        return;
+      }
+      const result = await res.json();
+      setProjectData((prev) => (prev ? { ...prev, programAnalysis: result } : null));
+      setActiveTab('programAnalysis');
+    } catch (err) {
+      console.error('プログラム解析エラー:', err);
+    } finally {
+      setIsAnalyzingProgram(false);
+    }
+  };
+
+  const handleConsult = (issue: AnalysisIssue) => {
+    const severityLabel = { critical: '🔴 CRITICAL', warning: '🟡 WARNING', info: '🔵 INFO' }[issue.severity];
+    const message = `【${severityLabel}】${issue.id} についてAIに相談します。
+
+■ 問題: ${issue.description}
+■ 場所: ${issue.location}
+■ カテゴリ: ${issue.category}
+${issue.suggestion ? `■ 改善提案: ${issue.suggestion}` : ''}
+${issue.relatedVariables?.length ? `■ 関連変数: ${issue.relatedVariables.join(', ')}` : ''}
+
+この問題の原因と具体的な対策を詳しく教えてください。`;
+    handleSendMessage(message);
   };
 
   const handleSendMessage = async (message: string, images?: string[]) => {
@@ -93,19 +133,51 @@ export default function App() {
         projectData={projectData}
         onAnalyze={handleAnalyze}
         isAnalyzing={isAnalyzing}
+        onAnalyzeProgram={handleAnalyzeProgram}
+        isAnalyzingProgram={isAnalyzingProgram}
         onShowHelp={() => setShowHelp(true)}
       />
 
       {/* メインエリア */}
       <main className="flex-1 min-w-0 flex flex-col overflow-hidden border-x border-dark-border">
         {!projectData ? (
-          <FileUpload onFilesUploaded={handleFilesUploaded} isUploading={isAnalyzing} />
+          <div className="flex flex-col h-full">
+            {/* アップロード前でもプログラム生成タブを表示 */}
+            <div className="flex border-b border-dark-border bg-dark-surface">
+              <button
+                onClick={() => setActiveTab('plc')}
+                className={`px-4 py-3 text-sm font-medium border-b-2 transition ${
+                  activeTab !== 'generate' ? 'text-plc border-plc' : 'text-gray-400 border-transparent hover:text-gray-200'
+                }`}
+              >
+                ファイル解析
+              </button>
+              <button
+                onClick={() => setActiveTab('generate')}
+                className={`px-4 py-3 text-sm font-medium border-b-2 transition ${
+                  activeTab === 'generate' ? 'text-green-400 border-green-400' : 'text-gray-400 border-transparent hover:text-gray-200'
+                }`}
+              >
+                プログラム生成
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto">
+              {activeTab === 'generate' ? (
+                <div className="p-4">
+                  <ProgramGenerateTab />
+                </div>
+              ) : (
+                <FileUpload onFilesUploaded={handleFilesUploaded} isUploading={isAnalyzing} />
+              )}
+            </div>
+          </div>
         ) : (
           <AnalysisResult
             projectData={projectData}
             activeTab={activeTab}
             onTabChange={setActiveTab}
             isAnalyzing={isAnalyzing}
+            onConsult={handleConsult}
           />
         )}
       </main>

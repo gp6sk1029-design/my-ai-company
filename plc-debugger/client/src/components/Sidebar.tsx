@@ -4,18 +4,20 @@ interface Props {
   projectData: ProjectData | null;
   onAnalyze: () => void;
   isAnalyzing: boolean;
+  onAnalyzeProgram: () => void;
+  isAnalyzingProgram?: boolean;
   onShowHelp: () => void;
 }
 
-export default function Sidebar({ projectData, onAnalyze, isAnalyzing, onShowHelp }: Props) {
+export default function Sidebar({ projectData, onAnalyze, isAnalyzing, onAnalyzeProgram, isAnalyzingProgram, onShowHelp }: Props) {
   const project = projectData?.smc2Project;
 
   return (
     <aside className="w-64 flex-shrink-0 bg-dark-surface flex flex-col overflow-hidden">
       {/* ヘッダー */}
       <div className="p-4 border-b border-dark-border">
-        <h1 className="text-lg font-bold text-white">PLC Debugger</h1>
-        <p className="text-xs text-gray-400 mt-1">Sysmac Studio 解析ツール</p>
+        <h1 className="text-lg font-bold text-white">PLC Craft AI</h1>
+        <p className="text-xs text-gray-400 mt-1">AI制御プログラム設計ツール</p>
       </div>
 
       {/* プロジェクト情報 */}
@@ -79,13 +81,39 @@ export default function Sidebar({ projectData, onAnalyze, isAnalyzing, onShowHel
       {/* アクションボタン */}
       <div className="p-4 border-t border-dark-border space-y-2">
         {projectData && (
-          <button
-            onClick={onAnalyze}
-            disabled={isAnalyzing}
-            className="w-full py-2 px-4 bg-plc hover:bg-plc/80 disabled:opacity-50 rounded text-sm font-medium text-white transition"
-          >
-            {isAnalyzing ? '分析中...' : 'バグ分析実行'}
-          </button>
+          <>
+            <p className="text-xs text-gray-400 mb-2">解析モードを選択:</p>
+            {/* プログラム解析ボタン */}
+            <button
+              onClick={onAnalyzeProgram}
+              disabled={!projectData || isAnalyzingProgram}
+              className="w-full px-4 py-2.5 bg-blue-600 hover:bg-blue-500 disabled:bg-blue-600/30 disabled:text-blue-400/50 text-white text-sm font-bold rounded-lg transition mb-2"
+            >
+              {isAnalyzingProgram ? (
+                <span className="flex items-center justify-center gap-2">
+                  <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  解析中...
+                </span>
+              ) : (
+                '📊 プログラム解析'
+              )}
+            </button>
+            {/* デバッグ解析ボタン */}
+            <button
+              onClick={onAnalyze}
+              disabled={!projectData || isAnalyzing}
+              className="w-full px-4 py-2.5 bg-orange-600 hover:bg-orange-500 disabled:bg-orange-600/30 disabled:text-orange-400/50 text-white text-sm font-bold rounded-lg transition"
+            >
+              {isAnalyzing ? (
+                <span className="flex items-center justify-center gap-2">
+                  <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  解析中...
+                </span>
+              ) : (
+                '🐛 デバッグ解析'
+              )}
+            </button>
+          </>
         )}
         <button
           onClick={onShowHelp}
@@ -93,6 +121,11 @@ export default function Sidebar({ projectData, onAnalyze, isAnalyzing, onShowHel
         >
           使い方ガイド
         </button>
+      </div>
+
+      {/* フッター */}
+      <div className="px-4 py-2 border-t border-dark-border">
+        <p className="text-[10px] text-gray-600 text-center">© 2026 幸田祥平</p>
       </div>
     </aside>
   );

@@ -68,7 +68,7 @@ export default function TroubleshootChat({ messages, onSendMessage, hasProject }
   };
 
   return (
-    <aside className="w-80 flex-shrink-0 bg-dark-surface flex flex-col">
+    <aside className="w-96 flex-shrink-0 bg-dark-surface flex flex-col">
       {/* ヘッダー */}
       <div className="p-4 border-b border-dark-border">
         <h2 className="text-sm font-semibold text-white">トラブルシュート</h2>

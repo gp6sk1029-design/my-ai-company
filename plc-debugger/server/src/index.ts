@@ -6,6 +6,8 @@ import uploadRouter from './routes/upload';
 import analyzeRouter from './routes/analyze';
 import troubleshootRouter from './routes/troubleshoot';
 import hmiAnalyzeRouter from './routes/hmiAnalyze';
+import generateRouter from './routes/generate';
+import analyzeProgramRouter from './routes/analyzeProgram';
 import { getAnalysisHistory, getAnalysisById } from './db/sqlite';
 
 dotenv.config();
@@ -28,6 +30,8 @@ app.use('/api/upload', uploadRouter);
 app.use('/api/analyze', analyzeRouter);
 app.use('/api/troubleshoot', troubleshootRouter);
 app.use('/api/hmi-analyze', hmiAnalyzeRouter);
+app.use('/api/generate', generateRouter);
+app.use('/api/analyze-program', analyzeProgramRouter);
 
 // 分析履歴
 app.get('/api/history', async (_req, res) => {
@@ -67,5 +71,5 @@ if (process.env.NODE_ENV === 'production') {
 }
 
 app.listen(PORT, () => {
-  console.log(`PLC Debugger サーバー起動: http://localhost:${PORT}`);
+  console.log(`PLC Craft AI サーバー起動: http://localhost:${PORT}`);
 });

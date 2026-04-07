@@ -1,9 +1,11 @@
-import type { ProjectData, TabId } from '../types';
+import type { ProjectData, TabId, AnalysisIssue } from '../types';
 import PlcAnalysisTab from './PlcAnalysisTab';
 import HmiAnalysisTab from './HmiAnalysisTab';
 import CrossReferenceTab from './CrossReferenceTab';
 import ScreenTransitionTab from './ScreenTransitionTab';
 import ScreenshotAnalysisTab from './ScreenshotAnalysisTab';
+import ProgramGenerateTab from './ProgramGenerateTab';
+import ProgramAnalysisTab from './ProgramAnalysisTab';
 import { exportIssuesToCsv } from '../hooks/useAnalysis';
 
 interface Props {
@@ -11,17 +13,20 @@ interface Props {
   activeTab: TabId;
   onTabChange: (tab: TabId) => void;
   isAnalyzing: boolean;
+  onConsult?: (issue: AnalysisIssue) => void;
 }
 
 const TABS: { id: TabId; label: string; color: string }[] = [
+  { id: 'programAnalysis', label: 'プログラム解析', color: 'text-blue-400 border-blue-400' },
   { id: 'plc', label: 'PLC分析', color: 'text-plc border-plc' },
   { id: 'hmi', label: 'HMI分析', color: 'text-hmi border-hmi' },
   { id: 'crossref', label: 'クロスリファレンス', color: 'text-cross border-cross' },
   { id: 'transition', label: '画面遷移図', color: 'text-hmi border-hmi' },
   { id: 'screenshot', label: 'スクリーンショット', color: 'text-purple-400 border-purple-400' },
+  { id: 'generate', label: 'プログラム生成', color: 'text-green-400 border-green-400' },
 ];
 
-export default function AnalysisResult({ projectData, activeTab, onTabChange, isAnalyzing }: Props) {
+export default function AnalysisResult({ projectData, activeTab, onTabChange, isAnalyzing, onConsult }: Props) {
   const result = projectData.analysisResult;
 
   return (
@@ -65,7 +70,21 @@ export default function AnalysisResult({ projectData, activeTab, onTabChange, is
 
       {/* タブコンテンツ */}
       <div className="flex-1 overflow-y-auto p-4">
-        {isAnalyzing ? (
+        {activeTab === 'programAnalysis' && projectData.programAnalysis ? (
+          <ProgramAnalysisTab
+            overview={projectData.programAnalysis.overview}
+            sections={projectData.programAnalysis.sections}
+          />
+        ) : activeTab === 'programAnalysis' ? (
+          <div className="flex items-center justify-center h-full text-gray-500">
+            <div className="text-center">
+              <p className="text-lg mb-2">プログラム解析結果がありません</p>
+              <p className="text-sm">左パネルの「📊 プログラム解析」ボタンを押してください</p>
+            </div>
+          </div>
+        ) : activeTab === 'generate' ? (
+          <ProgramGenerateTab />
+        ) : isAnalyzing ? (
           <div className="flex items-center justify-center h-full">
             <div className="text-center">
               <div className="animate-spin w-8 h-8 border-2 border-plc border-t-transparent rounded-full mx-auto mb-4" />
@@ -81,8 +100,8 @@ export default function AnalysisResult({ projectData, activeTab, onTabChange, is
           </div>
         ) : (
           <>
-            {activeTab === 'plc' && <PlcAnalysisTab issues={result.issues.filter((i) => i.domain === 'plc')} />}
-            {activeTab === 'hmi' && <HmiAnalysisTab issues={result.issues.filter((i) => i.domain === 'hmi')} />}
+            {activeTab === 'plc' && <PlcAnalysisTab issues={result.issues.filter((i) => i.domain === 'plc')} onConsult={onConsult} />}
+            {activeTab === 'hmi' && <HmiAnalysisTab issues={result.issues.filter((i) => i.domain === 'hmi')} onConsult={onConsult} />}
             {activeTab === 'crossref' && (
               <CrossReferenceTab
                 issues={result.issues.filter((i) => i.domain === 'hmi-plc-cross')}

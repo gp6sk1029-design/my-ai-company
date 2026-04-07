@@ -189,6 +189,22 @@ export interface AnalysisIssue {
   reference?: string;
 }
 
+// === プログラム解析結果 ===
+export interface ProgramSection {
+  name: string;
+  language: string;
+  description: string;
+  explanation: string;
+  flowchartSteps: FlowchartElement[];
+  keyVariables: { name: string; type: string; description: string }[];
+  designPatterns: string[];
+}
+
+export interface ProgramAnalysisResult {
+  overview: string;
+  sections: ProgramSection[];
+}
+
 // === アップロード ===
 export interface UploadedFile {
   id: string;
@@ -203,6 +219,7 @@ export interface ProjectData {
   files: UploadedFile[];
   smc2Project?: Smc2Project;
   analysisResult?: AnalysisResult;
+  programAnalysis?: ProgramAnalysisResult;
   screenshotAnalyses?: ScreenshotAnalysis[];
 }
 
@@ -229,5 +246,63 @@ export interface ChatMessage {
   timestamp: string;
 }
 
+// === ラダー図 ===
+export interface LadderRung {
+  number: number;
+  comment: string;
+  elements: LadderElement[];
+  coil: LadderCoil;
+}
+
+export interface LadderElement {
+  type: 'NO' | 'NC' | 'TIMER' | 'COUNTER' | 'FB' | 'COMPARE' | 'PARALLEL_START' | 'PARALLEL_END';
+  variable: string;
+  label?: string;
+  value?: string;
+}
+
+export interface LadderCoil {
+  type: 'OUT' | 'SET' | 'RESET' | 'TIMER' | 'COUNTER' | 'FB_CALL';
+  variable: string;
+  label?: string;
+}
+
+// === プログラム生成 ===
+export interface GeneratedProgram {
+  code: string;
+  language: 'ST' | 'LD';
+  explanation: string;
+  variables: GeneratedVariable[];
+  safetyNotes: string[];
+  testProcedures: string[];
+  ladderRungs?: LadderRung[];
+  flowchart?: string;
+  flowchartSteps?: FlowchartElement[];
+}
+
+// === フローチャート（構造化データ） ===
+export interface FlowchartItem {
+  type: 'start' | 'end' | 'process' | 'decision' | 'subprocess';
+  label: string;
+  description?: string;
+  deviceId?: string;
+  branchYes?: string;
+  branchNo?: string;
+}
+
+export interface FlowchartParallel {
+  type: 'parallel';
+  branches: FlowchartItem[][];
+}
+
+export type FlowchartElement = FlowchartItem | FlowchartParallel;
+
+export interface GeneratedVariable {
+  name: string;
+  type: string;
+  description: string;
+  initialValue?: string;
+}
+
 // === タブ ===
-export type TabId = 'plc' | 'hmi' | 'crossref' | 'transition' | 'screenshot';
+export type TabId = 'plc' | 'hmi' | 'crossref' | 'transition' | 'screenshot' | 'generate' | 'programAnalysis';
