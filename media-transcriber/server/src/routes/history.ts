@@ -114,11 +114,24 @@ router.delete('/:id', async (req, res) => {
     const db = await getDb();
     const { id } = req.params;
 
-    // ファイル削除
-    const recResult = db.exec('SELECT file_path FROM recordings WHERE id = ?', [id]);
+    // ファイル削除（元ファイル + 音声抽出ファイル）
+    const recResult = db.exec('SELECT file_path, file_name FROM recordings WHERE id = ?', [id]);
     if (recResult.length > 0 && recResult[0].values.length > 0) {
       const filePath = recResult[0].values[0][0] as string;
-      try { fs.unlinkSync(filePath); } catch {}
+      const fileName = recResult[0].values[0][1] as string;
+
+      // 元ファイル削除
+      if (filePath) {
+        try { fs.unlinkSync(filePath); } catch {}
+      }
+
+      // 音声抽出ファイル（_audio.mp3）も削除
+      if (filePath) {
+        const audioPath = filePath.replace(/\.\w+$/, '_audio.mp3');
+        try { fs.unlinkSync(audioPath); } catch {}
+      }
+
+      console.log(`削除完了: ${fileName} (ファイル + 全関連データ)`);
     }
 
     // DB削除（CASCADE）

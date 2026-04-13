@@ -37,17 +37,26 @@ export default function ExportDialog({ recordingId, fileName, onClose }: Props) 
       if (!res.ok) throw new Error('エクスポートに失敗しました');
 
       const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
+      const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
+      a.style.display = 'none';
       a.href = url;
 
       const baseName = fileName.replace(/\.\w+$/, '');
       const ext = format === 'json' ? '.mt.json.gz' : `.${format}`;
       a.download = `${baseName}${ext}`;
+
+      document.body.appendChild(a);
       a.click();
-      URL.revokeObjectURL(url);
-    } catch (err) {
+
+      // クリーンアップ
+      setTimeout(() => {
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+      }, 100);
+    } catch (err: any) {
       console.error('エクスポートエラー:', err);
+      alert('エクスポートに失敗しました: ' + (err.message || ''));
     } finally {
       setDownloading(null);
     }
