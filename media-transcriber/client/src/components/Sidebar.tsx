@@ -140,13 +140,13 @@ export default function Sidebar({ isOpen, history, setHistory, onSelect, onClose
                         </div>
                       </button>
 
-                      {/* 削除ボタン（ホバーで表示） */}
+                      {/* 削除ボタン */}
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
                           setDeleteConfirm(item.id);
                         }}
-                        className="p-2 mr-2 text-gray-600 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all"
+                        className="p-2 mr-2 text-gray-500 hover:text-red-400 transition-colors"
                         title="この録音を削除"
                       >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

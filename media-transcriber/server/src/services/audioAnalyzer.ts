@@ -25,7 +25,8 @@ export function getModeParams(mode: AudioMode) {
       return {
         transcriptPrompt: `これは電話通話の録音です。2名の話者の会話を正確に文字起こししてください。
 話者を「話者A」「話者B」として区別してください。
-電話特有のノイズや途切れがある場合は、[聞き取り不明] と記載してください。`,
+聞き取れない箇所は無視して、聞き取れた発言のみ記載してください。
+背景雑音・機械音・ノイズの記載は一切不要です。`,
         silenceThresholdDb: -25,
         silenceMinDuration: 2,
         label: '通話録音',
@@ -36,7 +37,8 @@ export function getModeParams(mode: AudioMode) {
       return {
         transcriptPrompt: `これは対面会議の録音です。複数の話者の発言を正確に文字起こししてください。
 話者が区別できる場合は「話者A」「話者B」...として分けてください。
-背景雑音や聞き取りにくい箇所は [聞き取り不明] と記載してください。`,
+聞き取れない箇所は無視して、聞き取れた発言のみ記載してください。
+背景雑音・機械音・環境音の記載は一切不要です。`,
         silenceThresholdDb: -35,
         silenceMinDuration: 3,
         label: '対面録音',
@@ -46,7 +48,9 @@ export function getModeParams(mode: AudioMode) {
     default:
       return {
         transcriptPrompt: `この音声を正確に文字起こししてください。
-話者が区別できる場合は分けてください。`,
+話者が区別できる場合は分けてください。
+聞き取れない箇所は無視して、聞き取れた発言のみ記載してください。
+背景雑音・ノイズの記載は不要です。`,
         silenceThresholdDb: -30,
         silenceMinDuration: 3,
         label: '自動判別',

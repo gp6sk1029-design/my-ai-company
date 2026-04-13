@@ -57,23 +57,19 @@ export async function transcribe(
 
   const prompt = `${modeParams.transcriptPrompt}${videoInstructions}
 
-以下のJSON形式で出力してください。他のテキストは含めないでください:
-{
-  "fullText": "文字起こし全文",
-  "segments": [
-    {
-      "start": 0.0,
-      "end": 10.5,
-      "speaker": "話者A",
-      "text": "発言テキスト"
-    }
-  ]
-}
+重要なルール:
+- 人の発言のみを文字起こしすること
+- 背景雑音、機械音、環境音は一切記載しないこと（[背景雑音]や[聞き取り不明]などのタグも不要）
+- 聞き取れない箇所は無視して、聞き取れた発言だけを記載すること
+- 無音区間やノイズだけの区間はスキップすること
+
+以下のJSON形式で出力してください。コードブロック(\`\`\`)で囲まないでください:
+{"fullText":"文字起こし全文","segments":[{"start":0.0,"end":10.5,"speaker":"話者A","text":"発言テキスト"}]}
 
 注意:
 - start/endは秒数（小数点あり）
-- できる限り細かくセグメントを分割してください（1発言ごと）
-- タイムスタンプはできるだけ正確に推定してください`;
+- 発言ごとにセグメントを分割
+- 発言がない区間はセグメントを作らない`;
 
   const result = await model.generateContent([
     { text: prompt },
@@ -87,13 +83,49 @@ export async function transcribe(
 
   const text = result.response.text();
   try {
-    const jsonStr = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-    return JSON.parse(jsonStr);
-  } catch {
-    // JSONパースに失敗した場合はプレーンテキストとして返す
+    // コードブロックやマークダウン記法を除去
+    let jsonStr = text
+      .replace(/```json\s*/g, '')
+      .replace(/```\s*/g, '')
+      .trim();
+
+    // JSONの開始位置を探す（先頭にゴミテキストがある場合）
+    const jsonStart = jsonStr.indexOf('{');
+    const jsonEnd = jsonStr.lastIndexOf('}');
+    if (jsonStart >= 0 && jsonEnd > jsonStart) {
+      jsonStr = jsonStr.substring(jsonStart, jsonEnd + 1);
+    }
+
+    const parsed = JSON.parse(jsonStr);
+
+    // [背景雑音]等のノイズタグを含むセグメントをフィルタ
+    if (parsed.segments && Array.isArray(parsed.segments)) {
+      parsed.segments = parsed.segments.filter((seg: any) => {
+        const t = (seg.text || '').trim();
+        // ノイズタグのみのセグメントを除外
+        if (/^\[.*\]$/.test(t)) return false;
+        if (t.length === 0) return false;
+        return true;
+      });
+      // fullTextもクリーンアップ
+      parsed.fullText = parsed.segments.map((s: any) => s.text).join('\n');
+    }
+
+    return parsed;
+  } catch (e) {
+    console.error('JSON解析エラー、プレーンテキストとして処理:', e);
+    // ノイズタグを除去してプレーンテキストとして返す
+    const cleanText = text
+      .replace(/```json\s*/g, '').replace(/```\s*/g, '')
+      .replace(/\[背景雑音[^\]]*\]/g, '')
+      .replace(/\[聞き取り不明[^\]]*\]/g, '')
+      .replace(/\[.*?作動音[^\]]*\]/g, '')
+      .replace(/\[.*?雑音[^\]]*\]/g, '')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
     return {
-      fullText: text,
-      segments: [{ start: 0, end: 0, text }],
+      fullText: cleanText,
+      segments: [{ start: 0, end: 0, text: cleanText }],
     };
   }
 }
