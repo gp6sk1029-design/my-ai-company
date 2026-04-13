@@ -10,6 +10,8 @@ import chatRouter from './routes/chat';
 import mindmapRouter from './routes/mindmap';
 import sectionsRouter from './routes/sections';
 import historyRouter from './routes/history';
+import exportRouter from './routes/exportData';
+import importRouter from './routes/importData';
 
 // 複数パスで .env を読み込む
 dotenv.config();
@@ -35,6 +37,8 @@ app.use('/api/chat', chatRouter);
 app.use('/api/mindmap', mindmapRouter);
 app.use('/api/sections', sectionsRouter);
 app.use('/api/history', historyRouter);
+app.use('/api/export', exportRouter);
+app.use('/api/import', importRouter);
 
 // ヘルスチェック
 app.get('/api/health', (_req, res) => {

@@ -4,9 +4,10 @@ import type { Recording } from '../types';
 
 interface Props {
   onUploadComplete: (recording: Recording) => void;
+  onImport?: (file: File) => void;
 }
 
-export default function FileUpload({ onUploadComplete }: Props) {
+export default function FileUpload({ onUploadComplete, onImport }: Props) {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -91,6 +92,27 @@ export default function FileUpload({ onUploadComplete }: Props) {
           </>
         )}
       </div>
+
+      {/* インポートボタン */}
+      {onImport && (
+        <div className="mt-4 text-center">
+          <label className="inline-flex items-center gap-2 px-4 py-2 text-sm text-gray-400 hover:text-gray-200 cursor-pointer transition-colors">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+            </svg>
+            過去の保存ファイルを読み込む (.mt.json.gz)
+            <input
+              type="file"
+              accept=".gz,.json"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) onImport(file);
+              }}
+            />
+          </label>
+        </div>
+      )}
 
       {error && (
         <div className="mt-4 p-3 bg-accent-red/10 border border-accent-red/30 rounded-lg text-accent-red text-sm">

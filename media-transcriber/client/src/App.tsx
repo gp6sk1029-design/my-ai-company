@@ -10,6 +10,7 @@ import VideoPlayer from './components/VideoPlayer';
 import ChatPanel from './components/ChatPanel';
 import AudioModeIndicator from './components/AudioModeIndicator';
 import Sidebar from './components/Sidebar';
+import ExportDialog from './components/ExportDialog';
 
 export default function App() {
   // ビュー状態
@@ -25,6 +26,7 @@ export default function App() {
   const [mindmaps, setMindmaps] = useState<MindmapData[]>([]);
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
 
   // 動画プレイヤーref
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -73,6 +75,21 @@ export default function App() {
       setSidebarOpen(false);
     } catch (err) {
       console.error('履歴読み込みエラー:', err);
+    }
+  };
+
+  // インポート（.mt.json.gz）
+  const handleImport = async (file: File) => {
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await fetch('/api/import', { method: 'POST', body: formData });
+      if (res.ok) {
+        const { recordingId } = await res.json();
+        await handleSelectHistory(recordingId);
+      }
+    } catch (err) {
+      console.error('インポートエラー:', err);
     }
   };
 
@@ -125,6 +142,14 @@ export default function App() {
           </div>
           <div className="flex items-center gap-3">
             {recording && <AudioModeIndicator mode={recording.audio_mode} />}
+            {view === 'result' && recording && (
+              <button onClick={() => setExportOpen(true)} className="btn-primary text-sm flex items-center gap-1.5">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                保存
+              </button>
+            )}
             {view === 'result' && (
               <button onClick={handleNewUpload} className="btn-secondary text-sm">
                 新規アップロード
@@ -139,7 +164,7 @@ export default function App() {
           <div className="flex-1 flex flex-col overflow-hidden">
             {view === 'upload' && (
               <div className="flex-1 flex items-center justify-center p-8">
-                <FileUpload onUploadComplete={handleUploadComplete} />
+                <FileUpload onUploadComplete={handleUploadComplete} onImport={handleImport} />
               </div>
             )}
 
@@ -229,6 +254,14 @@ export default function App() {
           )}
         </div>
       </div>
+      {/* エクスポートダイアログ */}
+      {exportOpen && recording && (
+        <ExportDialog
+          recordingId={recording.id}
+          fileName={recording.file_name}
+          onClose={() => setExportOpen(false)}
+        />
+      )}
     </div>
   );
 }
