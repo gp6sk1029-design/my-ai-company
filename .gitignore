@@ -21,3 +21,7 @@ __pycache__/
 # 一時ファイル
 *.tmp
 *.log
+
+# Git同期エラー通知用
+.claude/.push_failed
+.claude/.push_error
