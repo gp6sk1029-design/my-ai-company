@@ -1,0 +1,719 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>メルカリ出品管理</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Hiragino Sans', sans-serif; background: #f5f5f5; color: #333; min-height: 100vh; }
+
+    /* ── タブ ── */
+    .tab-bar { display: flex; background: #fff; border-bottom: 1px solid #e0e0e0; position: sticky; top: 0; z-index: 100; }
+    .tab-btn { flex: 1; text-align: center; padding: 14px 8px; font-size: 14px; color: #888; border: none; background: none; cursor: pointer; border-bottom: 3px solid transparent; font-family: inherit; font-weight: 500; }
+    .tab-btn.active { color: #ff4d4d; border-bottom-color: #ff4d4d; font-weight: 700; }
+    @media (min-width: 768px) { .tab-btn { font-size: 16px; padding: 16px 24px; } }
+
+    /* ── ページ切り替え ── */
+    .page { display: none; }
+    .page.active { display: block; }
+
+    /* ── コンテナ ── */
+    .container { margin: 0 auto; padding: 20px 16px; }
+    @media (max-width: 767px) { .container { max-width: 480px; } }
+    @media (min-width: 768px) { .container { max-width: 1100px; padding: 32px 40px; } }
+
+    /* ══════════════════════════════
+       アップロードページ
+    ══════════════════════════════ */
+    .upload-grid { display: block; }
+    @media (min-width: 768px) { .upload-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; align-items: start; } }
+
+    h1 { font-size: 20px; font-weight: 700; margin-bottom: 20px; color: #222; }
+    @media (min-width: 768px) { h1 { font-size: 26px; margin-bottom: 28px; } }
+
+    .form-group { margin-bottom: 16px; }
+    label { display: block; font-size: 13px; font-weight: 600; color: #555; margin-bottom: 6px; }
+
+    .name-input {
+      width: 100%; padding: 14px; font-size: 16px;
+      border: 1.5px solid #ddd; border-radius: 10px; background: #fff;
+      font-family: inherit;
+    }
+    .name-input:focus { outline: none; border-color: #ff4d4d; }
+
+    .photo-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
+    .photo-btn {
+      background: #fff; border: 1.5px solid #ddd; border-radius: 12px;
+      padding: 18px 12px; text-align: center; cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+    }
+    .photo-btn:hover { border-color: #ff4d4d; background: #fff5f5; }
+    .photo-btn .btn-icon { font-size: 28px; margin-bottom: 6px; }
+    .photo-btn .btn-label { font-size: 13px; color: #555; font-weight: 600; }
+    .photo-btn .btn-sub { font-size: 11px; color: #aaa; margin-top: 2px; }
+    input[type="file"] { display: none; }
+
+    .preview-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 4px; }
+    @media (min-width: 768px) { .preview-grid { grid-template-columns: repeat(4, 1fr); } }
+    .preview-grid img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 8px; border: 1px solid #eee; }
+    .preview-count { font-size: 13px; color: #666; margin-top: 8px; }
+
+    .btn-upload {
+      display: block; width: 100%; padding: 16px; margin-top: 20px;
+      background: #ff4d4d; color: #fff; font-size: 17px; font-weight: 700;
+      border: none; border-radius: 12px; cursor: pointer;
+    }
+    .btn-upload:disabled { background: #ccc; cursor: not-allowed; }
+
+    .progress-wrap { display: none; margin-top: 16px; background: #eee; border-radius: 100px; height: 8px; overflow: hidden; }
+    .progress-bar { height: 100%; background: #ff4d4d; border-radius: 100px; width: 0%; transition: width 0.3s; }
+    .progress-text { text-align: center; font-size: 13px; color: #666; margin-top: 6px; }
+    .result { display: none; margin-top: 16px; padding: 14px 16px; border-radius: 10px; font-size: 14px; font-weight: 500; }
+    .result.success { background: #e8f5e9; color: #2e7d32; }
+    .result.error   { background: #ffebee; color: #c62828; }
+
+    .pc-guide { display: none; }
+    @media (min-width: 768px) {
+      .pc-guide { display: block; background: #fff; border-radius: 16px; padding: 28px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+      .pc-guide h2 { font-size: 17px; margin-bottom: 16px; }
+      .pc-guide ol { padding-left: 20px; }
+      .pc-guide li { font-size: 14px; color: #555; margin-bottom: 10px; line-height: 1.6; }
+      .pc-guide .tip { margin-top: 20px; background: #fff5f5; border-left: 3px solid #ff4d4d; padding: 12px 14px; border-radius: 0 8px 8px 0; font-size: 13px; color: #c62828; }
+    }
+
+    /* ══════════════════════════════
+       ダッシュボードページ
+    ══════════════════════════════ */
+    .summary-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 16px; }
+    @media (min-width: 768px) { .summary-row { grid-template-columns: repeat(5, 1fr); gap: 16px; margin-bottom: 24px; } }
+
+    .summary-card { background: #fff; border-radius: 12px; padding: 12px 10px; text-align: center; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+    @media (min-width: 768px) { .summary-card { padding: 20px 16px; } }
+    .summary-card .s-value { font-size: 22px; font-weight: 700; color: #222; }
+    @media (min-width: 768px) { .summary-card .s-value { font-size: 28px; } }
+    .summary-card .s-label { font-size: 11px; color: #888; margin-top: 3px; }
+    @media (min-width: 768px) { .summary-card .s-label { font-size: 13px; } }
+    .summary-card.c-profit .s-value { color: #2e7d32; }
+    .summary-card.c-blue   .s-value { color: #1565c0; }
+
+    .toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
+    .btn-refresh { padding: 9px 18px; background: #fff; color: #555; font-size: 14px; border: 1.5px solid #ddd; border-radius: 10px; cursor: pointer; }
+    .btn-refresh:hover { background: #f5f5f5; }
+    .filter-wrap { display: flex; gap: 8px; flex-wrap: wrap; }
+    .filter-btn { padding: 7px 14px; font-size: 12px; border: 1.5px solid #ddd; border-radius: 20px; background: #fff; cursor: pointer; color: #666; }
+    .filter-btn.active { background: #ff4d4d; color: #fff; border-color: #ff4d4d; }
+
+    /* スマホ: カード */
+    .card { background: #fff; border-radius: 14px; padding: 16px; margin-bottom: 10px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+    .card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; }
+    .card-title { font-size: 15px; font-weight: 700; flex: 1; margin-right: 8px; line-height: 1.3; }
+    .card-body { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .info-label { font-size: 10px; color: #aaa; margin-bottom: 2px; }
+    .info-value { font-size: 15px; font-weight: 600; }
+    .info-value.pos { color: #2e7d32; }
+    .info-value.neg { color: #c62828; }
+    .card-footer { margin-top: 10px; padding-top: 8px; border-top: 1px solid #f0f0f0; display: flex; justify-content: space-between; font-size: 11px; color: #aaa; }
+
+    /* PC: テーブル */
+    .cards-view { display: block; }
+    .table-view  { display: none; }
+    @media (min-width: 768px) {
+      .cards-view { display: none; }
+      .table-view  { display: block; }
+      .data-table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 14px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+      .data-table thead th { background: #fafafa; padding: 14px 16px; text-align: left; font-size: 12px; color: #888; font-weight: 600; border-bottom: 1px solid #eee; white-space: nowrap; }
+      .data-table tbody tr { border-bottom: 1px solid #f5f5f5; }
+      .data-table tbody tr:last-child { border-bottom: none; }
+      .data-table tbody tr:hover { background: #fafafa; }
+      .data-table td { padding: 14px 16px; font-size: 14px; }
+      .td-name { font-weight: 600; max-width: 200px; }
+      .td-r { text-align: right; }
+      .td-c { text-align: center; }
+      .td-pos { text-align: right; font-weight: 700; color: #2e7d32; }
+      .td-neg { text-align: right; font-weight: 700; color: #c62828; }
+    }
+
+    /* ステータスバッジ（共通） */
+    .badge { font-size: 11px; font-weight: 600; padding: 4px 9px; border-radius: 20px; white-space: nowrap; flex-shrink: 0; }
+    .s-出品中  { background: #e3f2fd; color: #1565c0; }
+    .s-売約済み { background: #e8f5e9; color: #2e7d32; }
+    .s-発送済み { background: #f3e5f5; color: #6a1b9a; }
+    .s-完了    { background: #efebe9; color: #4e342e; }
+    .s-取り下げ { background: #fafafa; color: #aaa; }
+
+    .loading { text-align: center; padding: 48px 24px; color: #aaa; }
+    .error-msg { background: #ffebee; color: #c62828; padding: 14px 16px; border-radius: 10px; font-size: 14px; margin-bottom: 12px; }
+    .empty { text-align: center; padding: 64px 24px; color: #bbb; }
+    .empty-icon { font-size: 56px; margin-bottom: 16px; }
+
+    /* カード内ボタン */
+    .card-actions { margin-top: 10px; display: flex; gap: 8px; }
+    .card-act-btn {
+      flex: 1; padding: 10px 8px; border: none; border-radius: 10px;
+      font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit;
+    }
+    .btn-draft { background: #ff4d4d; color: #fff; }
+    .btn-draft:hover { background: #e03e3e; }
+    .btn-market { background: #e3f2fd; color: #1565c0; }
+    .btn-market:hover { background: #bbdefb; }
+
+    /* ══ 下書きアシストモーダル ══ */
+    .modal-overlay {
+      display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.6); z-index: 999;
+      justify-content: center; align-items: center;
+    }
+    .modal-overlay.active { display: flex; }
+    .modal {
+      background: #fff; border-radius: 20px; padding: 28px 24px;
+      width: 92%; max-width: 420px; max-height: 85vh; overflow-y: auto;
+      box-shadow: 0 12px 40px rgba(0,0,0,0.25); position: relative;
+    }
+    .modal-close {
+      position: absolute; top: 12px; right: 16px;
+      background: none; border: none; font-size: 22px; cursor: pointer; color: #aaa;
+    }
+    .modal h2 { font-size: 18px; margin-bottom: 6px; }
+    .modal .step-num { font-size: 13px; color: #888; margin-bottom: 16px; }
+    .modal .step-label { font-size: 12px; color: #888; font-weight: 600; margin-bottom: 6px; }
+    .modal .step-content {
+      background: #f8f8f8; border: 1px solid #eee; border-radius: 12px;
+      padding: 14px; font-size: 14px; line-height: 1.7;
+      white-space: pre-wrap; word-break: break-all;
+      max-height: 200px; overflow-y: auto;
+      user-select: all; -webkit-user-select: all;
+    }
+    .modal .copied-msg {
+      text-align: center; margin: 12px 0; font-size: 14px;
+      color: #2e7d32; font-weight: 600;
+    }
+    .modal .step-btns { display: flex; gap: 10px; margin-top: 16px; }
+    .modal .step-btn {
+      flex: 1; padding: 14px; border: none; border-radius: 12px;
+      font-size: 15px; font-weight: 700; cursor: pointer; font-family: inherit;
+    }
+    .modal .btn-next { background: #ff4d4d; color: #fff; }
+    .modal .btn-next:hover { background: #e03e3e; }
+    .modal .btn-prev { background: #eee; color: #555; }
+    .modal .btn-open-mercari {
+      display: block; width: 100%; padding: 14px; margin-top: 12px;
+      background: #4dc0ff; color: #fff; border: none; border-radius: 12px;
+      font-size: 15px; font-weight: 700; cursor: pointer; font-family: inherit;
+      text-align: center; text-decoration: none;
+    }
+    .modal .price-display {
+      font-size: 28px; font-weight: 700; text-align: center;
+      padding: 20px; color: #222;
+    }
+    .modal .price-detail { font-size: 13px; color: #888; text-align: center; }
+    .modal .done-icon { font-size: 56px; text-align: center; margin: 20px 0; }
+    .modal .done-text { font-size: 16px; text-align: center; color: #2e7d32; font-weight: 600; }
+  </style>
+</head>
+<body>
+
+  <!-- タブバー（ボタンで切り替え、URLは変わらない） -->
+  <div class="tab-bar">
+    <button class="tab-btn active" id="tab-upload"     onclick="switchTab('upload')">📷 アップロード</button>
+    <button class="tab-btn"        id="tab-dashboard"  onclick="switchTab('dashboard')">📊 ダッシュボード</button>
+  </div>
+
+  <!-- ══ アップロードページ ══ -->
+  <div class="page active" id="page-upload">
+    <div class="container">
+      <h1>商品写真をアップロード</h1>
+      <div class="upload-grid">
+        <div>
+          <div class="form-group">
+            <label for="productName">商品名</label>
+            <input type="text" class="name-input" id="productName" placeholder="例: AirPods Pro 第2世代" autocomplete="off">
+          </div>
+          <div class="form-group">
+            <label>写真を追加</label>
+            <div class="photo-btns">
+              <div class="photo-btn" onclick="document.getElementById('cameraInput').click()">
+                <div class="btn-icon">📷</div>
+                <div class="btn-label">カメラで撮影</div>
+                <div class="btn-sub">今すぐ撮る</div>
+              </div>
+              <div class="photo-btn" onclick="document.getElementById('galleryInput').click()">
+                <div class="btn-icon">🖼️</div>
+                <div class="btn-label">アルバムから選択</div>
+                <div class="btn-sub">複数枚まとめて</div>
+              </div>
+            </div>
+            <input type="file" id="cameraInput"  accept="image/*" capture="environment" multiple>
+            <input type="file" id="galleryInput" accept="image/*" multiple>
+            <div class="preview-grid" id="previewGrid"></div>
+            <div class="preview-count" id="previewCount"></div>
+          </div>
+          <button class="btn-upload" id="btnUpload" onclick="startUpload()" disabled>☁️ Drive にアップロード</button>
+          <div class="progress-wrap" id="progressWrap"><div class="progress-bar" id="progressBar"></div></div>
+          <div class="progress-text" id="progressText"></div>
+          <div class="result" id="resultMsg"></div>
+        </div>
+        <div class="pc-guide">
+          <h2>📖 使い方</h2>
+          <ol>
+            <li><strong>商品名</strong>を入力（Driveのフォルダ名になります）</li>
+            <li><strong>カメラ or アルバム</strong>から写真を選択（何度でも追加可）</li>
+            <li><strong>アップロード</strong>ボタンを押す</li>
+            <li>Claudeが自動で<strong>相場調査・利益計算・メルカリ出品</strong>まで行います</li>
+          </ol>
+          <div class="tip">📱 スマホから使うと、カメラで撮影しながら内部ストレージに保存せずアップロードできます</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ ダッシュボードページ ══ -->
+  <div class="page" id="page-dashboard">
+    <div class="container">
+      <div class="summary-row" id="summaryRow" style="display:none">
+        <div class="summary-card c-blue">
+          <div class="s-value" id="sumListed">-</div><div class="s-label">出品中</div>
+        </div>
+        <div class="summary-card">
+          <div class="s-value" id="sumSold">-</div><div class="s-label">売約済み</div>
+        </div>
+        <div class="summary-card c-profit">
+          <div class="s-value" id="sumProfit">-</div><div class="s-label">累計利益</div>
+        </div>
+        <div class="summary-card" id="pcCard1" style="display:none">
+          <div class="s-value" id="sumRevenue">-</div><div class="s-label">累計売上</div>
+        </div>
+        <div class="summary-card" id="pcCard2" style="display:none">
+          <div class="s-value" id="sumAvgMargin">-</div><div class="s-label">平均利益率</div>
+        </div>
+      </div>
+      <div class="toolbar">
+        <button class="btn-refresh" onclick="loadData()">🔄 更新</button>
+        <div class="filter-wrap">
+          <button class="filter-btn active" onclick="setFilter('all',this)">すべて</button>
+          <button class="filter-btn" onclick="setFilter('出品中',this)">🔵 出品中</button>
+          <button class="filter-btn" onclick="setFilter('売約済み',this)">✅ 売約済み</button>
+          <button class="filter-btn" onclick="setFilter('発送済み',this)">📮 発送済み</button>
+          <button class="filter-btn" onclick="setFilter('完了',this)">🎉 完了</button>
+        </div>
+      </div>
+      <div id="dashContent"><div class="loading">⏳ データを読み込み中...</div></div>
+    </div>
+  </div>
+
+  <!-- ══ 下書きアシストモーダル ══ -->
+  <div class="modal-overlay" id="draftModal" onclick="closeDraft()">
+    <div class="modal" onclick="event.stopPropagation()">
+      <button class="modal-close" onclick="closeDraft()">✕</button>
+      <h2 id="draftTitle"></h2>
+      <div class="step-num" id="draftStepNum"></div>
+      <div id="draftBody"></div>
+    </div>
+  </div>
+
+  <script>
+    /* ══ タブ切り替え ══ */
+    var dashLoaded = false;
+    function switchTab(tab) {
+      document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
+      document.querySelectorAll('.page').forEach(function(p) { p.classList.remove('active'); });
+      document.getElementById('tab-' + tab).classList.add('active');
+      document.getElementById('page-' + tab).classList.add('active');
+      if (tab === 'dashboard' && !dashLoaded) { loadData(); dashLoaded = true; }
+    }
+
+    /* ══ アップロード ══ */
+    var selectedFiles = [];
+    ['cameraInput','galleryInput'].forEach(function(id) {
+      document.getElementById(id).addEventListener('change', function(e) {
+        Array.from(e.target.files).forEach(function(f) {
+          if (!selectedFiles.some(function(s){ return s.name===f.name && s.size===f.size; })) selectedFiles.push(f);
+        });
+        renderPreviews();
+      });
+    });
+    document.getElementById('productName').addEventListener('input', updateBtn);
+
+    function renderPreviews() {
+      var grid = document.getElementById('previewGrid');
+      grid.innerHTML = '';
+      selectedFiles.forEach(function(f) {
+        var img = document.createElement('img');
+        img.src = URL.createObjectURL(f);
+        grid.appendChild(img);
+      });
+      document.getElementById('previewCount').textContent =
+        selectedFiles.length > 0 ? selectedFiles.length + '枚選択済み（追加可）' : '';
+      updateBtn();
+    }
+    function updateBtn() {
+      document.getElementById('btnUpload').disabled =
+        selectedFiles.length === 0 || !document.getElementById('productName').value.trim();
+    }
+
+    async function startUpload() {
+      var productName = document.getElementById('productName').value.trim();
+      if (!productName || selectedFiles.length === 0) return;
+      document.getElementById('btnUpload').disabled = true;
+      document.getElementById('progressWrap').style.display = 'block';
+      document.getElementById('resultMsg').style.display = 'none';
+      try {
+        var photos = [];
+        for (var i = 0; i < selectedFiles.length; i++) {
+          document.getElementById('progressBar').style.width = Math.round(i/selectedFiles.length*100) + '%';
+          document.getElementById('progressText').textContent = '変換中... (' + (i+1) + '/' + selectedFiles.length + '枚)';
+          var b64 = await new Promise(function(res, rej) {
+            var r = new FileReader();
+            r.onload = function(e) { res(e.target.result.split(',')[1]); };
+            r.onerror = rej; r.readAsDataURL(selectedFiles[i]);
+          });
+          photos.push({ name: selectedFiles[i].name, mimeType: selectedFiles[i].type||'image/jpeg', data: b64 });
+        }
+        document.getElementById('progressBar').style.width = '100%';
+        document.getElementById('progressText').textContent = 'Drive に保存中...';
+        google.script.run
+          .withSuccessHandler(function(res) {
+            document.getElementById('progressWrap').style.display = 'none';
+            document.getElementById('btnUpload').disabled = false;
+            var msg = document.getElementById('resultMsg');
+            if (res.success) {
+              msg.className = 'result success'; msg.textContent = '✅ ' + res.message;
+              selectedFiles = [];
+              ['cameraInput','galleryInput'].forEach(function(id){ document.getElementById(id).value=''; });
+              document.getElementById('previewGrid').innerHTML = '';
+              document.getElementById('previewCount').textContent = '';
+              document.getElementById('productName').value = '';
+              updateBtn();
+            } else { msg.className = 'result error'; msg.textContent = '❌ ' + (res.error||'失敗'); }
+            msg.style.display = 'block';
+          })
+          .withFailureHandler(function(err) {
+            document.getElementById('progressWrap').style.display = 'none';
+            document.getElementById('btnUpload').disabled = false;
+            var msg = document.getElementById('resultMsg');
+            msg.className = 'result error'; msg.textContent = '❌ ' + (err.message||err); msg.style.display = 'block';
+          })
+          .uploadPhotos(productName, photos);
+      } catch(e) {
+        document.getElementById('progressWrap').style.display = 'none';
+        document.getElementById('btnUpload').disabled = false;
+        var msg = document.getElementById('resultMsg');
+        msg.className = 'result error'; msg.textContent = '❌ ' + e; msg.style.display = 'block';
+      }
+    }
+
+    /* ══ ダッシュボード ══ */
+    var allListings = []; var currentFilter = 'all';
+    var isPC = function(){ return window.innerWidth >= 768; };
+    window.addEventListener('resize', function(){ if(document.getElementById('page-dashboard').classList.contains('active')) renderContent(); });
+
+    function loadData() {
+      document.getElementById('dashContent').innerHTML = '<div class="loading">⏳ データを読み込み中...</div>';
+      document.getElementById('summaryRow').style.display = 'none';
+      google.script.run.withSuccessHandler(onDataLoaded).withFailureHandler(function(e){
+        document.getElementById('dashContent').innerHTML = '<div class="error-msg">❌ ' + (e.message||e) + '</div>';
+      }).getDashboardData();
+    }
+
+    function onDataLoaded(data) {
+      if (data.error) { document.getElementById('dashContent').innerHTML = '<div class="error-msg">❌ ' + data.error + '</div>'; return; }
+      allListings = data.listings || [];
+      var totalRevenue = allListings.reduce(function(s,r){ return s+(parseInt(r['出品価格'])||0); }, 0);
+      var avgMargin = allListings.length > 0
+        ? allListings.reduce(function(s,r){ return s+(parseFloat(r['利益率'])||0); }, 0) / allListings.length : 0;
+      document.getElementById('sumListed').textContent  = data.total_listed;
+      document.getElementById('sumSold').textContent    = data.total_sold;
+      document.getElementById('sumProfit').textContent  = yen(data.total_profit||0);
+      document.getElementById('sumRevenue').textContent = yen(totalRevenue);
+      document.getElementById('sumAvgMargin').textContent = avgMargin.toFixed(1) + '%';
+      document.getElementById('summaryRow').style.display = 'grid';
+      if (isPC()) {
+        document.getElementById('pcCard1').style.display = '';
+        document.getElementById('pcCard2').style.display = '';
+      }
+      renderContent();
+    }
+
+    function setFilter(s, btn) {
+      currentFilter = s;
+      document.querySelectorAll('.filter-btn').forEach(function(b){ b.classList.remove('active'); });
+      btn.classList.add('active');
+      renderContent();
+    }
+
+    function renderContent() {
+      var list = currentFilter === 'all' ? allListings : allListings.filter(function(r){ return r['ステータス']===currentFilter; });
+      if (!list.length) { document.getElementById('dashContent').innerHTML = '<div class="empty"><div class="empty-icon">📦</div><div>該当する商品がありません</div></div>'; return; }
+      isPC() ? renderTable(list) : renderCards(list);
+    }
+
+    var ICONS = {'出品中':'🔵','売約済み':'✅','発送済み':'📮','完了':'🎉','取り下げ':'⛔'};
+
+    function renderCards(items) {
+      document.getElementById('dashContent').innerHTML = items.map(function(item, idx) {
+        var st=item['ステータス']||'-', price=parseInt(item['出品価格'])||0,
+            profit=parseInt(item['利益'])||0, margin=parseFloat(item['利益率'])||0,
+            ship=parseInt(item['送料'])||0, fee=parseInt(item['手数料'])||0,
+            method=item['発送方法']||'-', date=String(item['出品日']||'-').slice(0,10),
+            name=esc(item['商品名']||'-'), pc=profit>=0?'pos':'neg', sign=profit>=0?'+':'';
+        return '<div class="card">'+
+          '<div class="card-header"><div class="card-title">'+name+'</div><span class="badge s-'+esc(st)+'">'+(ICONS[st]||'')+' '+esc(st)+'</span></div>'+
+          '<div class="card-body">'+
+            '<div><div class="info-label">出品価格</div><div class="info-value">'+yen(price)+'</div></div>'+
+            '<div><div class="info-label">利益</div><div class="info-value '+pc+'">'+sign+yen(profit)+' <span style="font-size:11px;font-weight:400">('+margin.toFixed(1)+'%)</span></div></div>'+
+            '<div><div class="info-label">送料</div><div class="info-value">'+yen(ship)+'</div></div>'+
+            '<div><div class="info-label">手数料</div><div class="info-value">'+yen(fee)+'</div></div>'+
+          '</div>'+
+          '<div class="card-footer"><span>📦 '+esc(method)+'</span><span>出品日: '+esc(date)+'</span></div>'+
+          '<div class="card-actions">'+
+            '<button class="card-act-btn btn-draft" onclick="autoList('+idx+')">🚀 自動出品</button>'+
+            '<button class="card-act-btn btn-market" onclick="openDraft('+idx+')">📝 下書き</button>'+
+          '</div>'+
+        '</div>';
+      }).join('');
+    }
+
+    function renderTable(items) {
+      document.getElementById('dashContent').innerHTML =
+        '<div class="table-view"><table class="data-table">'+
+        '<thead><tr><th>商品名</th><th>ステータス</th><th style="text-align:right">出品価格</th><th style="text-align:right">仕入原価</th><th style="text-align:right">送料</th><th style="text-align:right">手数料</th><th style="text-align:right">利益</th><th style="text-align:right">利益率</th><th>発送方法</th><th style="text-align:center">出品日</th><th></th></tr></thead><tbody>'+
+        items.map(function(item, idx) {
+          var st=item['ステータス']||'-', price=parseInt(item['出品価格'])||0,
+              cost=parseInt(item['仕入原価'])||0, profit=parseInt(item['利益'])||0,
+              margin=parseFloat(item['利益率'])||0, ship=parseInt(item['送料'])||0,
+              fee=parseInt(item['手数料'])||0, method=item['発送方法']||'-',
+              date=String(item['出品日']||'-').slice(0,10), name=esc(item['商品名']||'-'),
+              pc=profit>=0?'td-pos':'td-neg', sign=profit>=0?'+':'';
+          return '<tr>'+
+            '<td class="td-name">'+name+'</td>'+
+            '<td class="td-c"><span class="badge s-'+esc(st)+'">'+(ICONS[st]||'')+' '+esc(st)+'</span></td>'+
+            '<td class="td-r">'+yen(price)+'</td>'+
+            '<td class="td-r">'+yen(cost)+'</td>'+
+            '<td class="td-r">'+yen(ship)+'</td>'+
+            '<td class="td-r">'+yen(fee)+'</td>'+
+            '<td class="'+pc+'">'+sign+yen(profit)+'</td>'+
+            '<td class="'+pc+'" style="font-weight:normal">'+margin.toFixed(1)+'%</td>'+
+            '<td>'+esc(method)+'</td>'+
+            '<td class="td-c">'+esc(date)+'</td>'+
+            '<td><button class="card-act-btn btn-draft" style="padding:6px 12px;font-size:12px" onclick="autoList('+idx+')">🚀 自動出品</button> <button class="card-act-btn btn-market" style="padding:6px 12px;font-size:12px" onclick="openDraft('+idx+')">📝</button></td>'+
+          '</tr>';
+        }).join('')+
+        '</tbody></table></div>';
+    }
+
+    function yen(n) { return '¥' + parseInt(n).toLocaleString('ja-JP'); }
+    function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+    /* ══ 自動出品 ══ */
+    function autoList(idx) {
+      var filtered = currentFilter === 'all' ? allListings :
+        allListings.filter(function(r){ return r['ステータス']===currentFilter; });
+      var item = filtered[idx];
+      if (!item) return;
+
+      var name = item['商品名'] || '';
+      var price = parseInt(item['出品価格']) || 0;
+      var profit = parseInt(item['利益']) || 0;
+      var method = item['発送方法'] || '';
+
+      if (!confirm(
+        '以下の商品をメルカリに自動出品しますか？\n\n' +
+        '商品名: ' + name + '\n' +
+        '価格: ¥' + price.toLocaleString() + '\n' +
+        '利益: ¥' + profit.toLocaleString() + '\n' +
+        '発送: ' + method + '\n\n' +
+        '※ Chrome でメルカリにログイン済みである必要があります'
+      )) return;
+
+      // 出品リクエストを送信
+      fetch('/api/auto_list', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          product_name: name,
+          price: price,
+          description: generateDescription(item),
+          shipping_method: method
+        })
+      })
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (data.success) {
+          alert('✅ 自動出品リクエストを送信しました！\n\n' + data.message +
+            '\n\nClaude Codeのターミナルで以下を実行:\n' +
+            'python3 ec/scripts/auto_lister.py');
+        } else {
+          alert('❌ ' + (data.error || '出品に失敗しました'));
+        }
+      })
+      .catch(function(err) { alert('❌ エラー: ' + err); });
+    }
+
+    /* ══ 下書きアシスト ══ */
+    var draftItem = null;
+    var draftStep = 0;
+    var draftSteps = [];
+
+    function generateDescription(item) {
+      var name = item['商品名'] || '';
+      var price = parseInt(item['出品価格']) || 0;
+      var method = item['発送方法'] || 'ゆうパケット';
+      return '【商品名】' + name + '\n' +
+        '【状態】目立った傷や汚れなし\n' +
+        '【付属品】写真に写っているものがすべてです\n\n' +
+        'ご覧いただきありがとうございます。\n' +
+        name + 'の出品です。\n\n' +
+        '動作確認済みです。\n' +
+        '写真をよくご確認の上、ご購入ください。\n\n' +
+        '■ 発送方法：' + method + '\n' +
+        '■ 即購入OK\n\n' +
+        '#' + name.replace(/\s+/g, ' ').split(' ').join(' #');
+    }
+
+    function openDraft(idx) {
+      var filtered = currentFilter === 'all' ? allListings :
+        allListings.filter(function(r){ return r['ステータス']===currentFilter; });
+      draftItem = filtered[idx];
+      if (!draftItem) return;
+
+      var name = draftItem['商品名'] || '';
+      var price = parseInt(draftItem['出品価格']) || 0;
+      var ship = parseInt(draftItem['送料']) || 0;
+      var profit = parseInt(draftItem['利益']) || 0;
+      var margin = parseFloat(draftItem['利益率']) || 0;
+      var method = draftItem['発送方法'] || '';
+      var title = name.length > 40 ? name.substring(0, 37) + '...' : name;
+      var desc = generateDescription(draftItem);
+
+      draftSteps = [
+        {
+          label: 'タイトル',
+          text: title,
+          copyText: title,
+          hint: 'メルカリの「商品名」欄にペースト'
+        },
+        {
+          label: '説明文',
+          text: desc,
+          copyText: desc,
+          hint: 'メルカリの「商品の説明」欄にペースト'
+        },
+        {
+          label: '価格',
+          text: null,
+          priceDisplay: price,
+          profit: profit,
+          margin: margin,
+          ship: ship,
+          method: method,
+          hint: 'メルカリの「販売価格」に入力'
+        },
+        {
+          label: '完了',
+          text: null,
+          done: true
+        }
+      ];
+      draftStep = 0;
+      renderDraftStep();
+      document.getElementById('draftModal').classList.add('active');
+    }
+
+    function closeDraft() {
+      document.getElementById('draftModal').classList.remove('active');
+    }
+
+    function renderDraftStep() {
+      var step = draftSteps[draftStep];
+      var total = draftSteps.length;
+      var name = draftItem['商品名'] || '';
+
+      document.getElementById('draftTitle').textContent = '📝 ' + name;
+      document.getElementById('draftStepNum').textContent =
+        'ステップ ' + (draftStep + 1) + ' / ' + total;
+
+      var body = document.getElementById('draftBody');
+
+      if (step.done) {
+        body.innerHTML =
+          '<div class="done-icon">🎉</div>' +
+          '<div class="done-text">下書き準備完了！</div>' +
+          '<p style="text-align:center;color:#888;margin-top:12px">メルカリアプリで写真を追加して<br>「出品する」をタップしてください</p>' +
+          '<a class="btn-open-mercari" href="https://jp.mercari.com/sell" target="_blank">📱 メルカリで出品画面を開く</a>' +
+          '<div class="step-btns">' +
+            '<button class="step-btn btn-prev" onclick="draftStep--;renderDraftStep()">← 戻る</button>' +
+            '<button class="step-btn btn-next" onclick="closeDraft()">✅ 閉じる</button>' +
+          '</div>';
+        return;
+      }
+
+      if (step.priceDisplay) {
+        body.innerHTML =
+          '<div class="step-label">' + step.label + '</div>' +
+          '<div class="price-display">' + yen(step.priceDisplay) + '</div>' +
+          '<div class="price-detail">' +
+            '利益 ' + yen(step.profit) + '（' + step.margin.toFixed(1) + '%）' +
+            ' ／ 送料 ' + yen(step.ship) + '（' + esc(step.method) + '）' +
+          '</div>' +
+          '<div class="copied-msg" id="copiedMsg"></div>' +
+          '<button class="step-btn btn-next" style="width:100%;margin-top:12px" onclick="copyAndShow(\'' +
+            step.priceDisplay + '\')">📋 価格をコピー</button>' +
+          '<p style="text-align:center;font-size:12px;color:#aaa;margin-top:8px">' + step.hint + '</p>' +
+          '<div class="step-btns">' +
+            '<button class="step-btn btn-prev" onclick="draftStep--;renderDraftStep()">← 戻る</button>' +
+            '<button class="step-btn btn-next" onclick="draftStep++;renderDraftStep()">次へ →</button>' +
+          '</div>';
+        return;
+      }
+
+      body.innerHTML =
+        '<div class="step-label">' + step.label + '</div>' +
+        '<div class="step-content">' + esc(step.text) + '</div>' +
+        '<div class="copied-msg" id="copiedMsg"></div>' +
+        '<button class="step-btn btn-next" style="width:100%;margin-top:12px" onclick="copyStep()">📋 コピーする</button>' +
+        '<p style="text-align:center;font-size:12px;color:#aaa;margin-top:8px">' + step.hint + '</p>' +
+        '<div class="step-btns">' +
+          (draftStep > 0 ? '<button class="step-btn btn-prev" onclick="draftStep--;renderDraftStep()">← 戻る</button>' : '<div></div>') +
+          '<button class="step-btn btn-next" onclick="draftStep++;renderDraftStep()">次へ →</button>' +
+        '</div>';
+    }
+
+    function copyStep() {
+      var step = draftSteps[draftStep];
+      copyToClipboard(step.copyText);
+    }
+
+    function copyAndShow(text) {
+      copyToClipboard(String(text));
+    }
+
+    function copyToClipboard(text) {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(function() {
+          showCopied();
+        }).catch(function() {
+          fallbackCopy(text);
+        });
+      } else {
+        fallbackCopy(text);
+      }
+    }
+
+    function fallbackCopy(text) {
+      var ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.cssText = 'position:fixed;top:-9999px';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      showCopied();
+    }
+
+    function showCopied() {
+      var el = document.getElementById('copiedMsg');
+      if (el) { el.textContent = '✅ クリップボードにコピーしました！'; }
+    }
+  </script>
+</body>
+</html>

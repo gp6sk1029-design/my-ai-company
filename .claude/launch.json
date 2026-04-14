@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "mercari-app",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["/Users/shoheikoda/Documents/my-ai-company/ec/scripts/web_server.py"],
+      "port": 8080
+    }
+  ]
+}
