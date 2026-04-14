@@ -18,6 +18,17 @@ __pycache__/
 *.pyc
 *.pyo
 
+# 画像・メディアファイル
+blog/images/processed/
+blog/images/characters/
+ec/data/temp_photos/
+
+# Chromeプロファイル（大容量）
+ec/data/mercari_chrome/
+
+# DBファイル
+*.db
+
 # 一時ファイル
 *.tmp
 *.log
