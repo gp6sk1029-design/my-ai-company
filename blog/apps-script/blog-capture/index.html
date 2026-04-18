@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <base target="_top">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#1a1a1a">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="blog-capture">
+  <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='20' fill='%231a1a1a'/%3E%3Ctext y='65' font-size='60' text-anchor='middle' x='50'%3E📸%3C/text%3E%3C/svg%3E">
+  <title>blog-capture</title>
+  <?!= include('styles'); ?>
+</head>
+<body>
+  <header>
+    <h1>📸 blog-capture</h1>
+    <span id="pending-count" class="badge">0</span>
+  </header>
+
+  <main>
+    <section class="article-selector">
+      <label for="article-select">記事を選ぶ</label>
+      <select id="article-select">
+        <option value="">読み込み中...</option>
+      </select>
+      <details>
+        <summary>新規記事を作成</summary>
+        <div class="new-article">
+          <input type="text" id="new-article-title" placeholder="例: Garmin Venu 4 レビュー">
+          <button id="use-new-article" type="button">この記事名を使う</button>
+        </div>
+      </details>
+    </section>
+
+    <section class="capture-section">
+      <div class="tab-buttons">
+        <button class="tab-button active" data-tab="camera" type="button">カメラ</button>
+        <button class="tab-button" data-tab="video" type="button">動画</button>
+        <button class="tab-button" data-tab="import" type="button">取り込み</button>
+      </div>
+
+      <div class="tab-content" id="tab-camera">
+        <video id="camera-preview" autoplay playsinline muted></video>
+        <div class="camera-controls">
+          <button id="shutter" class="shutter-btn" type="button" aria-label="撮影">●</button>
+          <button id="camera-flip" type="button" aria-label="カメラ切替">🔄</button>
+        </div>
+      </div>
+
+      <div class="tab-content hidden" id="tab-video">
+        <video id="video-preview" autoplay playsinline muted></video>
+        <div class="camera-controls">
+          <button id="record-toggle" class="record-btn" type="button">● 録画開始</button>
+          <span id="record-time">00:00</span>
+        </div>
+      </div>
+
+      <div class="tab-content hidden" id="tab-import">
+        <label class="import-label" for="file-input">
+          <span>📁 端末のファイルを選ぶ</span>
+          <small>共有シートからも受信できます（Android）</small>
+        </label>
+        <input type="file" id="file-input" accept="image/*,video/*,application/pdf" multiple hidden>
+      </div>
+    </section>
+
+    <section class="queue">
+      <h2>一時保存（<span id="queue-count">0</span>）</h2>
+      <div id="queue-list"></div>
+      <div class="queue-actions">
+        <button id="upload-all" class="primary" type="button" disabled>すべて転送</button>
+        <button id="clear-queue" class="secondary" type="button" disabled>すべて破棄</button>
+      </div>
+    </section>
+
+    <section class="status" id="status-area" aria-live="polite"></section>
+  </main>
+
+  <div id="toast" class="toast hidden"></div>
+
+  <script>
+    // HtmlServiceから埋め込む定数
+    window.GAS_WEB_APP_URL = '<?= gasWebAppUrl ?>';
+    window.SMALL_FILE_LIMIT = <?= smallFileLimit ?>;
+  </script>
+  <?!= include('app'); ?>
+</body>
+</html>

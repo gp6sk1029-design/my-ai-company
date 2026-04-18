@@ -36,3 +36,10 @@ ec/data/mercari_chrome/
 # Git同期エラー通知用
 .claude/.push_failed
 .claude/.push_error
+
+# blog-capture（ブログ素材転送ツール）
+blog/images/raw/
+blog/apps-script/**/.clasp.json
+blog/apps-script/**/.clasprc.json
+blog/apps-script/**/node_modules/
+.clasprc.json

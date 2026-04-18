@@ -1,0 +1,458 @@
+<script>
+(() => {
+  'use strict';
+
+  const GAS_URL = window.GAS_WEB_APP_URL;
+  const SMALL_FILE_LIMIT = window.SMALL_FILE_LIMIT || 20 * 1024 * 1024;
+  const CHUNK_SIZE = 8 * 1024 * 1024; // 8MB
+
+  // ─── DOM参照 ─────────────────────
+  const $ = (id) => document.getElementById(id);
+  const articleSelect = $('article-select');
+  const newArticleInput = $('new-article-title');
+  const useNewArticleBtn = $('use-new-article');
+  const cameraPreview = $('camera-preview');
+  const videoPreview = $('video-preview');
+  const shutter = $('shutter');
+  const cameraFlip = $('camera-flip');
+  const recordToggle = $('record-toggle');
+  const recordTime = $('record-time');
+  const fileInput = $('file-input');
+  const queueList = $('queue-list');
+  const queueCount = $('queue-count');
+  const pendingCount = $('pending-count');
+  const uploadAllBtn = $('upload-all');
+  const clearQueueBtn = $('clear-queue');
+  const statusArea = $('status-area');
+  const toast = $('toast');
+
+  // ─── IndexedDB（一時保存） ─────────────────────
+  const DB_NAME = 'blog-capture';
+  const STORE = 'queue';
+  let dbPromise = null;
+
+  function openDB() {
+    if (dbPromise) return dbPromise;
+    dbPromise = new Promise((resolve, reject) => {
+      const req = indexedDB.open(DB_NAME, 1);
+      req.onupgradeneeded = () => {
+        const db = req.result;
+        if (!db.objectStoreNames.contains(STORE)) {
+          const os = db.createObjectStore(STORE, { keyPath: 'id' });
+          os.createIndex('createdAt', 'createdAt');
+        }
+      };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+    return dbPromise;
+  }
+
+  async function queuePut(record) {
+    const db = await openDB();
+    return new Promise((res, rej) => {
+      const tx = db.transaction(STORE, 'readwrite');
+      tx.objectStore(STORE).put(record);
+      tx.oncomplete = () => res();
+      tx.onerror = () => rej(tx.error);
+    });
+  }
+
+  async function queueAll() {
+    const db = await openDB();
+    return new Promise((res, rej) => {
+      const tx = db.transaction(STORE, 'readonly');
+      const req = tx.objectStore(STORE).getAll();
+      req.onsuccess = () => res(req.result.sort((a, b) => a.createdAt - b.createdAt));
+      req.onerror = () => rej(req.error);
+    });
+  }
+
+  async function queueDelete(id) {
+    const db = await openDB();
+    return new Promise((res, rej) => {
+      const tx = db.transaction(STORE, 'readwrite');
+      tx.objectStore(STORE).delete(id);
+      tx.oncomplete = () => res();
+      tx.onerror = () => rej(tx.error);
+    });
+  }
+
+  async function queueClear() {
+    const db = await openDB();
+    return new Promise((res, rej) => {
+      const tx = db.transaction(STORE, 'readwrite');
+      tx.objectStore(STORE).clear();
+      tx.oncomplete = () => res();
+      tx.onerror = () => rej(tx.error);
+    });
+  }
+
+  // ─── カメラ制御 ─────────────────────
+  let currentStream = null;
+  let currentFacing = 'environment';
+  let mediaRecorder = null;
+  let recordChunks = [];
+  let recordStartTs = 0;
+  let recordTimerId = null;
+
+  async function startCamera(videoEl, audio = false) {
+    stopCamera();
+    try {
+      const constraints = {
+        video: { facingMode: currentFacing, width: { ideal: 1920 }, height: { ideal: 1080 } },
+        audio: audio,
+      };
+      currentStream = await navigator.mediaDevices.getUserMedia(constraints);
+      videoEl.srcObject = currentStream;
+    } catch (e) {
+      showToast('カメラ起動失敗: ' + e.message, 'error');
+    }
+  }
+
+  function stopCamera() {
+    if (currentStream) {
+      currentStream.getTracks().forEach((t) => t.stop());
+      currentStream = null;
+    }
+  }
+
+  async function capturePhoto() {
+    if (!currentStream) return;
+    const track = currentStream.getVideoTracks()[0];
+    const settings = track.getSettings();
+    const canvas = document.createElement('canvas');
+    canvas.width = settings.width || cameraPreview.videoWidth;
+    canvas.height = settings.height || cameraPreview.videoHeight;
+    canvas.getContext('2d').drawImage(cameraPreview, 0, 0, canvas.width, canvas.height);
+    const blob = await new Promise((res) => canvas.toBlob(res, 'image/jpeg', 0.92));
+    await addToQueue(blob, 'image/jpeg', 'jpg');
+    navigator.vibrate && navigator.vibrate(30);
+  }
+
+  async function toggleRecording() {
+    if (mediaRecorder && mediaRecorder.state === 'recording') {
+      mediaRecorder.stop();
+      return;
+    }
+    if (!currentStream) {
+      await startCamera(videoPreview, true);
+    }
+    recordChunks = [];
+    const mime = MediaRecorder.isTypeSupported('video/mp4') ? 'video/mp4' : 'video/webm';
+    mediaRecorder = new MediaRecorder(currentStream, { mimeType: mime });
+    mediaRecorder.ondataavailable = (e) => { if (e.data.size) recordChunks.push(e.data); };
+    mediaRecorder.onstop = async () => {
+      const blob = new Blob(recordChunks, { type: mime });
+      const ext = mime.includes('mp4') ? 'mp4' : 'webm';
+      await addToQueue(blob, mime, ext);
+      recordToggle.textContent = '● 録画開始';
+      recordToggle.classList.remove('recording');
+      clearInterval(recordTimerId);
+      recordTime.textContent = '00:00';
+    };
+    mediaRecorder.start();
+    recordStartTs = Date.now();
+    recordToggle.textContent = '■ 録画停止';
+    recordToggle.classList.add('recording');
+    recordTimerId = setInterval(updateRecordTime, 500);
+  }
+
+  function updateRecordTime() {
+    const s = Math.floor((Date.now() - recordStartTs) / 1000);
+    const mm = String(Math.floor(s / 60)).padStart(2, '0');
+    const ss = String(s % 60).padStart(2, '0');
+    recordTime.textContent = mm + ':' + ss;
+  }
+
+  // ─── キュー操作 ─────────────────────
+  let itemCounter = 0;
+  async function addToQueue(blob, mimeType, ext) {
+    const id = Date.now() + '_' + (++itemCounter);
+    const record = {
+      id,
+      createdAt: Date.now(),
+      blob,
+      mimeType,
+      ext,
+      size: blob.size,
+      originalName: 'capture_' + id + '.' + ext,
+      status: 'pending',
+    };
+    await queuePut(record);
+    await renderQueue();
+    showToast('一時保存しました（' + prettySize(blob.size) + '）', 'success');
+  }
+
+  async function renderQueue() {
+    const items = await queueAll();
+    queueList.innerHTML = '';
+    queueCount.textContent = items.length;
+    pendingCount.textContent = items.length;
+    uploadAllBtn.disabled = items.length === 0;
+    clearQueueBtn.disabled = items.length === 0;
+    for (const item of items) {
+      const div = document.createElement('div');
+      div.className = 'queue-item';
+      div.dataset.id = item.id;
+      const url = URL.createObjectURL(item.blob);
+      const isVideo = item.mimeType.startsWith('video/');
+      const isPdf = item.mimeType === 'application/pdf';
+      if (isVideo) {
+        div.innerHTML = '<video src="' + url + '" muted></video>';
+      } else if (isPdf) {
+        div.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:32px;">📄</div>';
+      } else {
+        div.innerHTML = '<img src="' + url + '" alt="">';
+      }
+      div.insertAdjacentHTML('beforeend',
+        '<span class="type-badge">' + (isVideo ? 'VID' : isPdf ? 'PDF' : 'IMG') + '</span>' +
+        '<button class="delete-btn" type="button">✕</button>' +
+        (item.status === 'uploading' ? '<div class="status-overlay">転送中…</div>' : '')
+      );
+      div.querySelector('.delete-btn').addEventListener('click', async (e) => {
+        e.stopPropagation();
+        await queueDelete(item.id);
+        URL.revokeObjectURL(url);
+        await renderQueue();
+      });
+      queueList.appendChild(div);
+    }
+  }
+
+  function prettySize(bytes) {
+    if (bytes < 1024) return bytes + 'B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + 'KB';
+    return (bytes / 1024 / 1024).toFixed(1) + 'MB';
+  }
+
+  // ─── ファイル取り込み ─────────────────────
+  fileInput.addEventListener('change', async (e) => {
+    const files = Array.from(e.target.files || []);
+    for (const f of files) {
+      const ext = (f.name.split('.').pop() || 'bin').toLowerCase();
+      await addToQueue(f, f.type || 'application/octet-stream', ext);
+    }
+    fileInput.value = '';
+  });
+
+  // 共有シート経由（Share Target: manifest経由でPOSTされた場合、URL パラメータで受信）
+  async function handleShareTarget() {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('shared') === '1') {
+      // Service Workerが受け取ったファイルを取り出す
+      try {
+        const cache = await caches.open('shared-inbox');
+        const keys = await cache.keys();
+        for (const req of keys) {
+          const resp = await cache.match(req);
+          const blob = await resp.blob();
+          const name = req.url.split('/').pop() || 'shared';
+          const ext = (name.split('.').pop() || 'bin').toLowerCase();
+          await addToQueue(blob, blob.type, ext);
+          await cache.delete(req);
+        }
+      } catch (e) {
+        console.warn('Share Target 取り込み失敗:', e);
+      }
+      // クエリ除去
+      window.history.replaceState({}, '', GAS_URL);
+    }
+  }
+
+  // ─── アップロード ─────────────────────
+  async function uploadAll() {
+    const articleTitle = getSelectedArticleTitle();
+    const articleFolderId = getSelectedArticleFolderId();
+    if (!articleTitle && !articleFolderId) {
+      showToast('記事を選んでください', 'error');
+      return;
+    }
+    const items = await queueAll();
+    if (items.length === 0) return;
+
+    uploadAllBtn.disabled = true;
+    let success = 0, skipped = 0, failed = 0;
+    for (const item of items) {
+      setStatus('転送中 ' + (success + skipped + failed + 1) + '/' + items.length + ' : ' + prettySize(item.size));
+      try {
+        const result = item.size > SMALL_FILE_LIMIT
+          ? await uploadLarge(item, articleTitle, articleFolderId)
+          : await uploadSmall(item, articleTitle, articleFolderId);
+        if (result.result === 'success') success++;
+        else if (result.result === 'skipped') skipped++;
+        else { failed++; continue; }
+        await queueDelete(item.id);
+      } catch (e) {
+        failed++;
+        console.error('upload error:', e);
+      }
+    }
+    await renderQueue();
+    uploadAllBtn.disabled = false;
+    const msg = '✅成功 ' + success + ' / スキップ ' + skipped + ' / 失敗 ' + failed;
+    setStatus(msg);
+    showToast(msg, failed > 0 ? 'error' : 'success');
+    if (navigator.vibrate) navigator.vibrate([50, 30, 50]);
+  }
+
+  async function uploadSmall(item, articleTitle, articleFolderId) {
+    const base64 = await blobToBase64(item.blob);
+    const body = new URLSearchParams({
+      articleTitle: articleTitle || '',
+      articleFolderId: articleFolderId || '',
+      fileName: item.originalName,
+      mimeType: item.mimeType,
+      capturedAt: new Date(item.createdAt).toISOString(),
+      fileData: base64,
+    });
+    const res = await fetch(GAS_URL, {
+      method: 'POST',
+      body: body.toString(),
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    });
+    return res.json();
+  }
+
+  async function uploadLarge(item, articleTitle, articleFolderId) {
+    // Resumable URL取得
+    const qs = new URLSearchParams({
+      action: 'resumable-url',
+      articleTitle: articleTitle || '',
+      articleFolderId: articleFolderId || '',
+      fileName: item.originalName,
+      mimeType: item.mimeType,
+      totalBytes: item.size,
+      capturedAt: new Date(item.createdAt).toISOString(),
+    });
+    const initRes = await fetch(GAS_URL + '?' + qs.toString()).then((r) => r.json());
+    if (initRes.result !== 'success') throw new Error(initRes.message || 'Resumable URL取得失敗');
+
+    // 8MBチャンクでPUT
+    const uploadUrl = initRes.uploadUrl;
+    const total = item.size;
+    let offset = 0;
+    while (offset < total) {
+      const end = Math.min(offset + CHUNK_SIZE, total);
+      const chunk = item.blob.slice(offset, end);
+      const headers = {
+        'Content-Length': String(end - offset),
+        'Content-Range': 'bytes ' + offset + '-' + (end - 1) + '/' + total,
+      };
+      const resp = await fetch(uploadUrl, { method: 'PUT', headers, body: chunk });
+      if (resp.status === 308) {
+        offset = end; // 継続
+      } else if (resp.status === 200 || resp.status === 201) {
+        return { result: 'success', fileName: initRes.fileName, articleFolderId: initRes.articleFolderId };
+      } else {
+        throw new Error('Resumable PUT失敗: ' + resp.status);
+      }
+      setStatus('転送中（大容量）: ' + Math.round((offset / total) * 100) + '%');
+    }
+    return { result: 'success' };
+  }
+
+  function blobToBase64(blob) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = reader.result;
+        const base64 = result.substring(result.indexOf(',') + 1);
+        resolve(base64);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  }
+
+  // ─── 記事セレクタ ─────────────────────
+  let articleList = [];
+  let selectedNewArticle = null;
+
+  async function loadArticleList() {
+    try {
+      const url = GAS_URL + '?action=list-articles';
+      const res = await fetch(url).then((r) => r.json());
+      articleList = res.articles || [];
+      articleSelect.innerHTML = '<option value="">-- 記事を選択 --</option>';
+      for (const a of articleList) {
+        const opt = document.createElement('option');
+        opt.value = a.id;
+        opt.textContent = a.name;
+        articleSelect.appendChild(opt);
+      }
+    } catch (e) {
+      articleSelect.innerHTML = '<option value="">読み込み失敗</option>';
+      showToast('記事リスト取得失敗', 'error');
+    }
+  }
+
+  function getSelectedArticleTitle() {
+    if (selectedNewArticle) return selectedNewArticle;
+    return '';
+  }
+  function getSelectedArticleFolderId() {
+    return articleSelect.value || '';
+  }
+
+  useNewArticleBtn.addEventListener('click', () => {
+    const title = newArticleInput.value.trim();
+    if (!title) { showToast('記事名を入力してください', 'error'); return; }
+    selectedNewArticle = title;
+    articleSelect.value = '';
+    showToast('新規記事として使用: ' + title, 'success');
+  });
+  articleSelect.addEventListener('change', () => {
+    selectedNewArticle = null;
+    newArticleInput.value = '';
+  });
+
+  // ─── タブ切替 ─────────────────────
+  document.querySelectorAll('.tab-button').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.tab-button').forEach((b) => b.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach((c) => c.classList.add('hidden'));
+      btn.classList.add('active');
+      const tabName = btn.dataset.tab;
+      $('tab-' + tabName).classList.remove('hidden');
+      if (tabName === 'camera') startCamera(cameraPreview, false);
+      else if (tabName === 'video') startCamera(videoPreview, true);
+      else stopCamera();
+    });
+  });
+
+  shutter.addEventListener('click', capturePhoto);
+  cameraFlip.addEventListener('click', async () => {
+    currentFacing = currentFacing === 'environment' ? 'user' : 'environment';
+    const activeTab = document.querySelector('.tab-button.active').dataset.tab;
+    await startCamera(activeTab === 'video' ? videoPreview : cameraPreview, activeTab === 'video');
+  });
+  recordToggle.addEventListener('click', toggleRecording);
+  uploadAllBtn.addEventListener('click', uploadAll);
+  clearQueueBtn.addEventListener('click', async () => {
+    if (!confirm('一時保存を全て破棄しますか？')) return;
+    await queueClear();
+    await renderQueue();
+  });
+
+  // ─── UI補助 ─────────────────────
+  function setStatus(msg) { statusArea.textContent = msg; }
+  let toastTimer = null;
+  function showToast(msg, kind) {
+    clearTimeout(toastTimer);
+    toast.textContent = msg;
+    toast.className = 'toast ' + (kind || '');
+    toastTimer = setTimeout(() => toast.classList.add('hidden'), 3000);
+  }
+
+  // ─── 初期化 ─────────────────────
+  (async () => {
+    await renderQueue();
+    await loadArticleList();
+    await handleShareTarget();
+    // 初期タブはカメラ → カメラ起動
+    await startCamera(cameraPreview, false);
+    setStatus('準備完了');
+  })();
+})();
+</script>
