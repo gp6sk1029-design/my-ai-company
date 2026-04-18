@@ -1,0 +1,18 @@
+{
+  "_note": "このファイルはテンプレートです。実際の値はec/config.jsonに設定してください（.gitignore推奨）",
+  "division": "EC販売部門",
+  "primary_platform": "mercari",
+  "spreadsheet_id": "YOUR_SPREADSHEET_ID_HERE",
+  "platforms": {
+    "mercari": { "fee_rate": 0.10, "enabled": true },
+    "amazon":  { "fee_rate": 0.15, "enabled": false },
+    "rakuten": { "fee_rate": 0.10, "enabled": false }
+  },
+  "pricing": {
+    "used_items":  { "min_profit": 0,    "min_margin_pct": 0  },
+    "resale":      { "min_profit": 500,  "min_margin_pct": 30 },
+    "original":    { "min_profit": 1000, "min_margin_pct": 50 }
+  },
+  "default_hourly_wage": 1500,
+  "currency": "JPY"
+}
