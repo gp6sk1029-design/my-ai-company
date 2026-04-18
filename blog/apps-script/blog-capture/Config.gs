@@ -39,8 +39,8 @@ function setup() {
   const props = PropertiesService.getScriptProperties();
   // ↓ここを自分の環境に合わせて書き換えて実行する
   const configs = {
-    BLOG_ROOT_FOLDER_ID: 'YOUR_BROG_KANREN_FOLDER_ID_HERE',
-    LOG_SPREADSHEET_ID: 'YOUR_LOG_SPREADSHEET_ID_HERE',
+    BLOG_ROOT_FOLDER_ID: '1F6svjxNFWR9Ts1jVSNu8uxKTwK3T3mct',
+    LOG_SPREADSHEET_ID: '1XLeYodNGRaNCSG7U3zhUpxYnGLIq6Mrivqzhcv-Bogo',
     ALLOWED_EMAIL: 'gp6sk1029@gmail.com',
   };
   props.setProperties(configs);
