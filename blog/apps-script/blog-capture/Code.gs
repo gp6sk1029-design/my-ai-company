@@ -1,82 +1,67 @@
 /**
  * Code.gs
  * ─────────────────────────────────────────────
- * blog-capture メインエントリポイント
- * - doGet(): PWA配信
- * - google.script.run経由のAPI:
- *    - listArticleFoldersApi()
- *    - uploadSmallFileApi(payload)
- *    - requestResumableUrlApi(params)
+ * blog-capture API（Cloudflare PWA から呼ばれるバックエンド）
+ * - 認可は共有トークン方式（Config.gs の SHARED_TOKEN）
+ * - CORS: x-www-form-urlencoded / GET でのみ呼ばれる前提（preflight不要）
+ * - GAS Web App の access: ANYONE_ANONYMOUS
  */
 
 function doGet(e) {
-  const template = HtmlService.createTemplateFromFile('index');
-  template.smallFileLimit = CONFIG.SMALL_FILE_LIMIT_BYTES;
-  return template.evaluate()
-    .setTitle('blog-capture')
-    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
-}
+  const p = (e && e.parameter) || {};
+  if (!verifyToken_(p.token)) return jsonResponse_({ ok: false, message: 'unauthorized' });
 
-/**
- * HTMLインクルードヘルパー
- */
-function include(fileName) {
-  return HtmlService.createHtmlOutputFromFile(fileName).getContent();
-}
-
-// ─── google.script.run 用 API ─────────────────────
-
-/**
- * 記事フォルダ一覧を取得（PWAから呼び出し）
- */
-function listArticleFoldersApi() {
-  try {
-    return { ok: true, articles: listArticleFolders() };
-  } catch (err) {
-    return { ok: false, message: err.message };
+  switch (p.action) {
+    case 'listArticles':
+      return jsonResponse_({ ok: true, articles: listArticleFolders() });
+    case 'resumableUrl':
+      return handleResumableUrl_(p);
+    case 'ping':
+      return jsonResponse_({ ok: true, time: new Date().toISOString() });
+    default:
+      return jsonResponse_({ ok: false, message: 'unknown action: ' + p.action });
   }
 }
 
-/**
- * 小ファイルアップロード（〜20MB, base64で受信）
- * @param {Object} payload
- *   - articleTitle: string
- *   - articleFolderId: string (optional)
- *   - fileName: string
- *   - mimeType: string
- *   - capturedAt: ISO string (optional)
- *   - fileDataBase64: string
- */
-function uploadSmallFileApi(payload) {
+function doPost(e) {
+  const p = (e && e.parameter) || {};
+  if (!verifyToken_(p.token)) return jsonResponse_({ ok: false, message: 'unauthorized' });
+
+  if (p.action === 'uploadSmall') return handleUploadSmall_(p);
+  return jsonResponse_({ ok: false, message: 'unknown action: ' + p.action });
+}
+
+// ─── 小ファイルアップロード ─────────────────────
+function handleUploadSmall_(p) {
   const lock = LockService.getScriptLock();
   lock.waitLock(30000);
   try {
-    if (!payload || !payload.fileName) return { ok: false, message: 'fileNameが必要' };
-    if (!payload.fileDataBase64) return { ok: false, message: 'fileDataBase64が必要' };
+    if (!p.fileName) return jsonResponse_({ ok: false, message: 'fileName required' });
+    if (!p.fileDataBase64) return jsonResponse_({ ok: false, message: 'fileDataBase64 required' });
 
-    const bytes = Utilities.base64Decode(payload.fileDataBase64);
-    const blob = Utilities.newBlob(bytes, payload.mimeType || 'application/octet-stream', payload.fileName);
+    const bytes = Utilities.base64Decode(p.fileDataBase64);
+    const blob = Utilities.newBlob(bytes, p.mimeType || 'application/octet-stream', p.fileName);
 
-    const folder = payload.articleFolderId
-      ? getArticleFolderById(payload.articleFolderId)
-      : getOrCreateArticleFolder(payload.articleTitle);
+    const folder = p.articleFolderId
+      ? getArticleFolderById(p.articleFolderId)
+      : getOrCreateArticleFolder(p.articleTitle);
 
     const hash = computeHash(blob);
     const existing = findByHash(hash);
     if (existing) {
       appendLog({
         articleTitle: folder.getName(),
-        fileName: payload.fileName,
+        fileName: p.fileName,
         sizeBytes: bytes.length,
         hash: hash,
         result: '重複スキップ',
-        note: '既存ファイルID: ' + existing.fileId,
+        note: '既存: ' + existing.fileId,
       });
-      return { ok: true, result: 'skipped', existingFileId: existing.fileId, hash };
+      return jsonResponse_({ ok: true, result: 'skipped', existingFileId: existing.fileId, hash });
     }
 
-    const capturedAt = payload.capturedAt ? new Date(payload.capturedAt) : new Date();
-    const normalizedName = normalizeFilename(payload.fileName, capturedAt);
+    const capturedAt = p.capturedAt ? new Date(p.capturedAt) : new Date();
+    const normalizedName = normalizeFilename(p.fileName, capturedAt);
     const finalName = resolveFilenameConflict(folder, normalizedName);
     blob.setName(finalName);
 
@@ -91,7 +76,7 @@ function uploadSmallFileApi(payload) {
       note: '',
     });
 
-    return {
+    return jsonResponse_({
       ok: true,
       result: 'success',
       fileId: file.getId(),
@@ -99,56 +84,55 @@ function uploadSmallFileApi(payload) {
       articleFolderId: folder.getId(),
       articleFolderName: folder.getName(),
       hash: hash,
-    };
+    });
   } catch (err) {
-    Logger.log('uploadSmallFileApi error: ' + err.message + '\n' + err.stack);
+    Logger.log('handleUploadSmall_ error: ' + err.message + '\n' + err.stack);
     appendLog({
-      fileName: (payload && payload.fileName) || '(unknown)',
+      fileName: p.fileName || '(unknown)',
       result: 'エラー',
       note: err.message,
     });
-    return { ok: false, message: err.message };
+    return jsonResponse_({ ok: false, message: err.message });
   } finally {
     lock.releaseLock();
   }
 }
 
-/**
- * Resumable Upload URL を発行（大容量ファイル用）
- * @param {Object} params
- *   - articleTitle / articleFolderId
- *   - fileName
- *   - mimeType
- *   - totalBytes
- *   - capturedAt (optional)
- */
-function requestResumableUrlApi(params) {
+// ─── Resumable URL 発行 ─────────────────────
+function handleResumableUrl_(p) {
   try {
-    if (!params || !params.fileName || !params.totalBytes) {
-      return { ok: false, message: 'fileNameとtotalBytesが必要' };
-    }
-    const folder = params.articleFolderId
-      ? getArticleFolderById(params.articleFolderId)
-      : getOrCreateArticleFolder(params.articleTitle);
-
-    const capturedAt = params.capturedAt ? new Date(params.capturedAt) : new Date();
-    const normalizedName = normalizeFilename(params.fileName, capturedAt);
+    if (!p.fileName || !p.totalBytes) return jsonResponse_({ ok: false, message: 'fileName/totalBytes required' });
+    const folder = p.articleFolderId
+      ? getArticleFolderById(p.articleFolderId)
+      : getOrCreateArticleFolder(p.articleTitle);
+    const capturedAt = p.capturedAt ? new Date(p.capturedAt) : new Date();
+    const normalizedName = normalizeFilename(p.fileName, capturedAt);
     const finalName = resolveFilenameConflict(folder, normalizedName);
 
     const uploadUrl = startResumableUpload({
       articleFolderId: folder.getId(),
       fileName: finalName,
-      mimeType: params.mimeType,
-      totalBytes: Number(params.totalBytes),
+      mimeType: p.mimeType,
+      totalBytes: Number(p.totalBytes),
     });
-    return {
+    return jsonResponse_({
       ok: true,
       uploadUrl: uploadUrl,
       fileName: finalName,
       articleFolderId: folder.getId(),
       articleFolderName: folder.getName(),
-    };
+    });
   } catch (err) {
-    return { ok: false, message: err.message };
+    return jsonResponse_({ ok: false, message: err.message });
   }
+}
+
+// ─── トークン検証 ─────────────────────
+function verifyToken_(token) {
+  return token && token === CONFIG.SHARED_TOKEN;
+}
+
+function jsonResponse_(obj) {
+  return ContentService.createTextOutput(JSON.stringify(obj))
+    .setMimeType(ContentService.MimeType.JSON);
 }

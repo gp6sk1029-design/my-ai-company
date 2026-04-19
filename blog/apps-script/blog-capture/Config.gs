@@ -6,17 +6,13 @@
  */
 
 const CONFIG = {
-  // 「ブロブ関連」フォルダID（自動取得済）
   ROOT_FOLDER_ID: '1F6svjxNFWR9Ts1jVSNu8uxKTwK3T3mct',
-  // 転送ログ用スプレッドシートID（自動作成済）
   LOG_SPREADSHEET_ID: '1XLeYodNGRaNCSG7U3zhUpxYnGLIq6Mrivqzhcv-Bogo',
-  // 許可されたGoogleアカウント（これ以外はアクセス拒否）
   ALLOWED_EMAIL: 'gp6sk1029@gmail.com',
-  // 記事フォルダ名プレフィックス（既存命名規則）
+  // Cloudflare PWA から呼ぶ際の共有トークン（PWAコードと一致させる）
+  SHARED_TOKEN: 'NP99L5IGacCx9N8JO7V0769HOVckd-tF',
   ARTICLE_PREFIX: '【記事】',
-  // 小ファイル上限（これ超えたらResumable扱い）
-  SMALL_FILE_LIMIT_BYTES: 20 * 1024 * 1024, // 20MB
-  // ログシート名
+  SMALL_FILE_LIMIT_BYTES: 20 * 1024 * 1024,
   LOG_SHEET_NAME: '転送ログ',
   HASH_SHEET_NAME: 'ハッシュ台帳',
 };

@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <meta name="theme-color" content="#7c3aed">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="blog-capture">
+  <meta name="format-detection" content="telephone=no">
+  <link rel="apple-touch-icon" href="/icon-192.png">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <title>blog-capture</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div class="top-row">
+    <div class="avatar">📸</div>
+    <div class="pending-pill" id="pending-pill">
+      <span id="pending-count">0</span>
+    </div>
+  </div>
+
+  <h1 class="page-title">何を送りますか？</h1>
+
+  <!-- 記事選択 -->
+  <div class="article-bar">
+    <span class="article-bar-icon">🔖</span>
+    <select id="article-select" class="article-bar-select">
+      <option value="">読み込み中…</option>
+    </select>
+    <span class="article-bar-arrow">⌄</span>
+  </div>
+  <details class="new-article-details">
+    <summary>＋ 新しい記事を作成</summary>
+    <div class="new-article-form">
+      <input type="text" id="new-article-title" class="text-field" placeholder="例: Garmin Venu 4 レビュー" autocomplete="off">
+      <button id="use-new-article" type="button" class="btn-secondary">この記事名で使う</button>
+    </div>
+  </details>
+
+  <!-- 撮影モード切替 -->
+  <div class="mode-tabs">
+    <button class="mode-tab active" data-mode="live" type="button">📷 カメラ</button>
+    <button class="mode-tab" data-mode="picker" type="button">📁 選択</button>
+  </div>
+
+  <!-- ライブカメラ（本体保存なし） -->
+  <div class="live-camera" id="live-camera">
+    <video id="camera-preview" autoplay playsinline muted></video>
+    <div class="camera-overlay">
+      <button id="camera-flip" class="flip-btn" type="button" aria-label="カメラ切替">🔄</button>
+    </div>
+    <div class="camera-controls">
+      <button class="kind-btn active" data-kind="photo" type="button">写真</button>
+      <button id="shutter" class="shutter-btn" type="button" aria-label="撮影">
+        <span class="shutter-ring"></span>
+      </button>
+      <button class="kind-btn" data-kind="video" type="button">動画</button>
+    </div>
+    <div id="record-time" class="record-time"></div>
+  </div>
+
+  <!-- ファイルピッカー（3つのカラフル丸） -->
+  <div class="picker-grid" id="picker-grid">
+    <label class="circle-item" for="input-photo">
+      <div class="circle circle-red"><span class="circle-icon">📷</span></div>
+      <span class="circle-label">写真を撮る</span>
+      <input type="file" id="input-photo" accept="image/*" capture="environment" hidden>
+    </label>
+    <label class="circle-item" for="input-video">
+      <div class="circle circle-purple"><span class="circle-icon">🎥</span></div>
+      <span class="circle-label">動画を撮る</span>
+      <input type="file" id="input-video" accept="video/*" capture="environment" hidden>
+    </label>
+    <label class="circle-item" for="input-files">
+      <div class="circle circle-orange"><span class="circle-icon">🖼️</span></div>
+      <span class="circle-label">選択</span>
+      <input type="file" id="input-files" accept="image/*,video/*,application/pdf" multiple hidden>
+    </label>
+  </div>
+
+  <!-- 一時保存 -->
+  <section class="queue-section">
+    <div class="section-header">
+      <h2>一時保存</h2>
+      <span class="queue-count"><span id="queue-count">0</span>件</span>
+    </div>
+    <div id="queue-list" class="queue-grid"></div>
+    <div id="queue-empty" class="queue-empty">
+      撮ったもの・選んだものがここに並びます
+    </div>
+  </section>
+
+  <div class="status-line" id="status-area" aria-live="polite"></div>
+
+  <div class="bottom-spacer"></div>
+
+  <footer class="action-bar">
+    <button id="clear-queue" type="button" class="btn-ghost" disabled>破棄</button>
+    <button id="upload-all" type="button" class="btn-primary" disabled>
+      <span class="btn-primary-icon">⬆️</span>
+      <span class="btn-primary-label">すべて転送</span>
+      <span id="upload-all-count" class="btn-primary-sub"></span>
+    </button>
+  </footer>
+
+  <div id="toast" class="toast hidden"></div>
+
+  <script src="/config.js"></script>
+  <script src="/app.js"></script>
+</body>
+</html>
