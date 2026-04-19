@@ -194,7 +194,7 @@ function assertAuthorized_() {
   const activeEmail = Session.getEffectiveUser().getEmail();
   const allowed = CONFIG.ALLOWED_EMAIL;
   if (!allowed) {
-    throw new Error('ALLOWED_EMAIL未設定。Config.gsのsetup()を実行してください');
+    throw new Error('ALLOWED_EMAIL未設定。Config.gs を確認してください');
   }
   if (activeEmail !== allowed) {
     throw new Error('許可されていないユーザー: ' + activeEmail);
@@ -205,12 +205,4 @@ function jsonResponse_(obj) {
   return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(
     ContentService.MimeType.JSON
   );
-}
-
-// ─── 疎通テスト ─────────────────────
-function runTest() {
-  Logger.log('ALLOWED_EMAIL: ' + CONFIG.ALLOWED_EMAIL);
-  Logger.log('ROOT_FOLDER_ID: ' + CONFIG.ROOT_FOLDER_ID);
-  Logger.log('既存記事フォルダ数: ' + listArticleFolders().length);
-  Logger.log('記事一覧:\n' + JSON.stringify(listArticleFolders(), null, 2));
 }

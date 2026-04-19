@@ -1,24 +1,17 @@
 /**
  * Config.gs
  * ─────────────────────────────────────────────
- * blog-capture の設定値を一元管理する。
- * 初期設定は setup() を Apps Script エディタから1回だけ実行する。
- * シークレット値は PropertiesService に保存し、コードには含めない。
+ * blog-capture の設定値（全て非秘匿な ID のため直接ハードコード）
+ * bootstrap.py 実行後に値が埋まる仕組み。
  */
 
 const CONFIG = {
-  // ブロブ関連フォルダのID（Property "BLOG_ROOT_FOLDER_ID" から取得）
-  get ROOT_FOLDER_ID() {
-    return PropertiesService.getScriptProperties().getProperty('BLOG_ROOT_FOLDER_ID');
-  },
-  // 転送ログ用スプレッドシートID（Property "LOG_SPREADSHEET_ID" から取得）
-  get LOG_SPREADSHEET_ID() {
-    return PropertiesService.getScriptProperties().getProperty('LOG_SPREADSHEET_ID');
-  },
-  // 許可されたGoogleアカウント（Property "ALLOWED_EMAIL" から取得）
-  get ALLOWED_EMAIL() {
-    return PropertiesService.getScriptProperties().getProperty('ALLOWED_EMAIL');
-  },
+  // 「ブロブ関連」フォルダID（自動取得済）
+  ROOT_FOLDER_ID: '1F6svjxNFWR9Ts1jVSNu8uxKTwK3T3mct',
+  // 転送ログ用スプレッドシートID（自動作成済）
+  LOG_SPREADSHEET_ID: '1XLeYodNGRaNCSG7U3zhUpxYnGLIq6Mrivqzhcv-Bogo',
+  // 許可されたGoogleアカウント（これ以外はアクセス拒否）
+  ALLOWED_EMAIL: 'gp6sk1029@gmail.com',
   // 記事フォルダ名プレフィックス（既存命名規則）
   ARTICLE_PREFIX: '【記事】',
   // 小ファイル上限（これ超えたらResumable扱い）
@@ -29,28 +22,23 @@ const CONFIG = {
 };
 
 /**
- * 初期セットアップ（エディタから1回だけ手動実行）
- * ScriptProperty に以下を設定：
- *  - BLOG_ROOT_FOLDER_ID: 「ブロブ関連」フォルダのID
- *  - LOG_SPREADSHEET_ID : ログスプレッドシートID
- *  - ALLOWED_EMAIL      : 使用する自分のGoogleアカウント
+ * 設定表示（動作確認用）
  */
-function setup() {
-  const props = PropertiesService.getScriptProperties();
-  // ↓ここを自分の環境に合わせて書き換えて実行する
-  const configs = {
-    BLOG_ROOT_FOLDER_ID: '1F6svjxNFWR9Ts1jVSNu8uxKTwK3T3mct',
-    LOG_SPREADSHEET_ID: '1XLeYodNGRaNCSG7U3zhUpxYnGLIq6Mrivqzhcv-Bogo',
-    ALLOWED_EMAIL: 'gp6sk1029@gmail.com',
-  };
-  props.setProperties(configs);
-  Logger.log('✅ Properties設定完了: ' + JSON.stringify(Object.keys(configs)));
+function showConfig() {
+  Logger.log(JSON.stringify({
+    ROOT_FOLDER_ID: CONFIG.ROOT_FOLDER_ID,
+    LOG_SPREADSHEET_ID: CONFIG.LOG_SPREADSHEET_ID,
+    ALLOWED_EMAIL: CONFIG.ALLOWED_EMAIL,
+  }, null, 2));
 }
 
 /**
- * 現在の設定を表示（デバッグ用）
+ * 疎通テスト（Apps Script エディタから手動実行）
  */
-function showConfig() {
-  const props = PropertiesService.getScriptProperties().getProperties();
-  Logger.log(JSON.stringify(props, null, 2));
+function runTest() {
+  Logger.log('--- Config ---');
+  showConfig();
+  Logger.log('--- Articles ---');
+  Logger.log('既存記事数: ' + listArticleFolders().length);
+  Logger.log(JSON.stringify(listArticleFolders(), null, 2));
 }

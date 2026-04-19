@@ -1,0 +1,4 @@
+scripts/**
+*.md
+.clasprc.json
+.clasp.json
