@@ -23,6 +23,8 @@
   const inputPhoto = $('input-photo');
   const inputVideo = $('input-video');
   const inputFiles = $('input-files');
+  const queueEmpty = $('queue-empty');
+  const uploadAllCount = $('upload-all-count');
   const queueList = $('queue-list');
   const queueCount = $('queue-count');
   const pendingCount = $('pending-count');
@@ -119,6 +121,8 @@
     pendingCount.textContent = items.length;
     uploadAllBtn.disabled = items.length === 0;
     clearQueueBtn.disabled = items.length === 0;
+    if (queueEmpty) queueEmpty.style.display = items.length === 0 ? 'block' : 'none';
+    if (uploadAllCount) uploadAllCount.textContent = items.length > 0 ? `${items.length}件を送信` : '';
     for (const item of items) {
       const div = document.createElement('div');
       div.className = 'queue-item';
