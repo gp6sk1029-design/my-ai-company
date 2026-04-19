@@ -2,104 +2,84 @@
  * Code.gs
  * ─────────────────────────────────────────────
  * blog-capture メインエントリポイント
- * - doGet(): PWAの配信 + APIエンドポイント（action=list, action=resumable-url）
- * - doPost(): 小ファイル（multipart）のアップロード受信
+ * - doGet(): PWA配信
+ * - google.script.run経由のAPI:
+ *    - listArticleFoldersApi()
+ *    - uploadSmallFileApi(payload)
+ *    - requestResumableUrlApi(params)
  */
 
-/**
- * PWAの配信 or APIハンドラ
- */
 function doGet(e) {
-  // 認可は appsscript.json の webapp.access = "MYSELF" に一任
-  // （Google側で自分のアカウント以外を実行不可にしている）
-  const action = (e && e.parameter && e.parameter.action) || '';
-
-  // ① APIアクション
-  if (action === 'list-articles') {
-    return jsonResponse_({ articles: listArticleFolders() });
-  }
-  if (action === 'resumable-url') {
-    return handleResumableUrlRequest_(e);
-  }
-
-  // ② PWA配信（デフォルト）
   const template = HtmlService.createTemplateFromFile('index');
-  template.gasWebAppUrl = ScriptApp.getService().getUrl();
   template.smallFileLimit = CONFIG.SMALL_FILE_LIMIT_BYTES;
   return template.evaluate()
     .setTitle('blog-capture')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
-  // 注: meta viewport / theme-color / apple-mobile-web-app-* は index.html 内に直接記述
-  //     GAS の addMetaTag() は対応タグが限定的なため使わない
 }
 
 /**
- * 別のHTMLファイルをインラインで取り込むヘルパー
- * 使い方: <?!= include('styles'); ?>
+ * HTMLインクルードヘルパー
  */
 function include(fileName) {
   return HtmlService.createHtmlOutputFromFile(fileName).getContent();
 }
 
+// ─── google.script.run 用 API ─────────────────────
+
 /**
- * 小ファイル（multipart）のアップロード受信
- * 期待するパラメータ（application/x-www-form-urlencoded or multipart/form-data）:
- *  - articleTitle: string（記事タイトル。プレフィックス「【記事】」なし）
- *  - articleFolderId: string (optional, 既存選択時)
- *  - fileName: string
- *  - mimeType: string
- *  - capturedAt: ISO文字列 (optional)
- *  - fileData: base64エンコードされたファイル内容
+ * 記事フォルダ一覧を取得（PWAから呼び出し）
  */
-function doPost(e) {
-  // 認可は appsscript.json の webapp.access = "MYSELF" に一任
+function listArticleFoldersApi() {
+  try {
+    return { ok: true, articles: listArticleFolders() };
+  } catch (err) {
+    return { ok: false, message: err.message };
+  }
+}
+
+/**
+ * 小ファイルアップロード（〜20MB, base64で受信）
+ * @param {Object} payload
+ *   - articleTitle: string
+ *   - articleFolderId: string (optional)
+ *   - fileName: string
+ *   - mimeType: string
+ *   - capturedAt: ISO string (optional)
+ *   - fileDataBase64: string
+ */
+function uploadSmallFileApi(payload) {
   const lock = LockService.getScriptLock();
   lock.waitLock(30000);
   try {
-    const payload = parsePayload_(e);
-    if (!payload.fileName) {
-      return jsonResponse_({ result: 'error', message: 'fileNameが必要です' });
-    }
-    if (!payload.fileData) {
-      return jsonResponse_({ result: 'error', message: 'fileDataが必要です' });
-    }
+    if (!payload || !payload.fileName) return { ok: false, message: 'fileNameが必要' };
+    if (!payload.fileDataBase64) return { ok: false, message: 'fileDataBase64が必要' };
 
-    // Blob生成
-    const bytes = Utilities.base64Decode(payload.fileData);
+    const bytes = Utilities.base64Decode(payload.fileDataBase64);
     const blob = Utilities.newBlob(bytes, payload.mimeType || 'application/octet-stream', payload.fileName);
 
-    // 記事フォルダ取得
     const folder = payload.articleFolderId
       ? getArticleFolderById(payload.articleFolderId)
       : getOrCreateArticleFolder(payload.articleTitle);
 
-    // ハッシュチェック
     const hash = computeHash(blob);
     const existing = findByHash(hash);
     if (existing) {
       appendLog({
-        articleTitle: payload.articleTitle || folder.getName(),
+        articleTitle: folder.getName(),
         fileName: payload.fileName,
         sizeBytes: bytes.length,
         hash: hash,
         result: '重複スキップ',
         note: '既存ファイルID: ' + existing.fileId,
       });
-      return jsonResponse_({
-        result: 'skipped',
-        reason: 'duplicate',
-        existingFileId: existing.fileId,
-        hash: hash,
-      });
+      return { ok: true, result: 'skipped', existingFileId: existing.fileId, hash };
     }
 
-    // ファイル名正規化
     const capturedAt = payload.capturedAt ? new Date(payload.capturedAt) : new Date();
     const normalizedName = normalizeFilename(payload.fileName, capturedAt);
     const finalName = resolveFilenameConflict(folder, normalizedName);
     blob.setName(finalName);
 
-    // Drive保存
     const file = folder.createFile(blob);
     addHashRecord(hash, file.getId(), finalName, folder.getId());
     appendLog({
@@ -111,75 +91,64 @@ function doPost(e) {
       note: '',
     });
 
-    return jsonResponse_({
+    return {
+      ok: true,
       result: 'success',
       fileId: file.getId(),
       fileName: finalName,
       articleFolderId: folder.getId(),
       articleFolderName: folder.getName(),
       hash: hash,
-    });
+    };
   } catch (err) {
-    Logger.log('doPost error: ' + err.message + '\n' + err.stack);
+    Logger.log('uploadSmallFileApi error: ' + err.message + '\n' + err.stack);
     appendLog({
-      fileName: (e && e.parameter && e.parameter.fileName) || '(unknown)',
+      fileName: (payload && payload.fileName) || '(unknown)',
       result: 'エラー',
       note: err.message,
     });
-    return jsonResponse_({ result: 'error', message: err.message });
+    return { ok: false, message: err.message };
   } finally {
     lock.releaseLock();
   }
 }
 
-// ─── Resumable URL発行ハンドラ ─────────────────────
-function handleResumableUrlRequest_(e) {
-  const p = e.parameter || {};
-  if (!p.fileName || !p.totalBytes) {
-    return jsonResponse_({ result: 'error', message: 'fileNameとtotalBytesが必要です' });
-  }
-  const folder = p.articleFolderId
-    ? getArticleFolderById(p.articleFolderId)
-    : getOrCreateArticleFolder(p.articleTitle);
-
-  const capturedAt = p.capturedAt ? new Date(p.capturedAt) : new Date();
-  const normalizedName = normalizeFilename(p.fileName, capturedAt);
-  const finalName = resolveFilenameConflict(folder, normalizedName);
-
+/**
+ * Resumable Upload URL を発行（大容量ファイル用）
+ * @param {Object} params
+ *   - articleTitle / articleFolderId
+ *   - fileName
+ *   - mimeType
+ *   - totalBytes
+ *   - capturedAt (optional)
+ */
+function requestResumableUrlApi(params) {
   try {
+    if (!params || !params.fileName || !params.totalBytes) {
+      return { ok: false, message: 'fileNameとtotalBytesが必要' };
+    }
+    const folder = params.articleFolderId
+      ? getArticleFolderById(params.articleFolderId)
+      : getOrCreateArticleFolder(params.articleTitle);
+
+    const capturedAt = params.capturedAt ? new Date(params.capturedAt) : new Date();
+    const normalizedName = normalizeFilename(params.fileName, capturedAt);
+    const finalName = resolveFilenameConflict(folder, normalizedName);
+
     const uploadUrl = startResumableUpload({
       articleFolderId: folder.getId(),
       fileName: finalName,
-      mimeType: p.mimeType,
-      totalBytes: Number(p.totalBytes),
+      mimeType: params.mimeType,
+      totalBytes: Number(params.totalBytes),
     });
-    return jsonResponse_({
-      result: 'success',
+    return {
+      ok: true,
       uploadUrl: uploadUrl,
       fileName: finalName,
       articleFolderId: folder.getId(),
       articleFolderName: folder.getName(),
-    });
+    };
   } catch (err) {
-    return jsonResponse_({ result: 'error', message: err.message });
+    return { ok: false, message: err.message };
   }
-}
-
-// ─── ペイロード解析 ─────────────────────
-function parsePayload_(e) {
-  // パラメータ優先（multipart/form-data 解析済みの値）
-  if (e.parameter && Object.keys(e.parameter).length > 0) {
-    return e.parameter;
-  }
-  // JSONの場合
-  if (e.postData && e.postData.type === 'application/json') {
-    return JSON.parse(e.postData.contents);
-  }
-  return {};
-}
-
-function jsonResponse_(obj) {
-  return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(
-    ContentService.MimeType.JSON
-  );
 }

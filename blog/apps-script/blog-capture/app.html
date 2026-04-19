@@ -2,9 +2,18 @@
 (() => {
   'use strict';
 
-  const GAS_URL = window.GAS_WEB_APP_URL;
   const SMALL_FILE_LIMIT = window.SMALL_FILE_LIMIT || 20 * 1024 * 1024;
   const CHUNK_SIZE = 8 * 1024 * 1024; // 8MB
+
+  // google.script.run を Promise 化
+  function gasRun(funcName, ...args) {
+    return new Promise((resolve, reject) => {
+      google.script.run
+        .withSuccessHandler(resolve)
+        .withFailureHandler(reject)
+        [funcName](...args);
+    });
+  }
 
   // ─── DOM参照 ─────────────────────
   const $ = (id) => document.getElementById(id);
@@ -98,6 +107,11 @@
 
   async function startCamera(videoEl, audio = false) {
     stopCamera();
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      showToast('このブラウザはカメラ非対応です。取り込みタブを使ってください', 'error');
+      setStatus('⚠️ mediaDevices API 非対応');
+      return;
+    }
     try {
       const constraints = {
         video: { facingMode: currentFacing, width: { ideal: 1920 }, height: { ideal: 1080 } },
@@ -105,8 +119,14 @@
       };
       currentStream = await navigator.mediaDevices.getUserMedia(constraints);
       videoEl.srcObject = currentStream;
+      setStatus('📷 カメラ起動中');
     } catch (e) {
-      showToast('カメラ起動失敗: ' + e.message, 'error');
+      let msg = e.message || String(e);
+      if (e.name === 'NotAllowedError') msg = 'カメラ権限が拒否されました。ブラウザ設定で許可してください';
+      if (e.name === 'NotFoundError') msg = 'カメラが見つかりません';
+      if (e.name === 'NotReadableError') msg = '他のアプリがカメラを使用中です';
+      showToast('カメラ起動失敗: ' + msg, 'error');
+      setStatus('⚠️ ' + msg);
     }
   }
 
@@ -298,26 +318,20 @@
 
   async function uploadSmall(item, articleTitle, articleFolderId) {
     const base64 = await blobToBase64(item.blob);
-    const body = new URLSearchParams({
+    const res = await gasRun('uploadSmallFileApi', {
       articleTitle: articleTitle || '',
       articleFolderId: articleFolderId || '',
       fileName: item.originalName,
       mimeType: item.mimeType,
       capturedAt: new Date(item.createdAt).toISOString(),
-      fileData: base64,
+      fileDataBase64: base64,
     });
-    const res = await fetch(GAS_URL, {
-      method: 'POST',
-      body: body.toString(),
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    });
-    return res.json();
+    if (!res.ok) throw new Error(res.message || 'アップロード失敗');
+    return { result: res.result };
   }
 
   async function uploadLarge(item, articleTitle, articleFolderId) {
-    // Resumable URL取得
-    const qs = new URLSearchParams({
-      action: 'resumable-url',
+    const initRes = await gasRun('requestResumableUrlApi', {
       articleTitle: articleTitle || '',
       articleFolderId: articleFolderId || '',
       fileName: item.originalName,
@@ -325,10 +339,9 @@
       totalBytes: item.size,
       capturedAt: new Date(item.createdAt).toISOString(),
     });
-    const initRes = await fetch(GAS_URL + '?' + qs.toString()).then((r) => r.json());
-    if (initRes.result !== 'success') throw new Error(initRes.message || 'Resumable URL取得失敗');
+    if (!initRes.ok) throw new Error(initRes.message || 'Resumable URL取得失敗');
 
-    // 8MBチャンクでPUT
+    // 8MBチャンクで Drive API に直接 PUT
     const uploadUrl = initRes.uploadUrl;
     const total = item.size;
     let offset = 0;
@@ -336,7 +349,6 @@
       const end = Math.min(offset + CHUNK_SIZE, total);
       const chunk = item.blob.slice(offset, end);
       const headers = {
-        'Content-Length': String(end - offset),
         'Content-Range': 'bytes ' + offset + '-' + (end - 1) + '/' + total,
       };
       const resp = await fetch(uploadUrl, { method: 'PUT', headers, body: chunk });
@@ -371,8 +383,8 @@
 
   async function loadArticleList() {
     try {
-      const url = GAS_URL + '?action=list-articles';
-      const res = await fetch(url).then((r) => r.json());
+      const res = await gasRun('listArticleFoldersApi');
+      if (!res.ok) throw new Error(res.message);
       articleList = res.articles || [];
       articleSelect.innerHTML = '<option value="">-- 記事を選択 --</option>';
       for (const a of articleList) {
@@ -382,8 +394,9 @@
         articleSelect.appendChild(opt);
       }
     } catch (e) {
+      console.error('記事リスト取得失敗:', e);
       articleSelect.innerHTML = '<option value="">読み込み失敗</option>';
-      showToast('記事リスト取得失敗', 'error');
+      showToast('記事リスト取得失敗: ' + (e.message || e), 'error');
     }
   }
 
