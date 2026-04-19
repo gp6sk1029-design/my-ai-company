@@ -6,9 +6,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#1a1a1a">
   <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="blog-capture">
   <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='20' fill='%231a1a1a'/%3E%3Ctext y='65' font-size='60' text-anchor='middle' x='50'%3E📸%3C/text%3E%3C/svg%3E">
+  <link rel="manifest" href="data:application/manifest+json;charset=utf-8;base64,ewogICJuYW1lIjogImJsb2ctY2FwdHVyZSIsCiAgInNob3J0X25hbWUiOiAiYmxvZy1jYXB0dXJlIiwKICAic3RhcnRfdXJsIjogIi4iLAogICJkaXNwbGF5IjogInN0YW5kYWxvbmUiLAogICJiYWNrZ3JvdW5kX2NvbG9yIjogIiMxYTFhMWEiLAogICJ0aGVtZV9jb2xvciI6ICIjMWExYTFhIiwKICAib3JpZW50YXRpb24iOiAicG9ydHJhaXQiLAogICJpY29ucyI6IFsKICAgIHsKICAgICAgInNyYyI6ICJkYXRhOmltYWdlL3N2Zyt4bWwsJTNDc3ZnJTIweG1sbnMlM0QnaHR0cCUzQS8vd3d3LnczLm9yZy8yMDAwL3N2ZyclMjB2aWV3Qm94JTNEJzAlMjAwJTIwMTAwJTIwMTAwJyUzRSUzQ3JlY3QlMjB3aWR0aCUzRCcxMDAnJTIwaGVpZ2h0JTNEJzEwMCclMjByeCUzRCcyMCclMjBmaWxsJTNEJyUyMzFhMWExYSclMkYlM0UlM0N0ZXh0JTIweSUzRCc2NSclMjBmb250LXNpemUlM0QnNjAnJTIwdGV4dC1hbmNob3IlM0QnbWlkZGxlJyUyMHglM0QnNTAnJTNFJUYwJTlGJTkzJUI4JTNDJTJGdGV4dCUzRSUzQyUyRnN2ZyUzRSIsCiAgICAgICJzaXplcyI6ICI1MTJ4NTEyIiwKICAgICAgInR5cGUiOiAiaW1hZ2Uvc3ZnK3htbCIsCiAgICAgICJwdXJwb3NlIjogImFueSIKICAgIH0KICBdCn0=">
   <title>blog-capture</title>
   <?!= include('styles'); ?>
 </head>
@@ -35,31 +37,27 @@
 
     <section class="capture-section">
       <div class="tab-buttons">
-        <button class="tab-button active" data-tab="camera" type="button">カメラ</button>
-        <button class="tab-button" data-tab="video" type="button">動画</button>
-        <button class="tab-button" data-tab="import" type="button">取り込み</button>
+        <button class="tab-button active" data-tab="capture" type="button">📷 撮影</button>
+        <button class="tab-button" data-tab="import" type="button">📁 取り込み</button>
       </div>
 
-      <div class="tab-content" id="tab-camera">
+      <div class="tab-content" id="tab-capture">
         <video id="camera-preview" autoplay playsinline muted></video>
+        <div class="mode-switch">
+          <button class="mode-btn active" data-mode="photo" type="button">📷 写真</button>
+          <button class="mode-btn" data-mode="video" type="button">🎥 動画</button>
+        </div>
         <div class="camera-controls">
-          <button id="shutter" class="shutter-btn" type="button" aria-label="撮影">●</button>
+          <button id="shutter" class="shutter-btn" type="button" aria-label="撮影/録画">●</button>
           <button id="camera-flip" type="button" aria-label="カメラ切替">🔄</button>
         </div>
-      </div>
-
-      <div class="tab-content hidden" id="tab-video">
-        <video id="video-preview" autoplay playsinline muted></video>
-        <div class="camera-controls">
-          <button id="record-toggle" class="record-btn" type="button">● 録画開始</button>
-          <span id="record-time">00:00</span>
-        </div>
+        <span id="record-time" class="record-time-display"></span>
       </div>
 
       <div class="tab-content hidden" id="tab-import">
         <label class="import-label" for="file-input">
-          <span>📁 端末のファイルを選ぶ</span>
-          <small>共有シートからも受信できます（Android）</small>
+          <span>📁 端末のファイル・カメラを使う</span>
+          <small>OS標準のファイル選択／カメラ起動（本体保存あり）</small>
         </label>
         <input type="file" id="file-input" accept="image/*,video/*,application/pdf" multiple hidden>
       </div>
