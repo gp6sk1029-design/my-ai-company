@@ -28,9 +28,9 @@ function doGet(e) {
   template.smallFileLimit = CONFIG.SMALL_FILE_LIMIT_BYTES;
   return template.evaluate()
     .setTitle('blog-capture')
-    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL)
-    .addMetaTag('viewport', 'width=device-width, initial-scale=1, viewport-fit=cover')
-    .addMetaTag('theme-color', '#1a1a1a');
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+  // 注: meta viewport / theme-color / apple-mobile-web-app-* は index.html 内に直接記述
+  //     GAS の addMetaTag() は対応タグが限定的なため使わない
 }
 
 /**
