@@ -10,14 +10,8 @@
  * PWAの配信 or APIハンドラ
  */
 function doGet(e) {
-  try {
-    assertAuthorized_();
-  } catch (err) {
-    return ContentService.createTextOutput(
-      JSON.stringify({ error: 'unauthorized', message: err.message })
-    ).setMimeType(ContentService.MimeType.JSON);
-  }
-
+  // 認可は appsscript.json の webapp.access = "MYSELF" に一任
+  // （Google側で自分のアカウント以外を実行不可にしている）
   const action = (e && e.parameter && e.parameter.action) || '';
 
   // ① APIアクション
@@ -58,12 +52,7 @@ function include(fileName) {
  *  - fileData: base64エンコードされたファイル内容
  */
 function doPost(e) {
-  try {
-    assertAuthorized_();
-  } catch (err) {
-    return jsonResponse_({ result: 'error', code: 'unauthorized', message: err.message });
-  }
-
+  // 認可は appsscript.json の webapp.access = "MYSELF" に一任
   const lock = LockService.getScriptLock();
   lock.waitLock(30000);
   try {
@@ -187,18 +176,6 @@ function parsePayload_(e) {
     return JSON.parse(e.postData.contents);
   }
   return {};
-}
-
-// ─── 認可チェック ─────────────────────
-function assertAuthorized_() {
-  const activeEmail = Session.getEffectiveUser().getEmail();
-  const allowed = CONFIG.ALLOWED_EMAIL;
-  if (!allowed) {
-    throw new Error('ALLOWED_EMAIL未設定。Config.gs を確認してください');
-  }
-  if (activeEmail !== allowed) {
-    throw new Error('許可されていないユーザー: ' + activeEmail);
-  }
 }
 
 function jsonResponse_(obj) {
