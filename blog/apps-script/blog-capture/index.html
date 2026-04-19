@@ -36,31 +36,28 @@
     </section>
 
     <section class="capture-section">
-      <div class="tab-buttons">
-        <button class="tab-button active" data-tab="capture" type="button">📷 撮影</button>
-        <button class="tab-button" data-tab="import" type="button">📁 取り込み</button>
-      </div>
-
-      <div class="tab-content" id="tab-capture">
-        <video id="camera-preview" autoplay playsinline muted></video>
-        <div class="mode-switch">
-          <button class="mode-btn active" data-mode="photo" type="button">📷 写真</button>
-          <button class="mode-btn" data-mode="video" type="button">🎥 動画</button>
-        </div>
-        <div class="camera-controls">
-          <button id="shutter" class="shutter-btn" type="button" aria-label="撮影/録画">●</button>
-          <button id="camera-flip" type="button" aria-label="カメラ切替">🔄</button>
-        </div>
-        <span id="record-time" class="record-time-display"></span>
-      </div>
-
-      <div class="tab-content hidden" id="tab-import">
-        <label class="import-label" for="file-input">
-          <span>📁 端末のファイル・カメラを使う</span>
-          <small>OS標準のファイル選択／カメラ起動（本体保存あり）</small>
+      <h2>素材を取り込む</h2>
+      <div class="action-grid">
+        <label class="action-btn" for="input-photo">
+          <span class="action-icon">📷</span>
+          <span class="action-label">写真を撮る</span>
+          <input type="file" id="input-photo" accept="image/*" capture="environment" hidden>
         </label>
-        <input type="file" id="file-input" accept="image/*,video/*,application/pdf" multiple hidden>
+        <label class="action-btn" for="input-video">
+          <span class="action-icon">🎥</span>
+          <span class="action-label">動画を撮る</span>
+          <input type="file" id="input-video" accept="video/*" capture="environment" hidden>
+        </label>
+        <label class="action-btn" for="input-files">
+          <span class="action-icon">📁</span>
+          <span class="action-label">ファイル選択</span>
+          <input type="file" id="input-files" accept="image/*,video/*,application/pdf" multiple hidden>
+        </label>
       </div>
+      <p class="note">
+        📌 OS標準のカメラを使用するため、一時的に端末のカメラロールに保存されます。
+        転送完了後、手動で削除してください。
+      </p>
     </section>
 
     <section class="queue">

@@ -20,12 +20,9 @@
   const articleSelect = $('article-select');
   const newArticleInput = $('new-article-title');
   const useNewArticleBtn = $('use-new-article');
-  const cameraPreview = $('camera-preview');
-  const shutter = $('shutter');
-  const cameraFlip = $('camera-flip');
-  const recordTime = $('record-time');
-  const fileInput = $('file-input');
-  let currentMode = 'photo'; // 'photo' or 'video'
+  const inputPhoto = $('input-photo');
+  const inputVideo = $('input-video');
+  const inputFiles = $('input-files');
   const queueList = $('queue-list');
   const queueCount = $('queue-count');
   const pendingCount = $('pending-count');
@@ -96,94 +93,6 @@
     });
   }
 
-  // ─── カメラ制御 ─────────────────────
-  let currentStream = null;
-  let currentFacing = 'environment';
-  let mediaRecorder = null;
-  let recordChunks = [];
-  let recordStartTs = 0;
-  let recordTimerId = null;
-
-  async function startCamera(videoEl, audio = false) {
-    stopCamera();
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      showToast('このブラウザはカメラ非対応です。取り込みタブを使ってください', 'error');
-      setStatus('⚠️ mediaDevices API 非対応');
-      return;
-    }
-    try {
-      const constraints = {
-        video: { facingMode: currentFacing, width: { ideal: 1920 }, height: { ideal: 1080 } },
-        audio: audio,
-      };
-      currentStream = await navigator.mediaDevices.getUserMedia(constraints);
-      videoEl.srcObject = currentStream;
-      setStatus('📷 カメラ起動中');
-    } catch (e) {
-      let msg = e.message || String(e);
-      if (e.name === 'NotAllowedError') msg = 'カメラ権限が拒否されました。ブラウザ設定で許可してください';
-      if (e.name === 'NotFoundError') msg = 'カメラが見つかりません';
-      if (e.name === 'NotReadableError') msg = '他のアプリがカメラを使用中です';
-      showToast('カメラ起動失敗: ' + msg, 'error');
-      setStatus('⚠️ ' + msg);
-    }
-  }
-
-  function stopCamera() {
-    if (currentStream) {
-      currentStream.getTracks().forEach((t) => t.stop());
-      currentStream = null;
-    }
-  }
-
-  async function capturePhoto() {
-    if (!currentStream) return;
-    const track = currentStream.getVideoTracks()[0];
-    const settings = track.getSettings();
-    const canvas = document.createElement('canvas');
-    canvas.width = settings.width || cameraPreview.videoWidth;
-    canvas.height = settings.height || cameraPreview.videoHeight;
-    canvas.getContext('2d').drawImage(cameraPreview, 0, 0, canvas.width, canvas.height);
-    const blob = await new Promise((res) => canvas.toBlob(res, 'image/jpeg', 0.92));
-    await addToQueue(blob, 'image/jpeg', 'jpg');
-    navigator.vibrate && navigator.vibrate(30);
-  }
-
-  async function toggleRecording() {
-    if (mediaRecorder && mediaRecorder.state === 'recording') {
-      mediaRecorder.stop();
-      return;
-    }
-    if (!currentStream) {
-      await startCamera(cameraPreview, true);
-    }
-    recordChunks = [];
-    const mime = MediaRecorder.isTypeSupported('video/mp4') ? 'video/mp4' : 'video/webm';
-    mediaRecorder = new MediaRecorder(currentStream, { mimeType: mime });
-    mediaRecorder.ondataavailable = (e) => { if (e.data.size) recordChunks.push(e.data); };
-    mediaRecorder.onstop = async () => {
-      const blob = new Blob(recordChunks, { type: mime });
-      const ext = mime.includes('mp4') ? 'mp4' : 'webm';
-      await addToQueue(blob, mime, ext);
-      shutter.classList.remove('recording');
-      shutter.textContent = '●';
-      clearInterval(recordTimerId);
-      recordTime.textContent = '';
-    };
-    mediaRecorder.start();
-    recordStartTs = Date.now();
-    shutter.classList.add('recording');
-    shutter.textContent = '■';
-    recordTimerId = setInterval(updateRecordTime, 500);
-  }
-
-  function updateRecordTime() {
-    const s = Math.floor((Date.now() - recordStartTs) / 1000);
-    const mm = String(Math.floor(s / 60)).padStart(2, '0');
-    const ss = String(s % 60).padStart(2, '0');
-    recordTime.textContent = mm + ':' + ss;
-  }
-
   // ─── キュー操作 ─────────────────────
   let itemCounter = 0;
   async function addToQueue(blob, mimeType, ext) {
@@ -245,15 +154,19 @@
     return (bytes / 1024 / 1024).toFixed(1) + 'MB';
   }
 
-  // ─── ファイル取り込み ─────────────────────
-  fileInput.addEventListener('change', async (e) => {
+  // ─── ファイル取り込み（写真/動画/ファイル選択 共通ハンドラ） ─────────────────────
+  async function handleInputChange(e) {
     const files = Array.from(e.target.files || []);
     for (const f of files) {
       const ext = (f.name.split('.').pop() || 'bin').toLowerCase();
       await addToQueue(f, f.type || 'application/octet-stream', ext);
     }
-    fileInput.value = '';
-  });
+    e.target.value = ''; // 同じファイル再選択可能に
+    if (navigator.vibrate) navigator.vibrate(30);
+  }
+  inputPhoto.addEventListener('change', handleInputChange);
+  inputVideo.addEventListener('change', handleInputChange);
+  inputFiles.addEventListener('change', handleInputChange);
 
   // 共有シート経由（Share Target: manifest経由でPOSTされた場合、URL パラメータで受信）
   async function handleShareTarget() {
@@ -419,44 +332,7 @@
     newArticleInput.value = '';
   });
 
-  // ─── タブ切替 ─────────────────────
-  document.querySelectorAll('.tab-button').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('.tab-button').forEach((b) => b.classList.remove('active'));
-      document.querySelectorAll('.tab-content').forEach((c) => c.classList.add('hidden'));
-      btn.classList.add('active');
-      const tabName = btn.dataset.tab;
-      $('tab-' + tabName).classList.remove('hidden');
-      if (tabName === 'capture') {
-        // 写真モードは音声なし、動画モードは音声あり
-        startCamera(cameraPreview, currentMode === 'video');
-      } else {
-        stopCamera();
-      }
-    });
-  });
-
-  // 写真/動画 モード切替
-  document.querySelectorAll('.mode-btn').forEach((btn) => {
-    btn.addEventListener('click', async () => {
-      document.querySelectorAll('.mode-btn').forEach((b) => b.classList.remove('active'));
-      btn.classList.add('active');
-      currentMode = btn.dataset.mode;
-      // 動画モードなら音声付きでカメラ再起動
-      await startCamera(cameraPreview, currentMode === 'video');
-    });
-  });
-
-  // シャッターは mode によって動作が変わる
-  shutter.addEventListener('click', () => {
-    if (currentMode === 'photo') capturePhoto();
-    else toggleRecording();
-  });
-
-  cameraFlip.addEventListener('click', async () => {
-    currentFacing = currentFacing === 'environment' ? 'user' : 'environment';
-    await startCamera(cameraPreview, currentMode === 'video');
-  });
+  // ─── 主要イベントリスナー ─────────────────────
   uploadAllBtn.addEventListener('click', uploadAll);
   clearQueueBtn.addEventListener('click', async () => {
     if (!confirm('一時保存を全て破棄しますか？')) return;
@@ -479,8 +355,6 @@
     await renderQueue();
     await loadArticleList();
     await handleShareTarget();
-    // 初期タブはカメラ → カメラ起動
-    await startCamera(cameraPreview, false);
     setStatus('準備完了');
   })();
 })();
