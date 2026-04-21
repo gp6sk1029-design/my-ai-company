@@ -32,6 +32,9 @@
 - ブログ業務 → `blog/SKILL.md` + `blog/MEMORY.md`
 - EC物販業務 → `ec/SKILL.md` + `ec/MEMORY.md`
 
+**私生活（my-ai-companyリポジトリ）**
+- 献立くん（料理レシピ献立PWA） → `private/cooking-recipe/SKILL.md` + `private/cooking-recipe/MEMORY.md`
+
 **本業（work-projectsリポジトリ）**
 - 全体 → `MEMORY.md`（ルート直下）
 - 各プロジェクト → 各フォルダ内の `SKILL.md`
@@ -169,6 +172,9 @@ MEMORY.md（学習・経験の蓄積）
 **副業（my-ai-companyリポジトリ）**
 - ブログ部隊 → blog/SKILL.md
 - EC物販部隊 → ec/SKILL.md
+
+**私生活（my-ai-companyリポジトリ）**
+- 献立くん（料理レシピ献立PWA） → private/cooking-recipe/SKILL.md
 
 **本業（work-projectsリポジトリ）**
 - メール秘書 → email-assistant/SKILL.md

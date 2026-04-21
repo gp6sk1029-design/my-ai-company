@@ -1,0 +1,24 @@
+# Cloudflare Pages 設定（料理レシピ献立アプリ）
+#
+# 本番デプロイ手順:
+#   1. Cloudflare ダッシュボード → Pages → 新規プロジェクト作成
+#   2. GitHub リポジトリと接続（my-ai-company）
+#   3. ビルド出力ディレクトリ: private/cooking-recipe/public
+#   4. Functions ディレクトリ: private/cooking-recipe/functions
+#   5. 環境変数に GEMINI_API_KEY を設定（本番・プレビュー両方）
+#
+# ローカル動作確認:
+#   cd private/cooking-recipe
+#   export GEMINI_API_KEY='xxx'
+#   npx wrangler pages dev public --compatibility-date=2024-11-01
+
+name = "kondate-kun"
+compatibility_date = "2024-11-01"
+pages_build_output_dir = "public"
+
+[vars]
+# 公開しても問題ない設定のみ。GEMINI_API_KEY は絶対にここに書かない。
+# ダッシュボードの「Variables and Secrets」で設定してください。
+
+# [[pages]]
+# functions directory = "functions"  # 自動認識されるので通常不要
