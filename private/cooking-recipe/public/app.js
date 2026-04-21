@@ -15,8 +15,10 @@
 
   // ============ IndexedDB ============
   const DB_NAME = 'cooking-app';
-  const DB_VER = 1;
+  const DB_VER = 2; // v2: syncMeta store 追加・updatedAt/deletedAt 導入
   const STORES = ['household', 'members', 'recipes', 'cookHistory', 'shopping', 'stock', 'generations'];
+  // D1 と同期する対象ストア（generations は端末ローカルのみ）
+  const SYNC_STORES = ['members', 'recipes', 'cookHistory', 'shopping', 'stock'];
 
   let dbInstance = null;
 
@@ -26,6 +28,7 @@
       const req = indexedDB.open(DB_NAME, DB_VER);
       req.onupgradeneeded = (e) => {
         const db = e.target.result;
+        const tx = e.target.transaction;
         if (!db.objectStoreNames.contains('household')) db.createObjectStore('household', { keyPath: 'id' });
         if (!db.objectStoreNames.contains('members')) db.createObjectStore('members', { keyPath: 'id' });
         if (!db.objectStoreNames.contains('recipes')) db.createObjectStore('recipes', { keyPath: 'id' });
@@ -33,17 +36,40 @@
         if (!db.objectStoreNames.contains('shopping')) db.createObjectStore('shopping', { keyPath: 'id' });
         if (!db.objectStoreNames.contains('stock')) db.createObjectStore('stock', { keyPath: 'id' });
         if (!db.objectStoreNames.contains('generations')) db.createObjectStore('generations', { keyPath: 'hash' });
+        if (!db.objectStoreNames.contains('syncMeta')) db.createObjectStore('syncMeta', { keyPath: 'id' });
+
+        // v1 → v2 マイグレーション: 既存レコードに updatedAt を付与（次回同期で push されるように）
+        if (e.oldVersion < 2) {
+          const now = Math.floor(Date.now() / 1000);
+          for (const s of SYNC_STORES) {
+            const os = tx.objectStore(s);
+            os.openCursor().onsuccess = (ev) => {
+              const cur = ev.target.result;
+              if (!cur) return;
+              const v = cur.value || {};
+              if (typeof v.updatedAt !== 'number') v.updatedAt = now;
+              if (!('deletedAt' in v)) v.deletedAt = null;
+              cur.update(v);
+              cur.continue();
+            };
+          }
+        }
       };
       req.onsuccess = () => { dbInstance = req.result; resolve(dbInstance); };
       req.onerror = () => reject(req.error);
     });
   }
 
-  async function dbAll(store) {
+  const nowSec = () => Math.floor(Date.now() / 1000);
+
+  async function dbAll(store, { includeDeleted = false } = {}) {
     const db = await openDB();
     return new Promise((resolve, reject) => {
       const req = db.transaction(store, 'readonly').objectStore(store).getAll();
-      req.onsuccess = () => resolve(req.result || []);
+      req.onsuccess = () => {
+        const all = req.result || [];
+        resolve(includeDeleted ? all : all.filter(r => !r.deletedAt));
+      };
       req.onerror = () => reject(req.error);
     });
   }
@@ -52,12 +78,29 @@
     const db = await openDB();
     return new Promise((resolve, reject) => {
       const req = db.transaction(store, 'readonly').objectStore(store).get(id);
-      req.onsuccess = () => resolve(req.result || null);
+      req.onsuccess = () => {
+        const r = req.result || null;
+        resolve(r && r.deletedAt ? null : r);
+      };
       req.onerror = () => reject(req.error);
     });
   }
 
+  // dbPut: 通常の書き込み。updatedAt を現在時刻に更新して、同期デバウンスを起動する。
+  // 内部同期取り込み時は dbPutRaw を使う（updatedAt を保持）
   async function dbPut(store, obj) {
+    if (SYNC_STORES.includes(store) || store === 'household') {
+      obj.updatedAt = nowSec();
+      if (!('deletedAt' in obj)) obj.deletedAt = null;
+    }
+    const result = await dbPutRaw(store, obj);
+    if (SYNC_STORES.includes(store) || store === 'household') {
+      scheduleSync();
+    }
+    return result;
+  }
+
+  async function dbPutRaw(store, obj) {
     const db = await openDB();
     return new Promise((resolve, reject) => {
       const req = db.transaction(store, 'readwrite').objectStore(store).put(obj);
@@ -66,7 +109,27 @@
     });
   }
 
+  // 同期対象ストアは論理削除（deletedAt をセット）、それ以外（generations）は物理削除
   async function dbDelete(store, id) {
+    if (SYNC_STORES.includes(store)) {
+      // 論理削除
+      const db = await openDB();
+      const tx = db.transaction(store, 'readwrite');
+      const os = tx.objectStore(store);
+      return new Promise((resolve, reject) => {
+        const g = os.get(id);
+        g.onsuccess = () => {
+          const r = g.result;
+          if (!r) return resolve();
+          r.deletedAt = nowSec();
+          r.updatedAt = nowSec();
+          const p = os.put(r);
+          p.onsuccess = () => { scheduleSync(); resolve(); };
+          p.onerror = () => reject(p.error);
+        };
+        g.onerror = () => reject(g.error);
+      });
+    }
     const db = await openDB();
     return new Promise((resolve, reject) => {
       const req = db.transaction(store, 'readwrite').objectStore(store).delete(id);
@@ -890,7 +953,9 @@
   });
   $('#btn-clear-all').addEventListener('click', async () => {
     if (!confirm('買い物リストを全削除しますか？')) return;
-    await dbClear('shopping');
+    // 論理削除（D1 同期時に他端末にも削除が伝播する）
+    const items = await dbAll('shopping');
+    for (const it of items) await dbDelete('shopping', it.id);
     renderShopping();
   });
 
@@ -1097,15 +1162,230 @@
   });
 
   $('#btn-reset').addEventListener('click', async () => {
-    if (!confirm('全データを削除します。よろしいですか？')) return;
+    if (!confirm('全データを削除します。同期中の世帯からも退出します。よろしいですか？')) return;
+    // 同期を止めるためにまず世帯IDをクリア
+    await setSyncMeta({ householdId: null, lastSyncAt: 0 });
+    // 全ストアを物理削除（既に世帯から抜けているので D1 から引き戻されない）
     for (const s of STORES) await dbClear(s);
     toast('全データを削除しました', 'success');
-    renderMembers(); renderRecipes(); renderShopping(); renderStock();
+    renderMembers(); renderRecipes(); renderShopping(); renderStock(); renderSyncUI();
   });
 
   // ============ モーダル共通 ============
   $$('[data-close-modal]').forEach(btn => btn.addEventListener('click', () => closeModal(btn.dataset.closeModal)));
   function closeModal(id) { $('#' + id).classList.add('hidden'); }
+
+  // ============ D1 同期マネージャ ============
+  const SYNC_URL = '/api/sync';
+  let syncDebounceTimer = null;
+  let syncInFlight = false;
+
+  async function getSyncMeta() {
+    const db = await openDB();
+    return new Promise((resolve) => {
+      const req = db.transaction('syncMeta', 'readonly').objectStore('syncMeta').get('default');
+      req.onsuccess = () => resolve(req.result || { id: 'default', householdId: null, lastSyncAt: 0 });
+      req.onerror = () => resolve({ id: 'default', householdId: null, lastSyncAt: 0 });
+    });
+  }
+  async function setSyncMeta(meta) {
+    meta.id = 'default';
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const req = db.transaction('syncMeta', 'readwrite').objectStore('syncMeta').put(meta);
+      req.onsuccess = () => resolve();
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  // 32文字のランダム世帯ID（暗号学的ランダム）
+  function generateHouseholdId() {
+    const bytes = new Uint8Array(24);
+    crypto.getRandomValues(bytes);
+    return btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+  }
+
+  function scheduleSync() {
+    if (syncDebounceTimer) clearTimeout(syncDebounceTimer);
+    syncDebounceTimer = setTimeout(() => { sync().catch(e => console.warn('sync error', e)); }, 3000);
+  }
+
+  async function sync(opts = {}) {
+    const meta = await getSyncMeta();
+    if (!meta.householdId) return { skipped: true, reason: '世帯ID未設定' };
+    if (syncInFlight) return { skipped: true, reason: '同期実行中' };
+    syncInFlight = true;
+    updateSyncStatus('同期中...');
+    try {
+      const since = meta.lastSyncAt || 0;
+
+      // ローカルで since 以降に変更されたレコードを集める
+      const changes = {};
+      for (const s of SYNC_STORES) {
+        const all = await dbAll(s, { includeDeleted: true });
+        changes[s] = all
+          .filter(r => (r.updatedAt || 0) > since)
+          .map(r => ({
+            id: r.id,
+            payload: JSON.stringify(r),
+            updatedAt: r.updatedAt || nowSec(),
+            deletedAt: r.deletedAt || null,
+          }));
+      }
+      // household 単一レコード
+      const hh = await dbGet('household', 'default');
+      if (hh && (hh.updatedAt || 0) > since) {
+        changes.household = {
+          avoidMode: hh.avoidMode || 'any',
+          updatedAt: hh.updatedAt || nowSec(),
+          deletedAt: hh.deletedAt || null,
+        };
+      }
+
+      const res = await fetch(SYNC_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ householdId: meta.householdId, since, changes }),
+      });
+      if (!res.ok) {
+        const err = await res.text();
+        throw new Error('同期失敗: ' + res.status + ' ' + err.slice(0, 200));
+      }
+      const data = await res.json();
+
+      // サーバーから返ってきた変更を取り込む
+      let applied = 0;
+      for (const s of SYNC_STORES) {
+        const incoming = data.changes[s] || [];
+        for (const row of incoming) {
+          let localObj = null;
+          try {
+            const db = await openDB();
+            localObj = await new Promise((resolve) => {
+              const req = db.transaction(s, 'readonly').objectStore(s).get(row.id);
+              req.onsuccess = () => resolve(req.result || null);
+              req.onerror = () => resolve(null);
+            });
+          } catch {}
+          if (localObj && (localObj.updatedAt || 0) >= row.updatedAt) continue; // ローカルの方が新しい
+          let parsed;
+          try { parsed = JSON.parse(row.payload); }
+          catch { continue; }
+          parsed.id = row.id;
+          parsed.updatedAt = row.updatedAt;
+          parsed.deletedAt = row.deletedAt;
+          await dbPutRaw(s, parsed);
+          applied++;
+        }
+      }
+      // household
+      if (data.changes.household) {
+        const srv = data.changes.household;
+        const local = await dbGet('household', 'default');
+        if (!local || (local.updatedAt || 0) < srv.updatedAt) {
+          await dbPutRaw('household', {
+            id: 'default',
+            avoidMode: srv.avoidMode || 'any',
+            updatedAt: srv.updatedAt,
+            deletedAt: srv.deletedAt || null,
+          });
+          applied++;
+        }
+      }
+
+      meta.lastSyncAt = data.now;
+      await setSyncMeta(meta);
+
+      updateSyncStatus(`✅ 同期完了（${new Date().toLocaleTimeString('ja-JP')}）${applied > 0 ? ' / ' + applied + '件を取り込み' : ''}`);
+      if (applied > 0) {
+        renderMembers(); renderRecipes(); renderShopping(); renderStock();
+      }
+      return { applied };
+    } catch (e) {
+      console.error(e);
+      updateSyncStatus('⚠️ 同期エラー: ' + e.message);
+      throw e;
+    } finally {
+      syncInFlight = false;
+    }
+  }
+
+  async function createHousehold() {
+    const id = generateHouseholdId();
+    await setSyncMeta({ householdId: id, lastSyncAt: 0 });
+    toast('新しい世帯を作成しました', 'success');
+    await sync();
+    renderSyncUI();
+  }
+
+  async function joinHousehold(id) {
+    const cleaned = String(id || '').trim();
+    if (!/^[A-Za-z0-9_-]{24,64}$/.test(cleaned)) {
+      toast('世帯IDが不正です（24〜64文字の英数字/-_）', 'error');
+      return;
+    }
+    if (!confirm('この端末のローカルデータは、同期先の世帯データと統合されます。続行しますか？')) return;
+    await setSyncMeta({ householdId: cleaned, lastSyncAt: 0 });
+    toast('世帯に参加中...', 'success');
+    try {
+      await sync();
+      toast('同期完了', 'success');
+    } catch (e) {
+      toast('同期に失敗: ' + e.message, 'error');
+    }
+    renderSyncUI();
+  }
+
+  async function leaveHousehold() {
+    if (!confirm('世帯から退出します（ローカルデータは残ります）。よろしいですか？')) return;
+    await setSyncMeta({ householdId: null, lastSyncAt: 0 });
+    toast('退出しました', 'success');
+    renderSyncUI();
+  }
+
+  function updateSyncStatus(text) {
+    const el = $('#sync-status');
+    if (el) el.textContent = text;
+  }
+
+  async function renderSyncUI() {
+    const meta = await getSyncMeta();
+    const display = $('#household-id-display');
+    const join = $('#household-join');
+    if (meta.householdId) {
+      display.style.display = '';
+      join.style.display = 'none';
+      $('#household-id-value').value = meta.householdId;
+      updateSyncStatus(meta.lastSyncAt
+        ? `最終同期: ${new Date(meta.lastSyncAt * 1000).toLocaleString('ja-JP')}`
+        : '初回同期待ち');
+    } else {
+      display.style.display = 'none';
+      join.style.display = '';
+      updateSyncStatus('同期は無効。「新しい世帯を作成」または「参加」してください。');
+    }
+  }
+
+  // UI ボタン
+  $('#btn-create-household').addEventListener('click', () => createHousehold());
+  $('#btn-join-household').addEventListener('click', () => {
+    const v = $('#household-join-input').value;
+    joinHousehold(v);
+  });
+  $('#btn-leave-household').addEventListener('click', () => leaveHousehold());
+  $('#btn-sync-now').addEventListener('click', async () => {
+    try { await sync(); toast('同期完了', 'success'); }
+    catch (e) { toast(e.message, 'error'); }
+  });
+  $('#btn-copy-household-id').addEventListener('click', async () => {
+    const v = $('#household-id-value').value;
+    try {
+      await navigator.clipboard.writeText(v);
+      toast('世帯IDをコピーしました', 'success');
+    } catch {
+      $('#household-id-value').select();
+    }
+  });
 
   // ============ 初期化 ============
   async function init() {
@@ -1120,6 +1400,9 @@
       toast('まず家族メンバーを追加してください', '');
     }
     renderMembers();
+    renderSyncUI();
+    // 起動時に同期（世帯ID があれば）
+    setTimeout(() => { sync().catch(() => {}); }, 500);
   }
 
   init().catch(err => {

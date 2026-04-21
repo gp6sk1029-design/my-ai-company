@@ -315,6 +315,86 @@ async function onRequestPost2(context) {
 }
 __name(onRequestPost2, "onRequestPost2");
 __name2(onRequestPost2, "onRequestPost");
+var TABLES = ["members", "recipes", "cookHistory", "shopping", "stock"];
+async function onRequestPost3(context) {
+  const { request, env } = context;
+  const db = env.DB;
+  if (!db) return json({ error: 'D1 binding "DB" \u304C\u3042\u308A\u307E\u305B\u3093' }, 500);
+  let body;
+  try {
+    body = await request.json();
+  } catch (e) {
+    return json({ error: "\u4E0D\u6B63\u306AJSON" }, 400);
+  }
+  const householdId = String(body.householdId || "");
+  if (!/^[A-Za-z0-9_-]{24,64}$/.test(householdId)) {
+    return json({ error: "\u4E16\u5E2FID\u304C\u4E0D\u6B63\u3067\u3059\uFF0824\u301C64\u6587\u5B57\u306E\u82F1\u6570\u5B57\u30FB-_\u306E\u307F\uFF09" }, 400);
+  }
+  const since = Number(body.since) || 0;
+  const incoming = body.changes || {};
+  try {
+    if (incoming.household && typeof incoming.household.updatedAt === "number") {
+      await upsertHousehold(db, householdId, incoming.household);
+    }
+    for (const tbl of TABLES) {
+      const rows = Array.isArray(incoming[tbl]) ? incoming[tbl] : [];
+      for (const r of rows) {
+        if (!r || typeof r.updatedAt !== "number" || !r.id) continue;
+        await upsertRecord(db, tbl, householdId, r);
+      }
+    }
+  } catch (e) {
+    return json({ error: "D1\u66F8\u304D\u8FBC\u307F\u5931\u6557: " + e.message }, 500);
+  }
+  const out = { household: null };
+  try {
+    const hh = await db.prepare("SELECT id, avoidMode, updatedAt, deletedAt FROM households WHERE id = ? AND updatedAt > ?").bind(householdId, since).first();
+    if (hh) out.household = { avoidMode: hh.avoidMode, updatedAt: hh.updatedAt, deletedAt: hh.deletedAt };
+    for (const tbl of TABLES) {
+      const res = await db.prepare(`SELECT id, payload, updatedAt, deletedAt FROM ${tbl} WHERE householdId = ? AND updatedAt > ? ORDER BY updatedAt ASC`).bind(householdId, since).all();
+      out[tbl] = (res.results || []).map((row) => ({
+        id: row.id,
+        payload: row.payload,
+        updatedAt: row.updatedAt,
+        deletedAt: row.deletedAt
+      }));
+    }
+  } catch (e) {
+    return json({ error: "D1\u8AAD\u307F\u51FA\u3057\u5931\u6557: " + e.message }, 500);
+  }
+  return json({
+    now: Math.floor(Date.now() / 1e3),
+    changes: out
+  });
+}
+__name(onRequestPost3, "onRequestPost3");
+__name2(onRequestPost3, "onRequestPost");
+async function upsertHousehold(db, householdId, h) {
+  const cur = await db.prepare("SELECT updatedAt FROM households WHERE id = ?").bind(householdId).first();
+  if (cur && cur.updatedAt >= h.updatedAt) return;
+  await db.prepare(
+    "INSERT INTO households (id, avoidMode, updatedAt, deletedAt) VALUES (?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET avoidMode = excluded.avoidMode, updatedAt = excluded.updatedAt, deletedAt = excluded.deletedAt"
+  ).bind(householdId, h.avoidMode || "any", h.updatedAt, h.deletedAt ?? null).run();
+}
+__name(upsertHousehold, "upsertHousehold");
+__name2(upsertHousehold, "upsertHousehold");
+async function upsertRecord(db, tbl, householdId, r) {
+  const cur = await db.prepare(`SELECT updatedAt FROM ${tbl} WHERE householdId = ? AND id = ?`).bind(householdId, r.id).first();
+  if (cur && cur.updatedAt >= r.updatedAt) return;
+  await db.prepare(
+    `INSERT INTO ${tbl} (householdId, id, payload, updatedAt, deletedAt) VALUES (?, ?, ?, ?, ?) ON CONFLICT(householdId, id) DO UPDATE SET payload = excluded.payload, updatedAt = excluded.updatedAt, deletedAt = excluded.deletedAt`
+  ).bind(householdId, r.id, String(r.payload ?? ""), r.updatedAt, r.deletedAt ?? null).run();
+}
+__name(upsertRecord, "upsertRecord");
+__name2(upsertRecord, "upsertRecord");
+function json(obj, status = 200) {
+  return new Response(JSON.stringify(obj), {
+    status,
+    headers: { "Content-Type": "application/json" }
+  });
+}
+__name(json, "json");
+__name2(json, "json");
 var routes = [
   {
     routePath: "/api/detect-ingredients",
@@ -329,6 +409,13 @@ var routes = [
     method: "POST",
     middlewares: [],
     modules: [onRequestPost2]
+  },
+  {
+    routePath: "/api/sync",
+    mountPath: "/api",
+    method: "POST",
+    middlewares: [],
+    modules: [onRequestPost3]
   }
 ];
 function lexer(str) {
@@ -996,7 +1083,7 @@ var jsonError2 = /* @__PURE__ */ __name(async (request, env, _ctx, middlewareCtx
 }, "jsonError");
 var middleware_miniflare3_json_error_default2 = jsonError2;
 
-// .wrangler/tmp/bundle-rAjq07/middleware-insertion-facade.js
+// .wrangler/tmp/bundle-atoSte/middleware-insertion-facade.js
 var __INTERNAL_WRANGLER_MIDDLEWARE__2 = [
   middleware_ensure_req_body_drained_default2,
   middleware_miniflare3_json_error_default2
@@ -1028,7 +1115,7 @@ function __facade_invoke__2(request, env, ctx, dispatch, finalMiddleware) {
 }
 __name(__facade_invoke__2, "__facade_invoke__");
 
-// .wrangler/tmp/bundle-rAjq07/middleware-loader.entry.ts
+// .wrangler/tmp/bundle-atoSte/middleware-loader.entry.ts
 var __Facade_ScheduledController__2 = class ___Facade_ScheduledController__2 {
   constructor(scheduledTime, cron, noRetry) {
     this.scheduledTime = scheduledTime;
