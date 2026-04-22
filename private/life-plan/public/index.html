@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>ライフプランくん</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0ea5e9">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="ライフプラン">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="stylesheet" href="/styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+</head>
+<body>
+  <header class="app-header">
+    <div class="app-logo" aria-hidden="true">📊</div>
+    <div>
+      <div class="app-title">ライフプランくん</div>
+      <div class="app-subtitle">年齢×収支×資産×イベント×投資複利を一画面で</div>
+    </div>
+  </header>
+
+  <!-- ========== ホーム ========== -->
+  <main id="page-home" class="page active">
+    <h1 class="page-title">家計の見通し</h1>
+    <div id="badges"></div>
+
+    <div class="summary-grid">
+      <div class="tile">
+        <div class="tile-label">現在の純資産</div>
+        <div id="tile-now" class="tile-value">¥0</div>
+        <div class="tile-sub">現金＋投資評価額</div>
+      </div>
+      <div class="tile">
+        <div class="tile-label">老後入口時点</div>
+        <div id="tile-retire" class="tile-value">¥0</div>
+        <div class="tile-sub" id="tile-retire-sub">退職年齢で算出</div>
+      </div>
+      <div class="tile">
+        <div class="tile-label">生涯最大残高</div>
+        <div id="tile-peak" class="tile-value success">¥0</div>
+        <div class="tile-sub" id="tile-peak-sub">到達年齢</div>
+      </div>
+      <div class="tile">
+        <div class="tile-label">資産枯渇リスク</div>
+        <div id="tile-exhaust" class="tile-value">—</div>
+        <div class="tile-sub">マイナスに転じる年齢</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">資産推移グラフ</div>
+      <div class="chart-wrap"><canvas id="chart-assets"></canvas></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">年次キャッシュフロー</div>
+      <div class="cf-table-wrap">
+        <table class="cf-table">
+          <thead>
+            <tr>
+              <th>年</th>
+              <th>年齢</th>
+              <th>収入</th>
+              <th>支出</th>
+              <th>教育</th>
+              <th>イベント</th>
+              <th>年次収支</th>
+              <th>純資産</th>
+            </tr>
+          </thead>
+          <tbody id="cf-body"></tbody>
+        </table>
+      </div>
+      <div class="scroll-hint">横スクロールで全項目を確認できます</div>
+    </div>
+  </main>
+
+  <!-- ========== 基本情報 ========== -->
+  <main id="page-basic" class="page">
+    <h1 class="page-title">基本情報</h1>
+
+    <div class="card">
+      <div class="card-title">本人・配偶者</div>
+      <div class="form-row cols-2">
+        <div>
+          <label class="lbl">本人の現在年齢</label>
+          <input id="in-self-age" type="number" min="0" max="100" value="35">
+        </div>
+        <div>
+          <label class="lbl">退職予定年齢</label>
+          <input id="in-retire-age" type="number" min="40" max="80" value="65">
+        </div>
+      </div>
+      <div class="form-row cols-2">
+        <div>
+          <label class="lbl">想定寿命（計画終端）</label>
+          <input id="in-lifespan" type="number" min="70" max="110" value="95">
+        </div>
+        <div>
+          <label class="lbl">配偶者の現在年齢（0=なし）</label>
+          <input id="in-spouse-age" type="number" min="0" max="100" value="0">
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">
+        子供
+        <button class="btn small ghost" id="btn-add-child">＋追加</button>
+      </div>
+      <div id="list-children"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">保存</div>
+      <button class="btn block" id="btn-save-basic">この内容で保存</button>
+    </div>
+  </main>
+
+  <!-- ========== 収支 ========== -->
+  <main id="page-finance" class="page">
+    <h1 class="page-title">収入・支出</h1>
+
+    <div class="card">
+      <div class="card-title">
+        収入項目（年齢区間ごと）
+        <button class="btn small ghost" id="btn-add-income">＋追加</button>
+      </div>
+      <div id="list-incomes"></div>
+      <div class="card-hint">給与・副業・年金・配偶者の収入などを年齢区間で登録</div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">
+        支出項目（月額×年齢区間）
+        <button class="btn small ghost" id="btn-add-expense">＋追加</button>
+      </div>
+      <div id="list-expenses"></div>
+      <div class="card-hint">基本生活費・住居費・保険・通信などを月額で登録。インフレ率を設定すると複利で上昇</div>
+    </div>
+  </main>
+
+  <!-- ========== 教育費 ========== -->
+  <main id="page-education" class="page">
+    <h1 class="page-title">教育費シミュ</h1>
+    <div class="card">
+      <div class="card-title">子供ごとの進路</div>
+      <div id="list-education"></div>
+      <div class="card-hint">出典：文科省「子供の学習費調査」R3＋日本政策金融公庫「教育費負担の実態調査」R5</div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">子供1人の総額目安</div>
+      <table class="cf-table" id="edu-summary">
+        <thead><tr><th>子供</th><th>幼</th><th>小</th><th>中</th><th>高</th><th>大</th><th>塾</th><th>総額</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </main>
+
+  <!-- ========== 資産・投資 ========== -->
+  <main id="page-assets" class="page">
+    <h1 class="page-title">資産・投資</h1>
+
+    <div class="card">
+      <div class="card-title">
+        口座
+        <button class="btn small ghost" id="btn-add-asset">＋追加</button>
+      </div>
+      <div id="list-assets"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">マネーフォワードCSV取込</div>
+      <div class="drop-zone" id="mf-drop">
+        <div class="icon">📥</div>
+        <div class="label">MF資産CSVをドロップ または タップして選択</div>
+        <div class="sub">取り込み前に差分プレビューで確認</div>
+        <input type="file" id="mf-file" accept=".csv,text/csv" class="hidden">
+      </div>
+      <div id="mf-diff-area" class="hidden" style="margin-top:10px;">
+        <div class="card-title" style="margin-top:10px;">取込プレビュー</div>
+        <div id="mf-diff-list"></div>
+        <button class="btn block" id="mf-apply" style="margin-top:10px;">この内容で残高を更新</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">期待利回りプリセット</div>
+      <div class="chip-row">
+        <span class="chip">S&amp;P500: 5.0%</span>
+        <span class="chip">全世界: 4.0%</span>
+        <span class="chip">バランス: 3.0%</span>
+        <span class="chip">債券: 1.0%</span>
+      </div>
+      <div class="card-hint">新NISA: 生涯1,800万円（成長1,200万＋つみたて600万）を自動cap。超過分は特定口座扱いでオーバーフロー</div>
+    </div>
+  </main>
+
+  <!-- ========== ライフイベント ========== -->
+  <main id="page-events" class="page">
+    <h1 class="page-title">ライフイベント</h1>
+    <div class="card">
+      <div class="card-title">
+        テンプレから追加
+      </div>
+      <div id="event-templates" class="chip-row"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">
+        登録済みイベント
+        <button class="btn small ghost" id="btn-add-event">＋自由追加</button>
+      </div>
+      <div id="list-events"></div>
+    </div>
+  </main>
+
+  <!-- ========== 下部タブ ========== -->
+  <nav class="tab-bar">
+    <button class="tab-btn active" data-page="home"><span class="ico">🏠</span>ホーム</button>
+    <button class="tab-btn" data-page="basic"><span class="ico">👥</span>基本</button>
+    <button class="tab-btn" data-page="finance"><span class="ico">💴</span>収支</button>
+    <button class="tab-btn" data-page="education"><span class="ico">🎓</span>教育</button>
+    <button class="tab-btn" data-page="assets"><span class="ico">📈</span>資産</button>
+    <button class="tab-btn" data-page="events"><span class="ico">🎉</span>イベント</button>
+  </nav>
+
+  <script src="/config.js"></script>
+  <script src="/calc.js"></script>
+  <script src="/app.js"></script>
+</body>
+</html>
