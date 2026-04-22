@@ -1,0 +1,19 @@
+# Cloudflare Pages 設定（ライフプランくん）
+#
+# ローカル動作確認:
+#   npx wrangler pages dev public --compatibility-date=2024-11-01
+#
+# 本番 D1 スキーマ反映:
+#   npx wrangler d1 execute life-plan-db --remote --file=schema.sql
+
+name = "life-plan-kun"
+compatibility_date = "2024-11-01"
+pages_build_output_dir = "public"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "life-plan-db"
+database_id = "TBD-create-after-approval"
+
+[vars]
+# 公開しても問題ない設定のみ
