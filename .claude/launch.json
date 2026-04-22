@@ -6,6 +6,12 @@
       "runtimeExecutable": "python3",
       "runtimeArgs": ["/Users/shoheikoda/Documents/my-ai-company/ec/scripts/web_server.py"],
       "port": 8080
+    },
+    {
+      "name": "life-plan",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["-c", "import os; from http.server import HTTPServer, SimpleHTTPRequestHandler; from functools import partial; print('[life-plan] http://localhost:8791'); HTTPServer(('0.0.0.0', 8791), partial(SimpleHTTPRequestHandler, directory='/Users/shoheikoda/Documents/my-ai-company/private/life-plan/public')).serve_forever()"],
+      "port": 8791
     }
   ]
 }
