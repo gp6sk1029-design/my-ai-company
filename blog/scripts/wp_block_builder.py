@@ -16,12 +16,35 @@ import re
 def md_to_html_inline(text: str) -> str:
     """
     インラインmarkdown → HTML変換（strongタグの閉じ忘れを防ぐ）
-    **text** → <strong>text</strong>
-    *text*   → <em>text</em>
+
+    JIN:R 装飾ルール（2026/04 HUAWEI記事の失敗から追加）:
+    ① ***xxx***（アスタリスク3つ）→ <strong> + 水色アンダーライン（明示的最重要強調）
+    ② **xxx** に数値・単位・日付を含む    → 自動で水色アンダーライン付与
+    ③ **xxx** その他                      → 普通の <strong>
+
+    水色アンダーライン仕様: #56CCF2 / 2px（記事605のスタイル踏襲）
     """
-    # **bold** を変換（非貪欲マッチ）
-    text = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', text)
-    # *italic* を変換（**変換後に実行してstrong内の*を誤変換しない）
+    def _wrap_underline(inner: str) -> str:
+        return (
+            '<strong><span style="text-decoration:underline;'
+            'text-decoration-color:#56CCF2;text-decoration-thickness:2px;">'
+            + inner + '</span></strong>'
+        )
+
+    # ① ***xxx*** → 水色アンダーライン付き strong（最優先）
+    text = re.sub(r'\*\*\*(.+?)\*\*\*', lambda m: _wrap_underline(m.group(1)), text)
+
+    # ② **xxx** を処理
+    #    数値・単位・金額・日付を含むものは自動で水色アンダーライン
+    _UL_TRIGGER = re.compile(r'[0-9]|[\uff10-\uff19]|¥|円|％|%|日|分|時間|週|月|年|kg|g|mm|cm|km|nit|bpm|ms|回|MB|GB')
+    def _bold_replace(m):
+        inner = m.group(1)
+        if _UL_TRIGGER.search(inner):
+            return _wrap_underline(inner)
+        return f'<strong>{inner}</strong>'
+    text = re.sub(r'\*\*(.+?)\*\*', _bold_replace, text)
+
+    # ③ *italic*（** 変換後に処理して strong 内の * を誤変換しない）
     text = re.sub(r'(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)', r'<em>\1</em>', text)
 
     # 変換後のstrongタグのバランスを検証・自動修正
