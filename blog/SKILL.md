@@ -12,6 +12,16 @@
 3. WPブロックは wp_block_builder.py 経由（手書きHTML禁止）
 4. 価格・スペックはメーカー公式で必ず裏取り
 5. 投稿後URLを必ず出力（`🔗 https://...`）
+6. **画像は必ず image_resizer.py で2000px以下に**（APIエラー防止）
+
+### 画像リサイズ必須ルール
+```bash
+# 新しい画像を扱う前に必ず実行
+python3 blog/scripts/image_resizer.py <画像パス or フォルダ>
+```
+- Claude API多数画像モードは**2000px以下必須**
+- デフォルト上限1800px（200pxマージン）
+- 長辺基準でアスペクト比保持
 
 ---
 
