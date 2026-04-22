@@ -220,7 +220,9 @@
       mealTypes: [...(DEFAULTS.mealTypes || ['dinner'])],
       maxCookTimeMin: DEFAULTS.maxCookTimeMin || 20,
       mood: DEFAULTS.moodTag || 'normal',
+      cuisine: 'any', // any/japanese/chinese/western/italian/korean/ethnic/donburi/mixed
       basicIngredientsOnly: true,
+      useCommercialSauces: true, // Cook Do・うちのごはん等を許可
       batchShopping: true,
       useStock: false,
       budgetYen: DEFAULTS.budgetYen || 1500,
@@ -292,8 +294,10 @@
   wireChipGroup('#chip-meals', 'mealTypes', true);
   wireChipGroup('#chip-time', 'maxCookTimeMin', false);
   wireChipGroup('#chip-mood', 'mood', false);
+  wireChipGroup('#chip-cuisine', 'cuisine', false);
 
   $('#toggle-basic').addEventListener('change', (e) => state.selected.basicIngredientsOnly = e.target.checked);
+  $('#toggle-commercial').addEventListener('change', (e) => state.selected.useCommercialSauces = e.target.checked);
   $('#toggle-batch').addEventListener('change', (e) => state.selected.batchShopping = e.target.checked);
   $('#toggle-usestock').addEventListener('change', (e) => state.selected.useStock = e.target.checked);
   $('#input-budget').addEventListener('input', (e) => state.selected.budgetYen = Number(e.target.value) || 1500);
@@ -532,10 +536,12 @@
         budgetYen: state.selected.budgetYen,
         maxCookTimeMin: state.selected.maxCookTimeMin,
         moodTag: state.selected.mood,
+        cuisine: state.selected.cuisine,
         seasonalHint,
         days: state.selected.days,
         mealTypes: state.selected.mealTypes,
         basicIngredientsOnly: state.selected.basicIngredientsOnly,
+        useCommercialSauces: state.selected.useCommercialSauces,
         batchShopping: state.selected.batchShopping,
         favorites,
         recentlyCooked,
@@ -592,6 +598,15 @@
     return 'time-red';
   }
 
+  function cuisineLabel(c) {
+    const map = {
+      japanese: '🍙 和食', chinese: '🥡 中華', western: '🍖 洋食',
+      italian: '🍝 イタリアン', korean: '🍜 韓国', ethnic: '🌶️ エスニック',
+      donburi: '🍚 丼・麺',
+    };
+    return map[c] || c;
+  }
+
   function renderGeneratedMenus(result) {
     const container = $('#menu-list');
     container.innerHTML = '';
@@ -611,8 +626,10 @@
         const badges = [];
         badges.push(`<span class="badge ${timeCls}">⏱ ${meal.cookTimeMin || '?'}分</span>`);
         if (meal.servings) badges.push(`<span class="badge">👥 ${meal.servings}人分</span>`);
+        if (meal.cuisine) badges.push(`<span class="badge">${cuisineLabel(meal.cuisine)}</span>`);
         if (meal.isFavorite) badges.push(`<span class="badge favorite">⭐ お気に入り再登場</span>`);
         if (meal.useLeftover) badges.push(`<span class="badge leftover">♻️ 使い切り</span>`);
+        if (meal.usesCommercialSauce) badges.push(`<span class="badge commercial">🏷️ 市販品使用</span>`);
         if (meal.cookwareHint) badges.push(`<span class="badge">🍳 ${meal.cookwareHint}</span>`);
 
         const ingredientsHTML = (meal.ingredients || []).map(i =>

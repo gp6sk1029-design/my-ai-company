@@ -154,6 +154,7 @@ body {
 .badge.time-red { background: #fee2e2; color: #991b1b; }
 .badge.favorite { background: #fef3c7; color: #92400e; }
 .badge.leftover { background: #ecfccb; color: #3f6212; }
+.badge.commercial { background: #fce7f3; color: #9d174d; }
 .menu-card-section { margin-top: 8px; }
 .menu-card-section h4 { font-size: 12px; font-weight: 700; color: var(--text-muted); margin-bottom: 4px; }
 .menu-card-ingredients { font-size: 13px; color: var(--text-secondary); line-height: 1.7; }

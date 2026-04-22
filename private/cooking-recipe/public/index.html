@@ -68,6 +68,21 @@
       </div>
 
       <div class="card">
+        <div class="card-title">ジャンル</div>
+        <div id="chip-cuisine" class="chip-row">
+          <button class="chip active" data-value="any">おまかせ</button>
+          <button class="chip" data-value="japanese">🍙 和食</button>
+          <button class="chip" data-value="chinese">🥡 中華</button>
+          <button class="chip" data-value="western">🍖 洋食</button>
+          <button class="chip" data-value="italian">🍝 イタリアン</button>
+          <button class="chip" data-value="korean">🍜 韓国</button>
+          <button class="chip" data-value="ethnic">🌶️ エスニック</button>
+          <button class="chip" data-value="donburi">🍚 丼・麺</button>
+          <button class="chip" data-value="mixed">🎲 日替わりミックス</button>
+        </div>
+      </div>
+
+      <div class="card">
         <div class="card-title">気分</div>
         <div id="chip-mood" class="chip-row">
           <button class="chip active" data-value="normal">おまかせ</button>
@@ -84,6 +99,13 @@
             <span class="toggle-desc">輸入スパイスや高価食材を除外</span>
           </div>
           <label class="switch"><input type="checkbox" id="toggle-basic" checked><span class="slider"></span></label>
+        </div>
+        <div class="toggle-row">
+          <div>
+            <span class="toggle-label">市販の合わせ調味料OK</span>
+            <span class="toggle-desc">Cook Do・うちのごはん等で時短（製品名明記）</span>
+          </div>
+          <label class="switch"><input type="checkbox" id="toggle-commercial" checked><span class="slider"></span></label>
         </div>
         <div class="toggle-row">
           <div>
