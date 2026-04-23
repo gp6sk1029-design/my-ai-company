@@ -21,6 +21,13 @@
   # JSON出力（他スクリプトと連携用）
   python3 article_status.py huawei --json
 
+  # WordPress連携（投稿ID・URL・状態を自動取得）
+  python3 article_status.py huawei --with-wp
+  python3 article_status.py --with-wp              # 全記事にWP情報を結合
+
+  # MEMORY.md記事台帳を自動更新（WP情報をローカル台帳に反映）
+  python3 article_status.py --sync-registry
+
 出力情報：
 - ファイルパス
 - 記事タイトル（H1から抽出）
@@ -28,6 +35,7 @@
 - 関連画像フォルダ
 - 文字数
 - 復帰コマンド例
+- （--with-wp時）WP投稿ID、公開URL、公開状態
 """
 from __future__ import annotations
 
@@ -41,6 +49,15 @@ from pathlib import Path
 
 ARTICLES_DIR = Path(__file__).resolve().parent.parent.parent / "articles"
 IMAGES_DIR = Path(__file__).resolve().parent.parent / "images"
+MEMORY_PATH = Path(__file__).resolve().parent.parent / "MEMORY.md"
+
+# 同ディレクトリの wp_api をオプショナル import
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+try:
+    from wp_api import WPClient, WPPost  # noqa: E402
+    HAS_WP = True
+except Exception:
+    HAS_WP = False
 
 
 def extract_title(md_path: Path) -> str:
@@ -137,7 +154,43 @@ def search_articles(query: str | None) -> list[tuple[Path, float]]:
     return scored
 
 
-def format_article(art: Path, detail: bool = False) -> dict:
+def match_wp_post(local_title: str, wp_posts: list) -> object | None:
+    """ローカル記事タイトルとWP記事を曖昧マッチ。最もスコアの高いものを返す。"""
+    if not wp_posts:
+        return None
+    best = None
+    best_score = 0.0
+    q = local_title.lower()
+    for p in wp_posts:
+        t = p.title.lower()
+        if not t:
+            continue
+        if q == t:
+            return p
+        # 部分一致優先
+        if q in t or t in q:
+            score = 0.9 + (min(len(q), len(t)) / max(len(q), len(t)) * 0.1)
+        else:
+            score = SequenceMatcher(None, q, t).ratio()
+        if score > best_score:
+            best_score = score
+            best = p
+    return best if best_score >= 0.5 else None
+
+
+def fetch_wp_posts() -> list:
+    """WP記事を全件取得。認証未設定や接続エラー時は空リスト。"""
+    if not HAS_WP:
+        return []
+    try:
+        client = WPClient.from_config()
+        return client.list_posts(status="any")
+    except Exception as e:
+        print(f"⚠️  WP連携スキップ: {e}", file=sys.stderr)
+        return []
+
+
+def format_article(art: Path, detail: bool = False, wp_posts: list | None = None) -> dict:
     """記事情報を辞書で返す。"""
     stat = art.stat()
     img_folder = find_image_folder(art)
@@ -160,6 +213,21 @@ def format_article(art: Path, detail: bool = False) -> dict:
             f"blog/SKILL.md と blog/MEMORY.md に従って作業再開」"
         )
 
+    # WP情報を結合
+    if wp_posts is not None:
+        title = info["title"]
+        matched = match_wp_post(title, wp_posts)
+        if matched:
+            info["wp_id"] = matched.id
+            info["wp_status"] = matched.status
+            info["wp_url"] = matched.link
+            info["wp_modified"] = matched.modified[:10]
+        else:
+            info["wp_id"] = None
+            info["wp_status"] = "(未投稿)"
+            info["wp_url"] = None
+            info["wp_modified"] = None
+
     return info
 
 
@@ -176,6 +244,11 @@ def print_table(articles: list[dict]) -> None:
         print(f"     🕐 最終更新: {a['last_modified']}  |  📝 {a['char_count']}字  |  📦 {a['size_kb']}KB")
         if a.get("image_folder"):
             print(f"     🖼️  画像: {a['image_folder']} ({a['image_count']}枚)")
+        if "wp_id" in a:
+            if a["wp_id"]:
+                print(f"     🌐 WP: [ID {a['wp_id']}] {a['wp_status']}  {a['wp_url'] or ''}")
+            else:
+                print(f"     🌐 WP: (未投稿)")
         print()
 
 
@@ -192,9 +265,64 @@ def print_detail(article: dict) -> None:
     print(f"画像枚数      : {article.get('image_count', 0)}枚")
     if article.get("keywords"):
         print(f"抽出KW        : {', '.join(article['keywords'][:10])}")
+    if "wp_id" in article:
+        print(f"WP投稿ID      : {article['wp_id'] or '(未投稿)'}")
+        print(f"WP状態        : {article['wp_status']}")
+        if article.get("wp_url"):
+            print(f"WP URL        : {article['wp_url']}")
+        if article.get("wp_modified"):
+            print(f"WP最終更新    : {article['wp_modified']}")
     print(f"\n💡 復帰コマンド例:")
     print(f"   {article['recover_command']}")
     print()
+
+
+REGISTRY_START = "## 記事台帳（復帰時の参照台帳）"
+REGISTRY_END_MARKER = "> **台帳メンテナンスルール**"
+
+
+def sync_registry_to_memory(articles: list[dict]) -> int:
+    """全記事のWP情報を blog/MEMORY.md の記事台帳テーブルに反映。"""
+    if not MEMORY_PATH.exists():
+        print(f"❌ MEMORY.md が見つかりません: {MEMORY_PATH}", file=sys.stderr)
+        return 1
+
+    content = MEMORY_PATH.read_text(encoding="utf-8")
+    if REGISTRY_START not in content:
+        print("❌ MEMORY.md に「記事台帳」セクションが見つかりません。先に手動で作成してください。",
+              file=sys.stderr)
+        return 1
+
+    # 新しいテーブル行を生成
+    rows = []
+    rows.append("| # | ファイル | タイトル | WP投稿ID | 公開URL | 公開日 | 状態 |")
+    rows.append("|---|---|---|---|---|---|---|")
+    for i, a in enumerate(articles, 1):
+        wp_id = a.get("wp_id") or "-"
+        wp_url = a.get("wp_url") or "-"
+        wp_date = a.get("wp_modified") or "-"
+        wp_status = a.get("wp_status") or "ローカルのみ"
+        # タイトルが長すぎる場合は切り詰め
+        title = a["title"][:40] + "…" if len(a["title"]) > 40 else a["title"]
+        rows.append(f"| {i} | {a['filename']} | {title} | {wp_id} | {wp_url} | {wp_date} | {wp_status} |")
+
+    new_table = "\n".join(rows)
+
+    # 既存の台帳部分を置換
+    # パターン: REGISTRY_START の次の行から REGISTRY_END_MARKER の直前までを新テーブルに差し替え
+    import re
+    pattern = re.compile(
+        rf"({re.escape(REGISTRY_START)}\n\n)(.*?)(\n\n> \*\*台帳メンテナンスルール)",
+        re.DOTALL,
+    )
+    if not pattern.search(content):
+        print("❌ 台帳セクションのフォーマットが想定と異なります。", file=sys.stderr)
+        return 1
+
+    new_content = pattern.sub(rf"\1{new_table}\3", content)
+    MEMORY_PATH.write_text(new_content, encoding="utf-8")
+    print(f"✅ MEMORY.md の記事台帳を {len(articles)}件で更新しました。")
+    return 0
 
 
 def main() -> int:
@@ -202,7 +330,16 @@ def main() -> int:
     parser.add_argument("query", nargs="?", help="検索クエリ（ファイル名・商品名・何でも）")
     parser.add_argument("--detail", action="store_true", help="詳細表示")
     parser.add_argument("--json", action="store_true", help="JSON出力")
+    parser.add_argument("--with-wp", action="store_true",
+                        help="WP REST APIから投稿情報を取得して結合")
+    parser.add_argument("--sync-registry", action="store_true",
+                        help="MEMORY.mdの記事台帳をWP情報で自動更新（全記事対象）")
     args = parser.parse_args()
+
+    # --sync-registry は強制的に全記事+WP情報モード
+    if args.sync_registry:
+        args.with_wp = True
+        args.query = None
 
     results = search_articles(args.query)
 
@@ -211,7 +348,12 @@ def main() -> int:
         print(f"   検索対象: {ARTICLES_DIR}", file=sys.stderr)
         return 1
 
-    articles = [format_article(art, detail=args.detail) for art, _ in results]
+    wp_posts = fetch_wp_posts() if args.with_wp else None
+    articles = [format_article(art, detail=args.detail, wp_posts=wp_posts) for art, _ in results]
+
+    # --sync-registry なら MEMORY.md を更新して終了
+    if args.sync_registry:
+        return sync_registry_to_memory(articles)
 
     if args.json:
         print(json.dumps(articles, ensure_ascii=False, indent=2))

@@ -58,19 +58,42 @@ python3 blog/scripts/image_resizer.py <画像パス or フォルダ>
 ```
 
 #### 必須ツール
-- `blog/scripts/article_status.py` — 曖昧検索・詳細表示・JSON出力対応
+- `blog/scripts/article_status.py` — 記事曖昧検索（ローカル + WP統合）
+- `blog/scripts/wp_api.py` — WordPress REST APIクライアント
 - 使い方：
   ```bash
+  # ローカル検索のみ（認証不要）
   python3 blog/scripts/article_status.py              # 全記事一覧
   python3 blog/scripts/article_status.py huawei       # 部分一致検索
   python3 blog/scripts/article_status.py ガーミン     # 日本語OK
   python3 blog/scripts/article_status.py xxx --detail # 詳細+復帰コマンド
-  python3 blog/scripts/article_status.py xxx --json   # 他スクリプト連携
+
+  # WP連携（認証設定後）
+  python3 blog/scripts/article_status.py huawei --with-wp   # WP投稿ID・URL・状態を自動取得
+  python3 blog/scripts/article_status.py --sync-registry    # MEMORY.md台帳を自動更新
+
+  # WP単体操作
+  python3 blog/scripts/wp_api.py list                 # WP全記事一覧
+  python3 blog/scripts/wp_api.py find HUAWEI          # WPでタイトル検索
+  python3 blog/scripts/wp_api.py get 703              # 投稿ID指定取得
   ```
 
+#### WP認証情報の設定（初回のみ）
+`blog/config.json` に以下を追加（`.gitignore` 済みでGitに上がらない）：
+```json
+"wp_auth": {
+  "username": "WordPressユーザー名",
+  "application_password": "xxxx xxxx xxxx xxxx xxxx xxxx"
+}
+```
+Application Password の生成：WP管理画面 → ユーザー → プロフィール → アプリケーションパスワード
+
 #### 記事台帳（MEMORY.md）のメンテナンス
-- 新規公開時：WP投稿ID・URL・公開日をblog/MEMORY.md「記事台帳」に追記
-- **ID忘れても**：article_status.pyで検索可能。最悪WordPress管理画面から手動確認
+- **自動メンテナンス推奨**：`python3 blog/scripts/article_status.py --sync-registry` を定期実行
+  - WP上の公開状態・URL・投稿IDを一括取得 → 台帳に反映
+  - 週次ルーチンに組み込むと常に最新状態
+- 手動追記も可能：新規公開時に1行追加
+- **ID忘れても大丈夫**：article_status.py が曖昧検索で特定できる
 
 ### 🚨 画像の会話蓄積を防ぐ運用ルール（2000pxエラー根本対策）
 
