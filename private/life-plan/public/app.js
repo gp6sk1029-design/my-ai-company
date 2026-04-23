@@ -164,32 +164,43 @@
     }
     for (const c of children) {
       const row = el('div', { class: 'item' });
-      const main = el('div', { class: 'item-main' });
+      const main = el('div', { class: 'item-main', style: 'cursor:pointer;', onclick: () => editChild(c) });
       const thisYear = new Date().getFullYear();
       const age = thisYear - (c.birthYear || thisYear);
       main.appendChild(el('div', { class: 'item-title' }, `${c.name || '子供'}（${age}歳）`));
-      main.appendChild(el('div', { class: 'item-sub' }, `${c.birthYear || '—'}年生まれ`));
+      main.appendChild(el('div', { class: 'item-sub' }, `${c.birthYear || '—'}年生まれ  ✏️ タップで編集`));
       row.appendChild(main);
       row.appendChild(el('button', {
         class: 'btn small danger',
-        onclick: async () => { await dbDelete('members', c.id); await dbDelete('education', c.id); renderChildren(); renderEducation(); }
+        onclick: async () => {
+          if (!confirm(`${c.name} を削除しますか？`)) return;
+          await dbDelete('members', c.id); await dbDelete('education', c.id);
+          renderChildren(); renderEducation();
+        }
       }, '削除'));
       box.appendChild(row);
     }
   }
 
-  async function addChild() {
-    const name = prompt('子供の名前（ニックネーム可）', '子1') || '子';
-    const birthYearStr = prompt('生まれ年（西暦）', String(new Date().getFullYear() - 5));
+  async function addChild() { return editChild(null); }
+
+  async function editChild(existing) {
+    const isNew = !existing;
+    const name = prompt('子供の名前（ニックネーム可）', existing?.name || '子1');
+    if (name === null) return;
+    const birthYearStr = prompt('生まれ年（西暦）', String(existing?.birthYear || new Date().getFullYear() - 5));
+    if (birthYearStr === null) return;
     const birthYear = parseInt(birthYearStr);
     if (!birthYear) return;
-    const id = uid();
-    await dbPut('members', { id, kind: 'child', name, birthYear });
-    await dbPut('education', {
-      id, childId: id,
-      plan: { pre: 'public', es: 'public', jhs: 'public', hs: 'public', univ: 'public' },
-      juku: 'light'
-    });
+    const id = existing?.id || uid();
+    await dbPut('members', { id, kind: 'child', name: name || '子', birthYear });
+    if (isNew) {
+      await dbPut('education', {
+        id, childId: id,
+        plan: { pre: 'public', es: 'public', jhs: 'public', hs: 'public', univ: 'public' },
+        juku: 'light'
+      });
+    }
     renderChildren();
     renderEducation();
   }
@@ -208,34 +219,44 @@
     }
     for (const inc of list) {
       const row = el('div', { class: 'item' });
-      const main = el('div', { class: 'item-main' });
+      const main = el('div', { class: 'item-main', style: 'cursor:pointer;', onclick: () => editIncome(inc) });
       main.appendChild(el('div', { class: 'item-title' }, `${inc.label || '収入'}：${yen(inc.annualAmount)}/年`));
-      main.appendChild(el('div', { class: 'item-sub' }, `${inc.fromAge}〜${inc.toAge}歳  上昇率${((inc.growthRate || 0) * 100).toFixed(1)}%`));
+      main.appendChild(el('div', { class: 'item-sub' }, `${inc.fromAge}〜${inc.toAge}歳  上昇率${((inc.growthRate || 0) * 100).toFixed(1)}%  ✏️ タップで編集`));
       row.appendChild(main);
       row.appendChild(el('button', {
         class: 'btn small danger',
-        onclick: async () => { await dbDelete('income', inc.id); renderIncomes(); }
+        onclick: async () => {
+          if (!confirm(`${inc.label} を削除しますか？`)) return;
+          await dbDelete('income', inc.id); renderIncomes(); renderHome();
+        }
       }, '削除'));
       box.appendChild(row);
     }
   }
 
-  async function addIncome() {
-    const label = prompt('収入のラベル（例：給与、副業、年金）', '給与');
-    if (!label) return;
-    const annualAmountStr = prompt('年収（円）', '5000000');
-    const fromAgeStr = prompt('開始年齢', '35');
-    const toAgeStr = prompt('終了年齢', '65');
-    const growthStr = prompt('年間上昇率（%、昇給想定）', '1.5');
+  async function addIncome() { return editIncome(null); }
+
+  async function editIncome(existing) {
+    const label = prompt('収入のラベル（例：給与、副業、年金）', existing?.label || '給与');
+    if (label === null) return;
+    const annualAmountStr = prompt('年収（円）', String(existing?.annualAmount ?? 5000000));
+    if (annualAmountStr === null) return;
+    const fromAgeStr = prompt('開始年齢', String(existing?.fromAge ?? 35));
+    if (fromAgeStr === null) return;
+    const toAgeStr = prompt('終了年齢', String(existing?.toAge ?? 65));
+    if (toAgeStr === null) return;
+    const growthStr = prompt('年間上昇率（%、昇給想定）', String((existing?.growthRate ?? 0.015) * 100));
+    if (growthStr === null) return;
     await dbPut('income', {
-      id: uid(),
-      label,
+      id: existing?.id || uid(),
+      label: label || '収入',
       annualAmount: parseInt(annualAmountStr) || 0,
       fromAge: parseInt(fromAgeStr) || 0,
       toAge: parseInt(toAgeStr) || 65,
       growthRate: (parseFloat(growthStr) || 0) / 100
     });
     renderIncomes();
+    renderHome();
   }
 
   async function renderExpenses() {
@@ -248,34 +269,44 @@
     }
     for (const ex of list) {
       const row = el('div', { class: 'item' });
-      const main = el('div', { class: 'item-main' });
+      const main = el('div', { class: 'item-main', style: 'cursor:pointer;', onclick: () => editExpense(ex) });
       main.appendChild(el('div', { class: 'item-title' }, `${ex.category || '支出'}：${yen(ex.monthlyAmount)}/月`));
-      main.appendChild(el('div', { class: 'item-sub' }, `${ex.fromAge}〜${ex.toAge}歳  インフレ${((ex.inflationRate || 0) * 100).toFixed(1)}%`));
+      main.appendChild(el('div', { class: 'item-sub' }, `${ex.fromAge}〜${ex.toAge}歳  インフレ${((ex.inflationRate || 0) * 100).toFixed(1)}%  ✏️ タップで編集`));
       row.appendChild(main);
       row.appendChild(el('button', {
         class: 'btn small danger',
-        onclick: async () => { await dbDelete('expense', ex.id); renderExpenses(); }
+        onclick: async () => {
+          if (!confirm(`${ex.category} を削除しますか？`)) return;
+          await dbDelete('expense', ex.id); renderExpenses(); renderHome();
+        }
       }, '削除'));
       box.appendChild(row);
     }
   }
 
-  async function addExpense() {
-    const category = prompt('カテゴリ（基本生活費・住居費・保険・通信 など）', '基本生活費');
-    if (!category) return;
-    const monthlyStr = prompt('月額（円）', '250000');
-    const fromAgeStr = prompt('開始年齢', '35');
-    const toAgeStr = prompt('終了年齢', '95');
-    const inflStr = prompt('年間インフレ率（%）', '1.0');
+  async function addExpense() { return editExpense(null); }
+
+  async function editExpense(existing) {
+    const category = prompt('カテゴリ（基本生活費・住居費・保険・通信 など）', existing?.category || '基本生活費');
+    if (category === null) return;
+    const monthlyStr = prompt('月額（円）', String(existing?.monthlyAmount ?? 250000));
+    if (monthlyStr === null) return;
+    const fromAgeStr = prompt('開始年齢', String(existing?.fromAge ?? 35));
+    if (fromAgeStr === null) return;
+    const toAgeStr = prompt('終了年齢', String(existing?.toAge ?? 95));
+    if (toAgeStr === null) return;
+    const inflStr = prompt('年間インフレ率（%）', String((existing?.inflationRate ?? 0.01) * 100));
+    if (inflStr === null) return;
     await dbPut('expense', {
-      id: uid(),
-      category,
+      id: existing?.id || uid(),
+      category: category || '支出',
       monthlyAmount: parseInt(monthlyStr) || 0,
       fromAge: parseInt(fromAgeStr) || 0,
       toAge: parseInt(toAgeStr) || 95,
       inflationRate: (parseFloat(inflStr) || 0) / 100
     });
     renderExpenses();
+    renderHome();
   }
 
   $('btn-add-income').addEventListener('click', addIncome);
@@ -416,41 +447,53 @@
     };
     for (const a of list) {
       const row = el('div', { class: 'item' });
-      const main = el('div', { class: 'item-main' });
+      const main = el('div', { class: 'item-main', style: 'cursor:pointer;', onclick: () => editAsset(a) });
       main.appendChild(el('div', { class: 'item-title' }, `${kindLabel[a.kind] || a.kind}：${yen(a.currentBalance)}`));
       const ret = a.kind === 'stock' || a.kind === 'crypto'
         ? `シナリオ:${a.scenario || 'neutral'}`
         : `利回り${((a.expectedReturn || 0) * 100).toFixed(1)}%`;
-      main.appendChild(el('div', { class: 'item-sub' }, `毎月${yen(a.monthlyContribution || 0)}  ${ret}`));
+      main.appendChild(el('div', { class: 'item-sub' }, `毎月${yen(a.monthlyContribution || 0)}  ${ret}  ✏️ タップで編集`));
       row.appendChild(main);
       row.appendChild(el('button', {
         class: 'btn small danger',
-        onclick: async () => { await dbDelete('assets', a.id); renderAssets(); }
+        onclick: async () => {
+          if (!confirm(`${kindLabel[a.kind]} を削除しますか？`)) return;
+          await dbDelete('assets', a.id); renderAssets(); renderHome();
+        }
       }, '削除'));
       box.appendChild(row);
     }
   }
 
-  async function addAsset() {
-    const kindLbl = prompt('口座種別を選択してください:\n  1: 新NISA(つみたて)\n  2: 新NISA(成長)\n  3: 特定口座\n  4: 個別株\n  5: 暗号資産\n  6: 現金・預金', '1');
+  async function addAsset() { return editAsset(null); }
+
+  async function editAsset(existing) {
     const kindMap = { '1': 'nisa_tsumitate', '2': 'nisa_growth', '3': 'tokutei', '4': 'stock', '5': 'crypto', '6': 'cash' };
+    const kindReverse = { nisa_tsumitate: '1', nisa_growth: '2', tokutei: '3', stock: '4', crypto: '5', cash: '6' };
+    const defaultKindNum = existing ? kindReverse[existing.kind] : '1';
+    const kindLbl = prompt('口座種別を選択:\n  1: 新NISA(つみたて)\n  2: 新NISA(成長)\n  3: 特定口座\n  4: 個別株\n  5: 暗号資産\n  6: 現金・預金', defaultKindNum);
+    if (kindLbl === null) return;
     const kind = kindMap[kindLbl];
     if (!kind) return;
-    const balStr = prompt('現在残高（円）', '0');
-    const monthlyStr = prompt('毎月積立額（円）', '50000');
-    let expectedReturn = 0.04;
-    let scenario = 'neutral';
+    const balStr = prompt('現在残高（円）', String(existing?.currentBalance ?? 0));
+    if (balStr === null) return;
+    const monthlyStr = prompt('毎月積立額（円）', String(existing?.monthlyContribution ?? 50000));
+    if (monthlyStr === null) return;
+    let expectedReturn = existing?.expectedReturn ?? 0.04;
+    let scenario = existing?.scenario ?? 'neutral';
     if (kind === 'stock' || kind === 'crypto') {
-      const sc = prompt('シナリオ: strong / neutral / weak', 'neutral');
+      const sc = prompt('シナリオ: strong / neutral / weak', scenario);
+      if (sc === null) return;
       scenario = ['strong', 'neutral', 'weak'].includes(sc) ? sc : 'neutral';
     } else if (kind === 'cash') {
       expectedReturn = 0.001;
     } else {
-      const retStr = prompt('期待年利回り（%）：S&P500=5, 全世界=4, バランス=3', '4');
+      const retStr = prompt('期待年利回り（%）：S&P500=5, 全世界=4, バランス=3', String((expectedReturn) * 100));
+      if (retStr === null) return;
       expectedReturn = (parseFloat(retStr) || 4) / 100;
     }
     await dbPut('assets', {
-      id: uid(),
+      id: existing?.id || uid(),
       kind,
       currentBalance: parseInt(balStr) || 0,
       monthlyContribution: parseInt(monthlyStr) || 0,
@@ -458,6 +501,7 @@
       scenario
     });
     renderAssets();
+    renderHome();
   }
 
   $('btn-add-asset').addEventListener('click', addAsset);
@@ -615,36 +659,45 @@
       box.appendChild(el('div', { class: 'empty' }, 'テンプレから選ぶか、自由追加してください'));
       return;
     }
-    for (const e of list) {
+    for (const ev of list) {
       const row = el('div', { class: 'item' });
-      const main = el('div', { class: 'item-main' });
-      main.appendChild(el('div', { class: 'item-title' }, `${e.label}：${yen(e.amount)}`));
-      const freq = e.everyYears > 0 ? `${e.startAge}歳から${e.everyYears}年ごと` : `${e.startAge}歳で単発`;
-      main.appendChild(el('div', { class: 'item-sub' }, freq));
+      const main = el('div', { class: 'item-main', style: 'cursor:pointer;', onclick: () => editEvent(ev) });
+      main.appendChild(el('div', { class: 'item-title' }, `${ev.label}：${yen(ev.amount)}`));
+      const freq = ev.everyYears > 0 ? `${ev.startAge}歳から${ev.everyYears}年ごと` : `${ev.startAge}歳で単発`;
+      main.appendChild(el('div', { class: 'item-sub' }, `${freq}  ✏️ タップで編集`));
       row.appendChild(main);
       row.appendChild(el('button', {
         class: 'btn small danger',
-        onclick: async () => { await dbDelete('events', e.id); renderEvents(); }
+        onclick: async () => {
+          if (!confirm(`${ev.label} を削除しますか？`)) return;
+          await dbDelete('events', ev.id); renderEvents(); renderHome();
+        }
       }, '削除'));
       box.appendChild(row);
     }
   }
 
-  async function addFreeEvent() {
-    const label = prompt('イベント名', '車買替');
-    if (!label) return;
-    const amountStr = prompt('金額（円）', '1000000');
-    const ageStr = prompt('開始年齢', '40');
-    const everyStr = prompt('繰り返し（年、0=単発）', '0');
+  async function addFreeEvent() { return editEvent(null); }
+
+  async function editEvent(existing) {
+    const label = prompt('イベント名', existing?.label || '車買替');
+    if (label === null) return;
+    const amountStr = prompt('金額（円）', String(existing?.amount ?? 1000000));
+    if (amountStr === null) return;
+    const ageStr = prompt('開始年齢', String(existing?.startAge ?? 40));
+    if (ageStr === null) return;
+    const everyStr = prompt('繰り返し（年、0=単発）', String(existing?.everyYears ?? 0));
+    if (everyStr === null) return;
     await dbPut('events', {
-      id: uid(),
-      label,
-      category: 'other',
+      id: existing?.id || uid(),
+      label: label || 'イベント',
+      category: existing?.category || 'other',
       amount: parseInt(amountStr) || 0,
       startAge: parseInt(ageStr) || 40,
       everyYears: parseInt(everyStr) || 0
     });
     renderEvents();
+    renderHome();
   }
 
   $('btn-add-event').addEventListener('click', addFreeEvent);
