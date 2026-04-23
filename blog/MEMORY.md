@@ -45,6 +45,21 @@
 
 ---
 
+## 記事台帳（復帰時の参照台帳）
+
+| # | ファイル | タイトル | WP投稿ID | 公開URL | 公開日 | 状態 |
+|---|---|---|---|---|---|---|
+| 1 | garmin-venu2s-review.md | Garmin Venu 2S を4年半使ったリアルレビュー | - | - | 2026/03/29 | ローカルのみ |
+| 2 | huawei-gt-runner2-review.md | 【10km実走データ】HUAWEI GT Runner 2 | 703 | - | 2026/04/21 | 下書き |
+
+> **台帳メンテナンスルール**
+> - 新規公開時に1行追加（必須）
+> - WP投稿ID・URL・公開日を記録
+> - ID・URL不明の場合は `-` でOK（`article_status.py` で後から検索可能）
+> - `python3 blog/scripts/article_status.py <キーワード>` で曖昧検索可能
+
+---
+
 ## 記事別の振り返り記録
 
 ### 記事1: Garmin Venu 2S レビュー

@@ -32,6 +32,46 @@
 python3 blog/scripts/image_resizer.py <画像パス or フォルダ>
 ```
 
+### 📚 曖昧復帰プロトコル（情報が不完全でも記事を特定できる）
+
+過去記事を編集したいが、ファイル名・WP投稿ID・正確なタイトルを覚えていないケースへの対応。
+
+#### 復帰の入口：ユーザーは「覚えている断片」だけ伝えればOK
+```
+「HUAWEIの記事を修正したい」
+「ガジェットレビューで最近書いたやつ」
+「ランナー向けのスマートウォッチの記事」
+```
+
+#### Claudeの動作フロー
+```
+1. article_status.py で曖昧検索
+   python3 blog/scripts/article_status.py <キーワード>
+
+2. 候補が1件 → 詳細取得 --detail で全情報表示
+3. 候補が複数 → ユーザーに選択肢提示
+4. 候補が0件 → 新規記事と判断、または別キーワードで再検索
+
+5. 特定したら articles/xxx.md を Read（画像は読まない）
+6. blog/MEMORY.md の記事台帳を参照（WP投稿ID・URL取得）
+7. SKILL.mdルールに従って編集
+```
+
+#### 必須ツール
+- `blog/scripts/article_status.py` — 曖昧検索・詳細表示・JSON出力対応
+- 使い方：
+  ```bash
+  python3 blog/scripts/article_status.py              # 全記事一覧
+  python3 blog/scripts/article_status.py huawei       # 部分一致検索
+  python3 blog/scripts/article_status.py ガーミン     # 日本語OK
+  python3 blog/scripts/article_status.py xxx --detail # 詳細+復帰コマンド
+  python3 blog/scripts/article_status.py xxx --json   # 他スクリプト連携
+  ```
+
+#### 記事台帳（MEMORY.md）のメンテナンス
+- 新規公開時：WP投稿ID・URL・公開日をblog/MEMORY.md「記事台帳」に追記
+- **ID忘れても**：article_status.pyで検索可能。最悪WordPress管理画面から手動確認
+
 ### 🚨 画像の会話蓄積を防ぐ運用ルール（2000pxエラー根本対策）
 
 **Readツールで画像ファイル（.png/.jpg）を直接読まない**。読むと会話履歴に埋め込まれ蓄積する。
