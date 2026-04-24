@@ -114,6 +114,34 @@ function cuisineBlock(c) {
   return map[c] || '- ジャンル指定なし。';
 }
 
+function buildMealSettingsBlock(p) {
+  const labels = { breakfast: '🌅 朝食', lunch: '🍱 昼食', dinner: '🌙 夕食' };
+  const diffLabel = {
+    easy: 'かんたん（工程最小・市販品/レンチン活用）',
+    normal: 'ふつう（定番の家庭料理レベル）',
+    elaborate: '本格（少し手間をかける・休日向け）',
+  };
+  const portionLabel = {
+    less: '少なめ・品数少（主菜のみ、または2品構成）',
+    normal: 'ふつう（主菜＋副菜1〜2品＋汁物）',
+    more: '多め・品数多（主菜＋副菜2品＋汁物、さらに翌日弁当用の作り置き考慮）',
+  };
+  const ms = p.mealSettings || {};
+  const lines = [];
+  ['breakfast', 'lunch', 'dinner'].forEach(mt => {
+    const s = ms[mt];
+    if (!s) return;
+    lines.push(`### ${labels[mt]}`);
+    lines.push(`- 調理時間: **${s.maxCookTimeMin}分以内** （厳守。超えたら無効）`);
+    lines.push(`- 難易度: ${diffLabel[s.difficulty] || s.difficulty}`);
+    lines.push(`- 量・品数: ${portionLabel[s.portion] || s.portion}`);
+    if (mt === 'breakfast') lines.push(`- 追加: 忙しい朝向けに電子レンジ or 焼くだけ・ワンプレート推奨。`);
+    if (mt === 'lunch') lines.push(`- 追加: 弁当にもできる／冷めても美味しいメニューが◎。`);
+    if (mt === 'dinner') lines.push(`- 追加: 家族団らんのメイン。栄養バランス重視。`);
+  });
+  return lines.join('\n') || '- （食事別設定なし）';
+}
+
 // ------------ プロンプト構築 ------------
 function buildPrompt(p) {
   const mealLabel = { breakfast: '朝食', lunch: '昼食', dinner: '夕食' };
@@ -277,6 +305,11 @@ ${p.days >= 7 ? `## 【1週間献立プランとしての構成・必須】
 - 連日で主菜の主食材（肉/魚）が被らないこと。
 - 各食事のカロリー・塩分バランスを家族の年齢に合わせて調整。子供向けに辛味は控えめに。
 - notes に「新規◯品＋お気に入り再登場◯品」のように内訳を書く。
+
+## 【スキーマ厳守】
+- days 配列は**日数分ちょうど**（${p.days}個）返す。1日の中に breakfast/lunch/dinner をすべて入れること。
+- 同じ dayIndex を重複させないこと。
+- 選ばれていない食事タイプ（例: 朝昼が未選択なら breakfast/lunch プロパティ）は、そのプロパティを**含めないこと**。
 
 では、献立をJSONで生成してください。`;
 }

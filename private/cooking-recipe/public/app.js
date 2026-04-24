@@ -690,7 +690,23 @@
     return map[c] || c;
   }
 
+  // Gemini が同じ dayIndex を別エントリで返す対策：dayIndex ごとにマージして詰める
+  function normalizeGeneratedDays(result) {
+    if (!result || !Array.isArray(result.days)) return result;
+    const map = new Map();
+    for (const d of result.days) {
+      const key = typeof d.dayIndex === 'number' ? d.dayIndex : map.size;
+      if (!map.has(key)) map.set(key, { dayIndex: key, meals: {} });
+      const m = map.get(key);
+      Object.assign(m.meals, d.meals || {});
+    }
+    result.days = [...map.values()].sort((a, b) => a.dayIndex - b.dayIndex);
+    return result;
+  }
+
   function renderGeneratedMenus(result) {
+    result = normalizeGeneratedDays(result);
+    state.currentGeneration = result;
     const container = $('#menu-list');
     container.innerHTML = '';
     const dateBase = new Date();
