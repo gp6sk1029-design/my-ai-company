@@ -329,6 +329,55 @@ input:focus, select:focus, textarea:focus {
 .diff-arrow { color: var(--text-muted); font-size: 11px; }
 .diff-before { color: var(--text-muted); font-variant-numeric: tabular-nums; }
 .diff-after { color: var(--accent-deep); font-weight: 700; font-variant-numeric: tabular-nums; }
+.diff-delta { margin-left: 8px; font-size: 11px; padding: 2px 6px; border-radius: 4px; }
+.diff-delta.up { color: #b91c1c; background: #fee2e2; }
+.diff-delta.down { color: #047857; background: #d1fae5; }
+
+/* OCRステータス */
+.ocr-status {
+  margin-top: 10px;
+  padding: 10px 12px;
+  background: var(--accent-soft);
+  border-radius: var(--radius);
+  font-size: 12px;
+  color: var(--accent-deep);
+  display: flex; align-items: center; gap: 8px;
+}
+.ocr-status.hidden { display: none; }
+.ocr-status .spinner {
+  width: 14px; height: 14px;
+  border: 2px solid var(--accent-soft);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* 一括棚卸しモーダル行 */
+.inventory-row {
+  display: grid; grid-template-columns: 1fr 1fr auto;
+  gap: 8px; align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px dashed var(--border);
+}
+.inventory-row .name { font-size: 13px; font-weight: 600; }
+.inventory-row .prev { font-size: 11px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.inventory-row input { width: 100%; }
+
+/* 家計簿マッピング行 */
+.expense-map-row {
+  display: grid; grid-template-columns: auto 1fr;
+  gap: 10px; align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px dashed var(--border);
+  font-size: 12px;
+}
+.expense-map-row .map-head { display: flex; align-items: center; gap: 6px; }
+.expense-map-row .cat { font-weight: 700; }
+.expense-map-row select { width: 100%; font-size: 12px; padding: 4px 6px; }
+.expense-map-row .values { display: flex; gap: 6px; align-items: baseline; flex-wrap: wrap; font-variant-numeric: tabular-nums; }
+
+.row-flex { display: flex; }
 
 /* スクロールヒント */
 .scroll-hint {

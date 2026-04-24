@@ -686,100 +686,153 @@
 
   $('btn-add-asset').addEventListener('click', addAsset);
 
-  // MF CSV インポート
-  const mfDrop = $('mf-drop');
-  const mfFile = $('mf-file');
-  let mfParsed = null;
+  // ============ 資産スクショOCR取込 ============
+  // MFは資産残高のCSVを出せないため、画面スクショから金額を抽出して反映する
+  const ASSET_KIND_LABEL = {
+    nisa_tsumitate: '新NISA(つみたて)',
+    nisa_growth: '新NISA(成長)',
+    tokutei: '特定口座',
+    stock: '個別株',
+    crypto: '暗号資産',
+    cash: '現金・預金'
+  };
 
-  mfDrop.addEventListener('click', () => mfFile.click());
-  mfDrop.addEventListener('dragover', (e) => { e.preventDefault(); mfDrop.classList.add('dragging'); });
-  mfDrop.addEventListener('dragleave', () => mfDrop.classList.remove('dragging'));
-  mfDrop.addEventListener('drop', (e) => {
-    e.preventDefault();
-    mfDrop.classList.remove('dragging');
-    if (e.dataTransfer.files[0]) handleMfFile(e.dataTransfer.files[0]);
-  });
-  mfFile.addEventListener('change', (e) => {
-    if (e.target.files[0]) handleMfFile(e.target.files[0]);
-  });
+  const ocrDrop = $('ocr-drop');
+  const ocrFile = $('ocr-file');
+  let ocrParsed = null;
+  let tesseractLoadPromise = null;
 
-  function parseMfCsv(text) {
-    // MF CSVは「資産推移」または「資産一覧」のフォーマット。代表列に対応
-    // 想定列: "名称", "種別", "残高", "評価額" のいずれか
-    const lines = text.split(/\r?\n/).filter(Boolean);
-    if (lines.length < 2) return [];
-    const header = lines[0].split(',').map(s => s.replace(/"/g, '').trim());
-    const nameIdx = header.findIndex(h => /名称|口座|銘柄|資産/.test(h));
-    const amountIdx = header.findIndex(h => /残高|評価額|時価|金額/.test(h));
-    const kindIdx = header.findIndex(h => /種別|カテゴリ|分類/.test(h));
-    if (nameIdx < 0 || amountIdx < 0) return [];
-
-    const results = [];
-    for (let i = 1; i < lines.length; i++) {
-      const cols = lines[i].split(',').map(s => s.replace(/"/g, '').trim());
-      const name = cols[nameIdx];
-      const amount = parseInt((cols[amountIdx] || '').replace(/[,円¥ ]/g, '')) || 0;
-      const kindRaw = (kindIdx >= 0 ? cols[kindIdx] : '').toLowerCase();
-      if (!name || amount === 0) continue;
-      let kind = 'cash';
-      if (/nisa|つみたて/i.test(name + kindRaw)) kind = 'nisa_tsumitate';
-      else if (/成長投資|成長枠/.test(name + kindRaw)) kind = 'nisa_growth';
-      else if (/特定|投信|投資信託/.test(name + kindRaw)) kind = 'tokutei';
-      else if (/株|個別|us_stock/i.test(name + kindRaw)) kind = 'stock';
-      else if (/暗号|crypto|bitcoin|btc|eth/i.test(name + kindRaw)) kind = 'crypto';
-      else if (/預金|普通|定期|貯金|現金/.test(name + kindRaw)) kind = 'cash';
-      results.push({ name, amount, kind });
-    }
-    return results;
+  function loadTesseract() {
+    if (window.Tesseract) return Promise.resolve(window.Tesseract);
+    if (tesseractLoadPromise) return tesseractLoadPromise;
+    tesseractLoadPromise = new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5.1.0/dist/tesseract.min.js';
+      s.onload = () => resolve(window.Tesseract);
+      s.onerror = reject;
+      document.head.appendChild(s);
+    });
+    return tesseractLoadPromise;
   }
 
-  async function handleMfFile(file) {
-    const text = await file.text();
-    const parsed = parseMfCsv(text);
-    if (parsed.length === 0) {
-      alert('CSVを解析できませんでした。列名「名称」「残高」または「評価額」を含めてください。');
-      return;
-    }
-    const existing = await dbAll('assets');
-    // 種別で集計して既存残高と比較
-    const summary = {};
-    for (const p of parsed) {
-      summary[p.kind] = (summary[p.kind] || 0) + p.amount;
-    }
-    mfParsed = { parsed, summary };
-
-    const box = $('mf-diff-list');
+  function setOcrStatus(msg, busy = false) {
+    const box = $('ocr-status');
     box.innerHTML = '';
-    const kindLabel = {
-      nisa_tsumitate: '新NISA(つみたて)',
-      nisa_growth: '新NISA(成長)',
-      tokutei: '特定口座',
-      stock: '個別株',
-      crypto: '暗号資産',
-      cash: '現金・預金'
-    };
+    if (busy) box.appendChild(el('div', { class: 'spinner' }));
+    box.appendChild(el('div', {}, msg));
+    box.classList.remove('hidden');
+  }
+  function clearOcrStatus() { $('ocr-status').classList.add('hidden'); }
+
+  ocrDrop.addEventListener('click', () => ocrFile.click());
+  ocrDrop.addEventListener('dragover', (e) => { e.preventDefault(); ocrDrop.classList.add('dragging'); });
+  ocrDrop.addEventListener('dragleave', () => ocrDrop.classList.remove('dragging'));
+  ocrDrop.addEventListener('drop', (e) => {
+    e.preventDefault();
+    ocrDrop.classList.remove('dragging');
+    if (e.dataTransfer.files[0]) handleAssetScreenshot(e.dataTransfer.files[0]);
+  });
+  ocrFile.addEventListener('change', (e) => {
+    if (e.target.files[0]) handleAssetScreenshot(e.target.files[0]);
+  });
+
+  async function handleAssetScreenshot(file) {
+    try {
+      setOcrStatus('Tesseract.js 読込中（初回のみ 約30MB）...', true);
+      const T = await loadTesseract();
+      setOcrStatus('画像解析中（日本語OCR）...', true);
+      const { data } = await T.recognize(file, 'jpn+eng', { logger: () => {} });
+      const text = data?.text || '';
+      const extracted = extractBalancesFromOcr(text);
+      if (extracted.length === 0) {
+        setOcrStatus('❌ 金額を抽出できませんでした。明るい場所で撮り直すか、一括棚卸しモードで手動入力してください');
+        return;
+      }
+      // 既存資産との比較プレビュー（kind単位でマージ）
+      const existing = await dbAll('assets');
+      const summary = {};
+      for (const e of extracted) {
+        summary[e.kind] = (summary[e.kind] || 0) + e.amount;
+      }
+      ocrParsed = { extracted, summary, rawText: text };
+      renderOcrDiff(existing, summary);
+      setOcrStatus(`✅ ${extracted.length}件の残高候補を検出しました`);
+      $('ocr-diff-area').classList.remove('hidden');
+    } catch (e) {
+      console.error(e);
+      setOcrStatus('❌ OCR処理に失敗しました：' + (e.message || e));
+    }
+  }
+
+  function renderOcrDiff(existing, summary) {
+    const box = $('ocr-diff-list');
+    box.innerHTML = '';
     for (const [kind, amount] of Object.entries(summary)) {
       const exi = existing.find(e => e.kind === kind);
-      const before = exi ? exi.currentBalance : 0;
+      const before = exi ? (exi.currentBalance || 0) : 0;
       const row = el('div', { class: 'diff-row' });
-      row.appendChild(el('div', {}, kindLabel[kind] || kind));
+      row.appendChild(el('div', {}, ASSET_KIND_LABEL[kind] || kind));
       const right = el('div', {});
       right.appendChild(el('span', { class: 'diff-before' }, yen(before)));
       right.appendChild(el('span', { class: 'diff-arrow' }, ' → '));
       right.appendChild(el('span', { class: 'diff-after' }, yen(amount)));
+      if (before > 0) {
+        const delta = amount - before;
+        const pct = Math.round((delta / before) * 100);
+        const up = delta >= 0;
+        right.appendChild(el('span', { class: 'diff-delta ' + (up ? 'up' : 'down') },
+          (up ? '+' : '') + yen(delta) + ` (${up ? '+' : ''}${pct}%)`));
+      }
       row.appendChild(right);
       box.appendChild(row);
     }
-    $('mf-diff-area').classList.remove('hidden');
   }
 
-  $('mf-apply').addEventListener('click', async () => {
-    if (!mfParsed) return;
+  // OCR結果から「金融機関名＋残高」を抽出
+  // expose to window for unit-testability
+  function extractBalancesFromOcr(text) {
+    const lines = text.split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+    const out = [];
+    // 「¥」「円」表記の金額を検出。OCRは空白混入や桁区切り誤検出があるので寛容に
+    const amountRe = /(?:¥|￥|\\)?\s*([0-9][0-9,\s]{2,})\s*円?/;
+    for (const line of lines) {
+      const m = line.match(amountRe);
+      if (!m) continue;
+      const rawNum = m[1].replace(/[,\s]/g, '');
+      const amount = parseInt(rawNum, 10);
+      if (!Number.isFinite(amount) || amount < 1000) continue; // ノイズ除去：1000円未満は捨てる
+      const kind = classifyAssetLine(line);
+      out.push({ name: line.replace(amountRe, '').trim() || kind, amount, kind });
+    }
+    return out;
+  }
+
+  function classifyAssetLine(line) {
+    const s = line.toLowerCase();
+    if (/つみたて|tsumitate/.test(s) || /積立nisa/.test(s)) return 'nisa_tsumitate';
+    if (/成長投資|成長枠|growth/.test(s)) return 'nisa_growth';
+    if (/nisa/.test(s)) return 'nisa_tsumitate'; // NISAとだけ書かれた場合はつみたて寄せ
+    if (/特定|投信|投資信託/.test(line)) return 'tokutei';
+    if (/株|証券|stock|sbi|楽天|マネックス/.test(s)) return 'stock';
+    if (/暗号|crypto|bitcoin|btc|eth|コイン/.test(s)) return 'crypto';
+    if (/預金|普通|定期|貯金|現金|銀行|ゆうちょ|ufj|みずほ|smbc/.test(s)) return 'cash';
+    return 'cash';
+  }
+
+  $('ocr-cancel').addEventListener('click', () => {
+    $('ocr-diff-area').classList.add('hidden');
+    clearOcrStatus();
+    ocrParsed = null;
+  });
+
+  $('ocr-apply').addEventListener('click', async () => {
+    if (!ocrParsed) return;
     const existing = await dbAll('assets');
-    for (const [kind, amount] of Object.entries(mfParsed.summary)) {
+    for (const [kind, amount] of Object.entries(ocrParsed.summary)) {
       const exi = existing.find(e => e.kind === kind);
       if (exi) {
         exi.currentBalance = amount;
+        exi.lastInventoryAt = nowSec();
         await dbPut('assets', exi);
       } else {
         await dbPut('assets', {
@@ -788,22 +841,312 @@
           currentBalance: amount,
           monthlyContribution: 0,
           expectedReturn: kind === 'cash' ? 0.001 : 0.04,
-          scenario: 'neutral'
+          scenario: 'neutral',
+          lastInventoryAt: nowSec()
         });
       }
     }
-    // スナップショット保存
+    // OCR履歴を保存（mfSnapshotsを転用）
     await dbPut('mfSnapshots', {
       id: uid(),
+      type: 'ocr',
       importedAt: nowSec(),
-      balances: mfParsed.parsed
+      extracted: ocrParsed.extracted,
+      rawText: ocrParsed.rawText.slice(0, 2000)
     });
-    $('mf-diff-area').classList.add('hidden');
-    mfParsed = null;
+    $('ocr-diff-area').classList.add('hidden');
+    clearOcrStatus();
+    ocrParsed = null;
     alert('残高を更新しました');
     renderAssets();
     renderHome();
   });
+
+  // ============ 一括棚卸しモード ============
+  $('btn-inventory-mode').addEventListener('click', openInventoryMode);
+
+  async function openInventoryMode() {
+    const list = await dbAll('assets');
+    if (list.length === 0) {
+      alert('まず口座を追加してください');
+      return;
+    }
+    const backdrop = $('modal-backdrop');
+    const body = $('modal-body');
+    $('modal-title').textContent = '🔄 一括棚卸し';
+    body.innerHTML = '';
+    body.appendChild(el('div', { class: 'card-hint', style: 'margin-bottom:10px;' },
+      'MFアプリで各口座の現在残高を確認して入力してください。前回値との差分を自動表示します'));
+
+    const inputs = {};
+    for (const a of list) {
+      const row = el('div', { class: 'inventory-row' });
+      const nameCell = el('div');
+      nameCell.appendChild(el('div', { class: 'name' }, ASSET_KIND_LABEL[a.kind] || a.kind));
+      nameCell.appendChild(el('div', { class: 'prev' }, '前回 ' + yen(a.currentBalance || 0)));
+      row.appendChild(nameCell);
+
+      const input = el('input', { type: 'number', inputmode: 'numeric', value: String(a.currentBalance || 0) });
+      row.appendChild(input);
+
+      const deltaEl = el('div', { class: 'diff-delta' }, '±0');
+      const onInput = () => {
+        const next = parseInt(input.value, 10) || 0;
+        const before = a.currentBalance || 0;
+        const delta = next - before;
+        deltaEl.className = 'diff-delta ' + (delta > 0 ? 'up' : delta < 0 ? 'down' : '');
+        const pct = before > 0 ? Math.round((delta / before) * 100) : 0;
+        deltaEl.textContent = (delta >= 0 ? '+' : '') + yen(delta) + (before > 0 ? ` (${delta >= 0 ? '+' : ''}${pct}%)` : '');
+      };
+      input.addEventListener('input', onInput);
+      row.appendChild(deltaEl);
+      body.appendChild(row);
+      inputs[a.id] = input;
+    }
+
+    const cleanup = () => {
+      backdrop.classList.add('hidden');
+      $('modal-save').onclick = null;
+      $('modal-cancel').onclick = null;
+      $('modal-close').onclick = null;
+      backdrop.onclick = null;
+    };
+    $('modal-save').onclick = async () => {
+      for (const a of list) {
+        const v = parseInt(inputs[a.id].value, 10);
+        if (!Number.isFinite(v)) continue;
+        a.currentBalance = v;
+        a.lastInventoryAt = nowSec();
+        await dbPut('assets', a);
+      }
+      cleanup();
+      renderAssets();
+      renderHome();
+    };
+    $('modal-cancel').onclick = cleanup;
+    $('modal-close').onclick = cleanup;
+    backdrop.onclick = (e) => { if (e.target === backdrop) cleanup(); };
+    backdrop.classList.remove('hidden');
+  }
+
+  // ============ 家計簿CSV取込（支出実績化） ============
+  const kakeiboDrop = $('kakeibo-drop');
+  const kakeiboFile = $('kakeibo-file');
+  let kakeiboParsed = null;
+
+  kakeiboDrop.addEventListener('click', () => kakeiboFile.click());
+  kakeiboDrop.addEventListener('dragover', (e) => { e.preventDefault(); kakeiboDrop.classList.add('dragging'); });
+  kakeiboDrop.addEventListener('dragleave', () => kakeiboDrop.classList.remove('dragging'));
+  kakeiboDrop.addEventListener('drop', (e) => {
+    e.preventDefault();
+    kakeiboDrop.classList.remove('dragging');
+    if (e.dataTransfer.files[0]) handleKakeiboCsv(e.dataTransfer.files[0]);
+  });
+  kakeiboFile.addEventListener('change', (e) => {
+    if (e.target.files[0]) handleKakeiboCsv(e.target.files[0]);
+  });
+
+  async function handleKakeiboCsv(file) {
+    // MFはShift_JISで書き出すことが多いので両方試す
+    let text;
+    try {
+      const buf = await file.arrayBuffer();
+      text = new TextDecoder('shift_jis').decode(buf);
+      if (!/計算対象|日付|金額/.test(text)) {
+        text = new TextDecoder('utf-8').decode(buf);
+      }
+    } catch (_) {
+      text = await file.text();
+    }
+    const rows = parseKakeiboCsv(text);
+    if (rows.length === 0) {
+      alert('家計簿CSVを解析できませんでした。MFアプリ→家計簿→CSV書出でダウンロードしたファイルを投入してください。\n想定列：計算対象,日付,内容,金額(円),保有金融機関,大項目,中項目,メモ,振替,ID');
+      return;
+    }
+    const summary = summarizeKakeibo(rows);
+    if (summary.categories.length === 0) {
+      alert('集計対象（計算対象=1／振替=0／支出）の行がありませんでした');
+      return;
+    }
+    const existingExpenses = await dbAll('expense');
+    kakeiboParsed = { summary, existingExpenses };
+    renderKakeiboMapping();
+    $('kakeibo-diff-area').classList.remove('hidden');
+  }
+
+  // MF家計簿CSVパーサー
+  // 想定列: 計算対象,日付,内容,金額(円),保有金融機関,大項目,中項目,メモ,振替,ID
+  function parseKakeiboCsv(text) {
+    const lines = text.split(/\r?\n/).filter(Boolean);
+    if (lines.length < 2) return [];
+    const header = splitCsvLine(lines[0]);
+    const idx = {
+      flag: header.findIndex(h => /計算対象/.test(h)),
+      date: header.findIndex(h => /日付/.test(h)),
+      content: header.findIndex(h => /内容/.test(h)),
+      amount: header.findIndex(h => /金額/.test(h)),
+      bank: header.findIndex(h => /保有金融機関|金融機関/.test(h)),
+      major: header.findIndex(h => /大項目/.test(h)),
+      minor: header.findIndex(h => /中項目/.test(h)),
+      transfer: header.findIndex(h => /振替/.test(h))
+    };
+    if (idx.date < 0 || idx.amount < 0 || idx.major < 0) return [];
+    const rows = [];
+    for (let i = 1; i < lines.length; i++) {
+      const cols = splitCsvLine(lines[i]);
+      if (cols.length < 2) continue;
+      const amountStr = (cols[idx.amount] || '').replace(/[,円¥￥\s]/g, '');
+      const amount = parseInt(amountStr, 10);
+      if (!Number.isFinite(amount)) continue;
+      rows.push({
+        flag: (cols[idx.flag] || '').trim(),
+        date: (cols[idx.date] || '').trim(),
+        content: (cols[idx.content] || '').trim(),
+        amount,
+        bank: (cols[idx.bank] || '').trim(),
+        major: (cols[idx.major] || '').trim(),
+        minor: (cols[idx.minor] || '').trim(),
+        transfer: (cols[idx.transfer] || '').trim()
+      });
+    }
+    return rows;
+  }
+
+  // 単純なCSVスプリット（ダブルクォート内のカンマに対応）
+  function splitCsvLine(line) {
+    const out = [];
+    let cur = '';
+    let inQ = false;
+    for (let i = 0; i < line.length; i++) {
+      const c = line[i];
+      if (c === '"') { inQ = !inQ; continue; }
+      if (c === ',' && !inQ) { out.push(cur); cur = ''; continue; }
+      cur += c;
+    }
+    out.push(cur);
+    return out.map(s => s.trim());
+  }
+
+  // 計算対象=1／振替=0／支出のみ残し、大項目×月で集計→直近3ヶ月平均
+  function summarizeKakeibo(rows) {
+    const filtered = rows.filter(r =>
+      r.flag === '1' && r.transfer === '0' && r.amount < 0 && r.major
+    );
+    // 年月キー → 大項目 → 合計
+    const byMonth = {};
+    for (const r of filtered) {
+      const ym = (r.date || '').replace(/[\/\-]/g, '/').slice(0, 7); // YYYY/MM
+      if (!ym) continue;
+      if (!byMonth[ym]) byMonth[ym] = {};
+      byMonth[ym][r.major] = (byMonth[ym][r.major] || 0) + Math.abs(r.amount);
+    }
+    const months = Object.keys(byMonth).sort().slice(-3); // 直近3ヶ月
+    const catTotals = {};
+    for (const ym of months) {
+      for (const [cat, v] of Object.entries(byMonth[ym])) {
+        catTotals[cat] = (catTotals[cat] || 0) + v;
+      }
+    }
+    const n = Math.max(months.length, 1);
+    const categories = Object.entries(catTotals)
+      .map(([cat, total]) => ({ major: cat, monthlyAvg: Math.round(total / n) }))
+      .sort((a, b) => b.monthlyAvg - a.monthlyAvg);
+    return { categories, months, rowCount: filtered.length };
+  }
+
+  function renderKakeiboMapping() {
+    if (!kakeiboParsed) return;
+    const { summary, existingExpenses } = kakeiboParsed;
+    const box = $('kakeibo-diff-list');
+    box.innerHTML = '';
+    box.appendChild(el('div', { class: 'card-hint', style: 'margin-bottom:6px;' },
+      `直近${summary.months.length}ヶ月 / 有効${summary.rowCount}行 を集計`));
+    for (const c of summary.categories) {
+      const row = el('div', { class: 'expense-map-row' });
+      const head = el('div', { class: 'map-head' });
+      const chk = el('input', { type: 'checkbox' });
+      chk.checked = true;
+      head.appendChild(chk);
+      row.appendChild(head);
+
+      const right = el('div');
+      const title = el('div', {});
+      title.appendChild(el('span', { class: 'cat' }, c.major));
+      title.appendChild(el('span', {}, ' → '));
+      const sel = el('select');
+      sel.appendChild(el('option', { value: '__new__' }, `＋新規追加：${c.major}`));
+      for (const e of existingExpenses) {
+        sel.appendChild(el('option', { value: e.id }, `既存：${e.category}（${yen(e.monthlyAmount)}/月）`));
+      }
+      // 類似度マッチ：大項目とexpense.categoryの前方一致で候補選択
+      const match = existingExpenses.find(e => e.category && (e.category.includes(c.major) || c.major.includes(e.category)));
+      if (match) sel.value = match.id;
+      title.appendChild(sel);
+      right.appendChild(title);
+
+      const vals = el('div', { class: 'values' });
+      const beforeTxt = match ? `既存 ${yen(match.monthlyAmount)}/月` : '新規';
+      vals.appendChild(el('span', { class: 'diff-before' }, beforeTxt));
+      vals.appendChild(el('span', { class: 'diff-arrow' }, '→'));
+      vals.appendChild(el('span', { class: 'diff-after' }, `実績平均 ${yen(c.monthlyAvg)}/月`));
+      if (match) {
+        const delta = c.monthlyAvg - match.monthlyAmount;
+        const pct = match.monthlyAmount > 0 ? Math.round((delta / match.monthlyAmount) * 100) : 0;
+        vals.appendChild(el('span', { class: 'diff-delta ' + (delta >= 0 ? 'up' : 'down') },
+          (delta >= 0 ? '+' : '') + yen(delta) + (match.monthlyAmount > 0 ? ` (${delta >= 0 ? '+' : ''}${pct}%)` : '')));
+      }
+      right.appendChild(vals);
+      row.appendChild(right);
+      box.appendChild(row);
+
+      c._checkbox = chk;
+      c._select = sel;
+    }
+  }
+
+  $('kakeibo-cancel').addEventListener('click', () => {
+    $('kakeibo-diff-area').classList.add('hidden');
+    kakeiboParsed = null;
+  });
+
+  $('kakeibo-apply').addEventListener('click', async () => {
+    if (!kakeiboParsed) return;
+    const { summary, existingExpenses } = kakeiboParsed;
+    let updated = 0;
+    let created = 0;
+    for (const c of summary.categories) {
+      if (!c._checkbox.checked) continue;
+      const targetId = c._select.value;
+      if (targetId === '__new__') {
+        await dbPut('expense', {
+          id: uid(),
+          category: c.major,
+          monthlyAmount: c.monthlyAvg,
+          fromAge: 35,
+          toAge: 95,
+          inflationRate: 0.01
+        });
+        created++;
+      } else {
+        const exi = existingExpenses.find(e => e.id === targetId);
+        if (!exi) continue;
+        exi.monthlyAmount = c.monthlyAvg;
+        await dbPut('expense', exi);
+        updated++;
+      }
+    }
+    $('kakeibo-diff-area').classList.add('hidden');
+    kakeiboParsed = null;
+    alert(`支出項目を更新しました（更新${updated}件／新規${created}件）`);
+    renderExpenses();
+    renderHome();
+  });
+
+  // 単体テスト用に関数をwindowに露出
+  window.LIFEPLAN_MF = {
+    parseKakeiboCsv, summarizeKakeibo,
+    extractBalancesFromOcr, classifyAssetLine
+  };
 
   // ============ イベントタブ ============
   function renderEventTemplates() {

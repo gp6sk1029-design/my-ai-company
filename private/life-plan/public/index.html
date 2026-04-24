@@ -11,6 +11,8 @@
   <link rel="manifest" href="/manifest.webmanifest">
   <link rel="stylesheet" href="/styles.css">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <!-- Tesseract.js は OCR 実行直前に app.js から動的読み込み（初回のみ） -->
+
 </head>
 <body>
   <header class="app-header">
@@ -141,6 +143,25 @@
       <div id="list-expenses"></div>
       <div class="card-hint">基本生活費・住居費・保険・通信などを月額で登録。インフレ率を設定すると複利で上昇</div>
     </div>
+
+    <div class="card">
+      <div class="card-title">📥 MF家計簿CSV取込（支出を実績化）</div>
+      <div class="drop-zone" id="kakeibo-drop">
+        <div class="icon">📥</div>
+        <div class="label">MF家計簿CSVをドロップ／タップして選択</div>
+        <div class="sub">MFアプリ → 家計簿 → CSV書出 でダウンロード</div>
+        <input type="file" id="kakeibo-file" accept=".csv,text/csv" class="hidden">
+      </div>
+      <div id="kakeibo-diff-area" class="hidden" style="margin-top:10px;">
+        <div class="card-title" style="margin-top:10px;">マッピング＆プレビュー</div>
+        <div class="card-hint">対象行：計算対象=1／振替=0／支出（金額&lt;0）のみ集計 / 直近3ヶ月平均</div>
+        <div id="kakeibo-diff-list"></div>
+        <div class="row-flex" style="gap:8px; margin-top:10px;">
+          <button class="btn ghost" id="kakeibo-cancel" style="flex:1;">キャンセル</button>
+          <button class="btn" id="kakeibo-apply" style="flex:2;">選択した項目を実績値で更新</button>
+        </div>
+      </div>
+    </div>
   </main>
 
   <!-- ========== 教育費 ========== -->
@@ -174,18 +195,26 @@
     </div>
 
     <div class="card">
-      <div class="card-title">マネーフォワードCSV取込</div>
-      <div class="drop-zone" id="mf-drop">
-        <div class="icon">📥</div>
-        <div class="label">MF資産CSVをドロップ または タップして選択</div>
-        <div class="sub">取り込み前に差分プレビューで確認</div>
-        <input type="file" id="mf-file" accept=".csv,text/csv" class="hidden">
+      <div class="card-title">
+        📸 MF資産スクショで残高更新
+        <button class="btn small ghost" id="btn-inventory-mode">🔄 一括棚卸し</button>
       </div>
-      <div id="mf-diff-area" class="hidden" style="margin-top:10px;">
-        <div class="card-title" style="margin-top:10px;">取込プレビュー</div>
-        <div id="mf-diff-list"></div>
-        <button class="btn block" id="mf-apply" style="margin-top:10px;">この内容で残高を更新</button>
+      <div class="drop-zone" id="ocr-drop">
+        <div class="icon">📸</div>
+        <div class="label">MFアプリの資産画面スクショをドロップ／タップして選択</div>
+        <div class="sub">端末内でOCR処理（画像は外部送信しません）</div>
+        <input type="file" id="ocr-file" accept="image/*" class="hidden">
       </div>
+      <div id="ocr-status" class="ocr-status hidden"></div>
+      <div id="ocr-diff-area" class="hidden" style="margin-top:10px;">
+        <div class="card-title" style="margin-top:10px;">抽出結果プレビュー</div>
+        <div id="ocr-diff-list"></div>
+        <div class="row-flex" style="gap:8px; margin-top:10px;">
+          <button class="btn ghost" id="ocr-cancel" style="flex:1;">キャンセル</button>
+          <button class="btn" id="ocr-apply" style="flex:2;">この内容で残高を更新</button>
+        </div>
+      </div>
+      <div class="card-hint">MFは資産残高のCSVを出力できないため、画面スクショ→OCRで読み取ります。MF家計簿CSVは「収支」タブで取込できます</div>
     </div>
 
     <div class="card">
