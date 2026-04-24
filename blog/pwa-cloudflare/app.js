@@ -11,6 +11,12 @@
   const articleSelect = $('article-select');
   const newArticleInput = $('new-article-title');
   const useNewArticleBtn = $('use-new-article');
+  const articleTypeSelect = $('article-type-select');
+  const addArticleTypeBtn = $('add-article-type');
+  const removeArticleTypeBtn = $('remove-article-type');
+  const memoList = $('memo-list');
+  const addMemoBtn = $('add-memo');
+  const memoSummaryStatus = $('memo-summary-status');
   const liveCamera = $('live-camera');
   const pickerGrid = $('picker-grid');
   const cameraPreview = $('camera-preview');
@@ -254,7 +260,7 @@
   // ─── アップロード ─────────────────────
   async function uploadAll() {
     const articleTitle = getSelectedArticleTitle();
-    const articleFolderId = getSelectedArticleFolderId();
+    let articleFolderId = getSelectedArticleFolderId();
     if (!articleTitle && !articleFolderId) {
       showToast('記事を選んでください', 'error');
       return;
@@ -262,6 +268,25 @@
     const items = await queueAll();
     if (items.length === 0) return;
     uploadAllBtn.disabled = true;
+
+    // 先に PROMPT.md を保存（フォルダが新規ならここで作成される）
+    let promptSaved = false;
+    if (hasPromptData()) {
+      try {
+        setStatus('📝 記事メモを保存中…');
+        const pr = await savePromptToDrive(articleTitle, articleFolderId);
+        if (pr.ok && pr.articleFolderId) {
+          articleFolderId = pr.articleFolderId;
+          promptSaved = true;
+        } else if (!pr.ok) {
+          showToast('メモ保存失敗（続行）: ' + (pr.message || ''), 'error');
+        }
+      } catch (e) {
+        console.error('savePrompt error:', e);
+        showToast('メモ保存失敗（続行）: ' + (e.message || e), 'error');
+      }
+    }
+
     let success = 0, skipped = 0, failed = 0;
     for (const item of items) {
       setStatus('転送中 ' + (success + skipped + failed + 1) + '/' + items.length);
@@ -280,10 +305,14 @@
     }
     await renderQueue();
     uploadAllBtn.disabled = false;
-    const msg = '✅成功 ' + success + ' / スキップ ' + skipped + ' / 失敗 ' + failed;
+    let msg = '✅成功 ' + success + ' / スキップ ' + skipped + ' / 失敗 ' + failed;
+    if (promptSaved) msg = '📝メモ保存 / ' + msg;
     setStatus(msg);
     showToast(msg, failed > 0 ? 'error' : 'success');
     navigator.vibrate && navigator.vibrate([50, 30, 50]);
+
+    // 成功時はメモをクリア（次の記事用）
+    if (failed === 0 && promptSaved) clearMemoState();
   }
 
   async function uploadSmall(item, articleTitle, articleFolderId) {
@@ -385,6 +414,178 @@
     newArticleInput.value = '';
   });
 
+  // ─── 記事作成メモ（AIへの指示） ─────────────────────
+  const LS_TYPES_KEY = 'kiji-meshi:article-types';
+  const LS_MEMO_STATE_KEY = 'kiji-meshi:memo-state';
+  const DEFAULT_TYPES = ['レビュー', '商品比較', 'ツール紹介'];
+  let articleTypes = loadArticleTypes();
+  let memos = []; // string[]
+
+  function loadArticleTypes() {
+    try {
+      const raw = localStorage.getItem(LS_TYPES_KEY);
+      if (!raw) return DEFAULT_TYPES.slice();
+      const arr = JSON.parse(raw);
+      if (Array.isArray(arr) && arr.length > 0) return arr;
+    } catch (_) {}
+    return DEFAULT_TYPES.slice();
+  }
+  function saveArticleTypes() {
+    localStorage.setItem(LS_TYPES_KEY, JSON.stringify(articleTypes));
+  }
+  function renderArticleTypes() {
+    const current = articleTypeSelect.value;
+    articleTypeSelect.innerHTML = '<option value="">-- 指定なし（従来通り） --</option>';
+    for (const t of articleTypes) {
+      const opt = document.createElement('option');
+      opt.value = t; opt.textContent = t;
+      articleTypeSelect.appendChild(opt);
+    }
+    if (current && articleTypes.includes(current)) articleTypeSelect.value = current;
+    updateMemoStatus();
+  }
+
+  function renderMemos() {
+    memoList.innerHTML = '';
+    memos.forEach((text, i) => {
+      const row = document.createElement('div');
+      row.className = 'memo-item';
+      row.innerHTML =
+        '<div class="memo-item-num">' + (i + 1) + '</div>' +
+        '<textarea class="memo-item-text" rows="1" placeholder="例: バッテリー持続が競合比で1.5倍という点を推したい"></textarea>' +
+        '<div class="memo-item-actions">' +
+          '<button class="memo-item-btn up" type="button" aria-label="上へ"' + (i === 0 ? ' disabled' : '') + '>↑</button>' +
+          '<button class="memo-item-btn down" type="button" aria-label="下へ"' + (i === memos.length - 1 ? ' disabled' : '') + '>↓</button>' +
+          '<button class="memo-item-btn delete" type="button" aria-label="削除">✕</button>' +
+        '</div>';
+      const ta = row.querySelector('textarea');
+      ta.value = text;
+      ta.addEventListener('input', () => {
+        memos[i] = ta.value;
+        persistMemoState();
+        updateMemoStatus();
+      });
+      row.querySelector('.up').addEventListener('click', () => {
+        if (i === 0) return;
+        [memos[i - 1], memos[i]] = [memos[i], memos[i - 1]];
+        persistMemoState();
+        renderMemos();
+      });
+      row.querySelector('.down').addEventListener('click', () => {
+        if (i === memos.length - 1) return;
+        [memos[i], memos[i + 1]] = [memos[i + 1], memos[i]];
+        persistMemoState();
+        renderMemos();
+      });
+      row.querySelector('.delete').addEventListener('click', () => {
+        memos.splice(i, 1);
+        persistMemoState();
+        renderMemos();
+      });
+      memoList.appendChild(row);
+    });
+    updateMemoStatus();
+  }
+
+  function persistMemoState() {
+    const state = {
+      articleType: articleTypeSelect.value || '',
+      memos: memos,
+    };
+    localStorage.setItem(LS_MEMO_STATE_KEY, JSON.stringify(state));
+  }
+  function loadMemoState() {
+    try {
+      const raw = localStorage.getItem(LS_MEMO_STATE_KEY);
+      if (!raw) return;
+      const state = JSON.parse(raw);
+      if (state && Array.isArray(state.memos)) memos = state.memos;
+      if (state && state.articleType) articleTypeSelect.value = state.articleType;
+    } catch (_) {}
+  }
+  function clearMemoState() {
+    memos = [];
+    articleTypeSelect.value = '';
+    localStorage.removeItem(LS_MEMO_STATE_KEY);
+    renderMemos();
+  }
+  function getValidMemos() {
+    return memos.map((m) => (m || '').trim()).filter((m) => m.length > 0);
+  }
+  function hasPromptData() {
+    return !!articleTypeSelect.value || getValidMemos().length > 0;
+  }
+  function updateMemoStatus() {
+    const valid = getValidMemos().length;
+    const type = articleTypeSelect.value;
+    if (!type && valid === 0) {
+      memoSummaryStatus.textContent = '未設定';
+      memoSummaryStatus.classList.remove('active');
+    } else {
+      const parts = [];
+      if (type) parts.push(type);
+      if (valid > 0) parts.push('メモ' + valid + '件');
+      memoSummaryStatus.textContent = parts.join(' / ');
+      memoSummaryStatus.classList.add('active');
+    }
+  }
+
+  addArticleTypeBtn.addEventListener('click', () => {
+    const name = (prompt('追加する記事タイプ名を入力してください（例: 裏話、実験レポート）') || '').trim();
+    if (!name) return;
+    if (articleTypes.includes(name)) { showToast('既に存在します: ' + name, 'error'); return; }
+    articleTypes.push(name);
+    saveArticleTypes();
+    renderArticleTypes();
+    articleTypeSelect.value = name;
+    persistMemoState();
+    showToast('追加: ' + name, 'success');
+  });
+  removeArticleTypeBtn.addEventListener('click', () => {
+    const current = articleTypeSelect.value;
+    if (!current) { showToast('削除するタイプを選んでください', 'error'); return; }
+    if (!confirm('「' + current + '」をタイプ一覧から削除しますか？')) return;
+    articleTypes = articleTypes.filter((t) => t !== current);
+    if (articleTypes.length === 0) articleTypes = DEFAULT_TYPES.slice();
+    saveArticleTypes();
+    articleTypeSelect.value = '';
+    renderArticleTypes();
+    persistMemoState();
+  });
+  articleTypeSelect.addEventListener('change', () => {
+    persistMemoState();
+    updateMemoStatus();
+  });
+  addMemoBtn.addEventListener('click', () => {
+    memos.push('');
+    persistMemoState();
+    renderMemos();
+    const last = memoList.querySelector('.memo-item:last-child textarea');
+    if (last) last.focus();
+  });
+
+  // ─── PROMPT.md 保存（GASへ送信） ─────────────────────
+  async function savePromptToDrive(articleTitle, articleFolderId) {
+    const articleType = articleTypeSelect.value || '';
+    const validMemos = getValidMemos();
+    if (!articleType && validMemos.length === 0) return { ok: true, skipped: true };
+
+    const body = new URLSearchParams({
+      token: TOKEN,
+      action: 'savePrompt',
+      articleTitle: articleTitle || '',
+      articleFolderId: articleFolderId || '',
+      articleType: articleType,
+      memosJson: JSON.stringify(validMemos),
+    });
+    const res = await fetch(GAS_URL, {
+      method: 'POST',
+      body: body.toString(),
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
+    });
+    return res.json();
+  }
+
   // ─── モードタブ切替 ─────────────────────
   document.querySelectorAll('.mode-tab').forEach((btn) => {
     btn.addEventListener('click', async () => {
@@ -444,6 +645,9 @@
 
   // ─── 初期化 ─────────────────────
   (async () => {
+    renderArticleTypes();
+    loadMemoState();
+    renderMemos();
     await renderQueue();
     await loadArticleList();
     // 初期はライブカメラ

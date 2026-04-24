@@ -46,6 +46,37 @@
     </div>
   </details>
 
+  <!-- 記事作成メモ（AIへの指示／任意） -->
+  <details class="memo-details" id="memo-details">
+    <summary>
+      <span class="memo-summary-label">📝 記事作成メモ（AIへの指示）</span>
+      <span class="memo-summary-status" id="memo-summary-status">未設定</span>
+    </summary>
+    <div class="memo-body">
+      <div class="memo-row">
+        <label class="memo-label">記事タイプ</label>
+        <div class="memo-type-row">
+          <div class="memo-type-wrap">
+            <select id="article-type-select" class="memo-type-select">
+              <option value="">-- 指定なし（従来通り） --</option>
+            </select>
+            <span class="article-bar-arrow">⌄</span>
+          </div>
+          <button id="add-article-type" type="button" class="btn-icon-plus" aria-label="タイプを追加">＋</button>
+          <button id="remove-article-type" type="button" class="btn-icon-minus" aria-label="選択中のタイプを削除" title="選択中のタイプを削除">🗑</button>
+        </div>
+      </div>
+
+      <div class="memo-row">
+        <label class="memo-label">読者に伝えたいポイント<span class="memo-label-sub">（上から優先度順）</span></label>
+        <div id="memo-list" class="memo-list"></div>
+        <button id="add-memo" type="button" class="btn-add-memo">＋ メモを追加</button>
+      </div>
+
+      <p class="memo-hint">※記事作成時、このメモが転送先フォルダに <code>PROMPT.md</code> として保存され、AIが参照します。空のままなら従来方式で執筆します。</p>
+    </div>
+  </details>
+
   <!-- 撮影モード切替 -->
   <div class="mode-tabs">
     <button class="mode-tab active" data-mode="live" type="button">📷 カメラ</button>

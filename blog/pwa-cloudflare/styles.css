@@ -109,6 +109,131 @@ body {
   font-size: 17px; font-family: inherit; outline: none;
 }
 
+/* 記事作成メモ（AIへの指示） */
+.memo-details {
+  margin-bottom: 20px;
+  background: #fff;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+.memo-details[open] { box-shadow: var(--shadow-md); }
+.memo-details summary {
+  list-style: none; cursor: pointer;
+  padding: 14px 18px;
+  display: flex; align-items: center; justify-content: space-between;
+  user-select: none;
+}
+.memo-details summary::-webkit-details-marker { display: none; }
+.memo-summary-label { font-size: 15px; font-weight: 700; color: var(--text); }
+.memo-summary-status {
+  font-size: 12px; font-weight: 700;
+  padding: 4px 10px; border-radius: 999px;
+  background: var(--bg-elevated); color: var(--text-muted);
+}
+.memo-summary-status.active { background: #e7f7ef; color: #10b981; }
+.memo-body {
+  padding: 6px 18px 18px;
+  display: flex; flex-direction: column; gap: 18px;
+}
+.memo-row { display: flex; flex-direction: column; gap: 10px; }
+.memo-label {
+  font-size: 13px; font-weight: 700; color: var(--text-secondary);
+  display: flex; align-items: center; gap: 6px;
+}
+.memo-label-sub { font-weight: 500; font-size: 11px; color: var(--text-muted); }
+.memo-type-row { display: flex; gap: 8px; align-items: stretch; }
+.memo-type-wrap {
+  flex: 1; position: relative;
+  background: var(--bg-elevated); border-radius: 12px;
+  display: flex; align-items: center;
+}
+.memo-type-select {
+  flex: 1; border: none; background: transparent; color: var(--text);
+  font-size: 15px; font-family: inherit; font-weight: 500;
+  padding: 12px 30px 12px 14px;
+  appearance: none; -webkit-appearance: none; outline: none;
+}
+.memo-type-wrap .article-bar-arrow {
+  position: absolute; right: 12px; pointer-events: none;
+  color: var(--text-muted); font-size: 18px;
+}
+.btn-icon-plus, .btn-icon-minus {
+  width: 44px; height: 44px; border-radius: 12px;
+  border: none; cursor: pointer; font-family: inherit;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px; font-weight: 700;
+  flex-shrink: 0;
+}
+.btn-icon-plus {
+  background: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%);
+  color: #fff;
+}
+.btn-icon-plus:active { opacity: 0.85; }
+.btn-icon-minus {
+  background: var(--bg-elevated); color: var(--text-muted);
+  font-size: 15px;
+}
+.btn-icon-minus:active { background: #fee2e2; color: #ef4444; }
+
+.memo-list { display: flex; flex-direction: column; gap: 8px; }
+.memo-item {
+  display: flex; align-items: flex-start; gap: 8px;
+  background: var(--bg-elevated); border-radius: 12px;
+  padding: 10px 10px 10px 0;
+}
+.memo-item-num {
+  width: 32px; flex-shrink: 0;
+  text-align: center;
+  font-size: 15px; font-weight: 800; color: var(--accent);
+  padding-top: 12px;
+}
+.memo-item-text {
+  flex: 1;
+  background: #fff; color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 15px; font-family: inherit;
+  resize: vertical; min-height: 44px;
+  outline: none;
+}
+.memo-item-text:focus { border-color: var(--accent); }
+.memo-item-actions {
+  display: flex; flex-direction: column; gap: 4px;
+  flex-shrink: 0; padding-top: 4px;
+}
+.memo-item-btn {
+  width: 30px; height: 30px; border-radius: 8px;
+  border: none; background: #fff; color: var(--text-muted);
+  cursor: pointer; font-size: 13px; font-family: inherit;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+.memo-item-btn:active { background: var(--bg-elevated); }
+.memo-item-btn.delete:active { background: #fee2e2; color: #ef4444; }
+.memo-item-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+.btn-add-memo {
+  align-self: flex-start;
+  padding: 10px 18px; border-radius: 12px;
+  background: transparent; color: var(--accent);
+  border: 1.5px dashed var(--border-strong);
+  font-size: 14px; font-weight: 700; font-family: inherit;
+  cursor: pointer;
+}
+.btn-add-memo:active { background: var(--bg-elevated); }
+
+.memo-hint {
+  font-size: 12px; color: var(--text-muted);
+  line-height: 1.5;
+}
+.memo-hint code {
+  background: var(--bg-elevated);
+  padding: 1px 6px; border-radius: 4px;
+  font-size: 11px; font-family: 'SF Mono', monospace;
+}
+
 /* モードタブ */
 .mode-tabs {
   display: flex; gap: 6px; background: #fff;
