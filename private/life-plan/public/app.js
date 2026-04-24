@@ -100,6 +100,93 @@
     return e;
   };
 
+  // ============ モーダルフォーム ============
+  // openForm({title, fields, values}) → Promise<values | null>
+  //   fields: [{key, label, type, default?, options?, hint?, min?, max?, step?}]
+  //   type: 'text'|'number'|'select'|'percent' (percent は%表示↔小数で自動変換)
+  //
+  //   「%表示↔小数」の変換が必要な理由：
+  //   UIでは「1.5%」と入力するが、DBには 0.015 で保存するから。
+  //   呼び出し側が values[key] を渡すときは既に小数を渡す（保存形）
+  //   表示に回すときだけ percent フィールドが *100 して、保存時に /100 する。
+  function openForm({ title, fields, values = {} }) {
+    return new Promise((resolve) => {
+      const backdrop = $('modal-backdrop');
+      const body = $('modal-body');
+      $('modal-title').textContent = title;
+      body.innerHTML = '';
+
+      const inputs = {};
+      for (const f of fields) {
+        const row = el('div', { class: 'form-row' });
+        row.appendChild(el('label', { class: 'lbl' }, f.label));
+        let input;
+        const initValue = values[f.key] !== undefined ? values[f.key] : f.default;
+        if (f.type === 'select') {
+          input = el('select');
+          for (const opt of f.options) {
+            const o = el('option', { value: opt.value }, opt.label);
+            if (String(opt.value) === String(initValue)) o.selected = true;
+            input.appendChild(o);
+          }
+        } else if (f.type === 'percent') {
+          input = el('input', { type: 'number', step: f.step ?? '0.1' });
+          if (initValue !== undefined && initValue !== null) input.value = (Number(initValue) * 100).toFixed(2).replace(/\.?0+$/, '');
+        } else if (f.type === 'number') {
+          input = el('input', { type: 'number', inputmode: 'numeric' });
+          if (f.step) input.step = f.step;
+          if (f.min !== undefined) input.min = f.min;
+          if (f.max !== undefined) input.max = f.max;
+          if (initValue !== undefined && initValue !== null) input.value = initValue;
+        } else {
+          input = el('input', { type: 'text' });
+          if (initValue !== undefined && initValue !== null) input.value = initValue;
+        }
+        inputs[f.key] = { el: input, type: f.type };
+        row.appendChild(input);
+        if (f.hint) row.appendChild(el('div', { class: 'hint' }, f.hint));
+        body.appendChild(row);
+      }
+
+      backdrop.classList.remove('hidden');
+      // 最初の入力にフォーカス
+      setTimeout(() => {
+        const first = Object.values(inputs)[0];
+        if (first) first.el.focus();
+      }, 50);
+
+      const cleanup = () => {
+        backdrop.classList.add('hidden');
+        $('modal-save').onclick = null;
+        $('modal-cancel').onclick = null;
+        $('modal-close').onclick = null;
+        backdrop.onclick = null;
+      };
+      const onCancel = () => { cleanup(); resolve(null); };
+      const onSave = () => {
+        const result = {};
+        for (const [key, { el: inp, type }] of Object.entries(inputs)) {
+          if (type === 'percent') {
+            const n = parseFloat(inp.value);
+            result[key] = isNaN(n) ? 0 : n / 100;
+          } else if (type === 'number') {
+            const n = parseFloat(inp.value);
+            result[key] = isNaN(n) ? 0 : n;
+          } else {
+            result[key] = inp.value;
+          }
+        }
+        cleanup();
+        resolve(result);
+      };
+
+      $('modal-save').onclick = onSave;
+      $('modal-cancel').onclick = onCancel;
+      $('modal-close').onclick = onCancel;
+      backdrop.onclick = (e) => { if (e.target === backdrop) onCancel(); };
+    });
+  }
+
   // ============ 状態 ============
   let educationDataset = null;
   let eventTemplates = null;
@@ -186,14 +273,18 @@
 
   async function editChild(existing) {
     const isNew = !existing;
-    const name = prompt('子供の名前（ニックネーム可）', existing?.name || '子1');
-    if (name === null) return;
-    const birthYearStr = prompt('生まれ年（西暦）', String(existing?.birthYear || new Date().getFullYear() - 5));
-    if (birthYearStr === null) return;
-    const birthYear = parseInt(birthYearStr);
-    if (!birthYear) return;
+    const result = await openForm({
+      title: isNew ? '子供を追加' : '子供を編集',
+      fields: [
+        { key: 'name', label: '名前', type: 'text', default: '子1' },
+        { key: 'birthYear', label: '生まれ年（西暦）', type: 'number', default: new Date().getFullYear() - 5, min: 1950, max: new Date().getFullYear() }
+      ],
+      values: existing ? { name: existing.name, birthYear: existing.birthYear } : {}
+    });
+    if (!result) return;
+    if (!result.birthYear) return;
     const id = existing?.id || uid();
-    await dbPut('members', { id, kind: 'child', name: name || '子', birthYear });
+    await dbPut('members', { id, kind: 'child', name: result.name || '子', birthYear: parseInt(result.birthYear) });
     if (isNew) {
       await dbPut('education', {
         id, childId: id,
@@ -203,6 +294,7 @@
     }
     renderChildren();
     renderEducation();
+    renderHome();
   }
 
   $('btn-save-basic').addEventListener('click', saveBasic);
@@ -237,23 +329,25 @@
   async function addIncome() { return editIncome(null); }
 
   async function editIncome(existing) {
-    const label = prompt('収入のラベル（例：給与、副業、年金）', existing?.label || '給与');
-    if (label === null) return;
-    const annualAmountStr = prompt('年収（円）', String(existing?.annualAmount ?? 5000000));
-    if (annualAmountStr === null) return;
-    const fromAgeStr = prompt('開始年齢', String(existing?.fromAge ?? 35));
-    if (fromAgeStr === null) return;
-    const toAgeStr = prompt('終了年齢', String(existing?.toAge ?? 65));
-    if (toAgeStr === null) return;
-    const growthStr = prompt('年間上昇率（%、昇給想定）', String((existing?.growthRate ?? 0.015) * 100));
-    if (growthStr === null) return;
+    const result = await openForm({
+      title: existing ? '収入を編集' : '収入を追加',
+      fields: [
+        { key: 'label', label: 'ラベル', type: 'text', default: '給与', hint: '例：給与・副業・年金・配偶者給与' },
+        { key: 'annualAmount', label: '年収（円）', type: 'number', default: 5000000 },
+        { key: 'fromAge', label: '開始年齢', type: 'number', default: 35 },
+        { key: 'toAge', label: '終了年齢', type: 'number', default: 65 },
+        { key: 'growthRate', label: '年間上昇率（%）', type: 'percent', default: 0.015, hint: '昇給・年金スライド想定' }
+      ],
+      values: existing
+    });
+    if (!result) return;
     await dbPut('income', {
       id: existing?.id || uid(),
-      label: label || '収入',
-      annualAmount: parseInt(annualAmountStr) || 0,
-      fromAge: parseInt(fromAgeStr) || 0,
-      toAge: parseInt(toAgeStr) || 65,
-      growthRate: (parseFloat(growthStr) || 0) / 100
+      label: result.label || '収入',
+      annualAmount: parseInt(result.annualAmount) || 0,
+      fromAge: parseInt(result.fromAge) || 0,
+      toAge: parseInt(result.toAge) || 65,
+      growthRate: result.growthRate
     });
     renderIncomes();
     renderHome();
@@ -287,23 +381,25 @@
   async function addExpense() { return editExpense(null); }
 
   async function editExpense(existing) {
-    const category = prompt('カテゴリ（基本生活費・住居費・保険・通信 など）', existing?.category || '基本生活費');
-    if (category === null) return;
-    const monthlyStr = prompt('月額（円）', String(existing?.monthlyAmount ?? 250000));
-    if (monthlyStr === null) return;
-    const fromAgeStr = prompt('開始年齢', String(existing?.fromAge ?? 35));
-    if (fromAgeStr === null) return;
-    const toAgeStr = prompt('終了年齢', String(existing?.toAge ?? 95));
-    if (toAgeStr === null) return;
-    const inflStr = prompt('年間インフレ率（%）', String((existing?.inflationRate ?? 0.01) * 100));
-    if (inflStr === null) return;
+    const result = await openForm({
+      title: existing ? '支出を編集' : '支出を追加',
+      fields: [
+        { key: 'category', label: 'カテゴリ', type: 'text', default: '基本生活費', hint: '例：基本生活費・住居費・保険・通信' },
+        { key: 'monthlyAmount', label: '月額（円）', type: 'number', default: 250000 },
+        { key: 'fromAge', label: '開始年齢', type: 'number', default: 35 },
+        { key: 'toAge', label: '終了年齢', type: 'number', default: 95 },
+        { key: 'inflationRate', label: 'インフレ率（%/年）', type: 'percent', default: 0.01, hint: '物価上昇で年々増える想定' }
+      ],
+      values: existing
+    });
+    if (!result) return;
     await dbPut('expense', {
       id: existing?.id || uid(),
-      category: category || '支出',
-      monthlyAmount: parseInt(monthlyStr) || 0,
-      fromAge: parseInt(fromAgeStr) || 0,
-      toAge: parseInt(toAgeStr) || 95,
-      inflationRate: (parseFloat(inflStr) || 0) / 100
+      category: result.category || '支出',
+      monthlyAmount: parseInt(result.monthlyAmount) || 0,
+      fromAge: parseInt(result.fromAge) || 0,
+      toAge: parseInt(result.toAge) || 95,
+      inflationRate: result.inflationRate
     });
     renderExpenses();
     renderHome();
@@ -468,37 +564,46 @@
   async function addAsset() { return editAsset(null); }
 
   async function editAsset(existing) {
-    const kindMap = { '1': 'nisa_tsumitate', '2': 'nisa_growth', '3': 'tokutei', '4': 'stock', '5': 'crypto', '6': 'cash' };
-    const kindReverse = { nisa_tsumitate: '1', nisa_growth: '2', tokutei: '3', stock: '4', crypto: '5', cash: '6' };
-    const defaultKindNum = existing ? kindReverse[existing.kind] : '1';
-    const kindLbl = prompt('口座種別を選択:\n  1: 新NISA(つみたて)\n  2: 新NISA(成長)\n  3: 特定口座\n  4: 個別株\n  5: 暗号資産\n  6: 現金・預金', defaultKindNum);
-    if (kindLbl === null) return;
-    const kind = kindMap[kindLbl];
-    if (!kind) return;
-    const balStr = prompt('現在残高（円）', String(existing?.currentBalance ?? 0));
-    if (balStr === null) return;
-    const monthlyStr = prompt('毎月積立額（円）', String(existing?.monthlyContribution ?? 50000));
-    if (monthlyStr === null) return;
-    let expectedReturn = existing?.expectedReturn ?? 0.04;
-    let scenario = existing?.scenario ?? 'neutral';
-    if (kind === 'stock' || kind === 'crypto') {
-      const sc = prompt('シナリオ: strong / neutral / weak', scenario);
-      if (sc === null) return;
-      scenario = ['strong', 'neutral', 'weak'].includes(sc) ? sc : 'neutral';
-    } else if (kind === 'cash') {
-      expectedReturn = 0.001;
-    } else {
-      const retStr = prompt('期待年利回り（%）：S&P500=5, 全世界=4, バランス=3', String((expectedReturn) * 100));
-      if (retStr === null) return;
-      expectedReturn = (parseFloat(retStr) || 4) / 100;
-    }
+    const result = await openForm({
+      title: existing ? '口座を編集' : '口座を追加',
+      fields: [
+        {
+          key: 'kind', label: '口座種別', type: 'select',
+          default: 'nisa_tsumitate',
+          options: [
+            { value: 'nisa_tsumitate', label: '新NISA（つみたて枠）' },
+            { value: 'nisa_growth',    label: '新NISA（成長枠）' },
+            { value: 'tokutei',        label: '特定口座（課税）' },
+            { value: 'stock',          label: '個別株' },
+            { value: 'crypto',         label: '暗号資産' },
+            { value: 'cash',           label: '現金・預金' }
+          ]
+        },
+        { key: 'currentBalance', label: '現在残高（円）', type: 'number', default: 0 },
+        { key: 'monthlyContribution', label: '毎月積立額（円）', type: 'number', default: 50000 },
+        { key: 'expectedReturn', label: '期待年利回り（%）', type: 'percent', default: 0.04, hint: 'S&P500=5 / 全世界=4 / バランス=3 / 債券=1。株・暗号は下のシナリオ優先' },
+        {
+          key: 'scenario', label: 'シナリオ（株・暗号のみ）', type: 'select',
+          default: 'neutral',
+          options: [
+            { value: 'strong',  label: '強気 +12%' },
+            { value: 'neutral', label: '中立 +5%' },
+            { value: 'weak',    label: '弱気 -3%' }
+          ]
+        }
+      ],
+      values: existing
+    });
+    if (!result) return;
+    let expectedReturn = result.expectedReturn;
+    if (result.kind === 'cash') expectedReturn = 0.001;
     await dbPut('assets', {
       id: existing?.id || uid(),
-      kind,
-      currentBalance: parseInt(balStr) || 0,
-      monthlyContribution: parseInt(monthlyStr) || 0,
+      kind: result.kind,
+      currentBalance: parseInt(result.currentBalance) || 0,
+      monthlyContribution: parseInt(result.monthlyContribution) || 0,
       expectedReturn,
-      scenario
+      scenario: result.scenario
     });
     renderAssets();
     renderHome();
@@ -634,17 +739,13 @@
       const chip = el('button', {
         class: 'chip',
         onclick: async () => {
-          const ageStr = prompt(`${t.label} を開始する年齢`, String(t.startAge));
-          const amountStr = prompt(`金額（円）`, String(t.amountDefault));
-          await dbPut('events', {
-            id: uid(),
+          await editEvent(null, {
             label: t.label,
-            category: t.category,
-            startAge: parseInt(ageStr) || t.startAge,
+            amount: t.amountDefault,
+            startAge: t.startAge,
             everyYears: t.everyYears,
-            amount: parseInt(amountStr) || t.amountDefault
+            category: t.category
           });
-          renderEvents();
         }
       }, t.label);
       box.appendChild(chip);
@@ -679,22 +780,26 @@
 
   async function addFreeEvent() { return editEvent(null); }
 
-  async function editEvent(existing) {
-    const label = prompt('イベント名', existing?.label || '車買替');
-    if (label === null) return;
-    const amountStr = prompt('金額（円）', String(existing?.amount ?? 1000000));
-    if (amountStr === null) return;
-    const ageStr = prompt('開始年齢', String(existing?.startAge ?? 40));
-    if (ageStr === null) return;
-    const everyStr = prompt('繰り返し（年、0=単発）', String(existing?.everyYears ?? 0));
-    if (everyStr === null) return;
+  async function editEvent(existing, templateDefaults = null) {
+    const defaults = templateDefaults || { label: '車買替', amount: 1000000, startAge: 40, everyYears: 0 };
+    const result = await openForm({
+      title: existing ? 'イベントを編集' : 'イベントを追加',
+      fields: [
+        { key: 'label', label: 'イベント名', type: 'text', default: defaults.label },
+        { key: 'amount', label: '金額（円）', type: 'number', default: defaults.amount },
+        { key: 'startAge', label: '開始年齢', type: 'number', default: defaults.startAge },
+        { key: 'everyYears', label: '繰り返し（年）', type: 'number', default: defaults.everyYears, hint: '0=単発、10=10年ごと繰返し' }
+      ],
+      values: existing
+    });
+    if (!result) return;
     await dbPut('events', {
       id: existing?.id || uid(),
-      label: label || 'イベント',
-      category: existing?.category || 'other',
-      amount: parseInt(amountStr) || 0,
-      startAge: parseInt(ageStr) || 40,
-      everyYears: parseInt(everyStr) || 0
+      label: result.label || 'イベント',
+      category: existing?.category || templateDefaults?.category || 'other',
+      amount: parseInt(result.amount) || 0,
+      startAge: parseInt(result.startAge) || 40,
+      everyYears: parseInt(result.everyYears) || 0
     });
     renderEvents();
     renderHome();
