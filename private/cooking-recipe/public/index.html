@@ -14,6 +14,8 @@
   <link rel="icon" type="image/png" sizes="64x64" href="/favicon-64.png">
   <link rel="icon" href="/favicon.ico">
   <link rel="stylesheet" href="/styles.css">
+  <!-- Google Identity Services -->
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
   <header class="app-header">
@@ -186,13 +188,12 @@
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
           <button id="btn-print" class="btn-secondary">📄 印刷・PDF保存</button>
           <button id="btn-share-menu" class="btn-secondary">📤 テキスト共有</button>
-          <button id="btn-export-ics" class="btn-secondary">📅 カレンダー(.ics)</button>
-          <button id="btn-gcal" class="btn-secondary">🗓️ Googleカレンダー</button>
-          <button id="btn-keep" class="btn-secondary">📝 Google Keep</button>
-          <button id="btn-tasks" class="btn-secondary">✅ Google Tasks</button>
+          <button id="btn-export-ics" class="btn-secondary">📅 .ics一括DL</button>
+          <button id="btn-gcal-select" class="btn-secondary">🗓️ Googleカレンダーに選択追加</button>
+          <button id="btn-keep" class="btn-secondary">📝 Google Keep (コピー)</button>
         </div>
         <div style="font-size:11px;color:var(--text-muted);margin-top:8px;line-height:1.5;">
-          Keep/Tasks は自動書き込みできないため、チェックリスト用テキストをコピーして貼り付けてください。
+          🗓️ Googleカレンダー連携は「家族タブ」で Google アカウント接続後に使えます。未接続なら .ics で一括取り込み可。
         </div>
       </div>
     </div>
@@ -219,6 +220,7 @@
     <h1 class="page-title">買い物リスト</h1>
     <div style="display: flex; gap: 6px; margin-bottom: 12px;">
       <button id="btn-share-shopping" class="btn-secondary">📤 共有</button>
+      <button id="btn-gtasks-select" class="btn-secondary">✅ Tasksに選択追加</button>
       <button id="btn-clear-checked" class="btn-danger">✓済み削除</button>
       <button id="btn-clear-all" class="btn-danger">全削除</button>
     </div>
@@ -291,6 +293,42 @@
     </div>
 
     <div class="card">
+      <div class="card-title">🔗 Google連携（カレンダー・Tasks）</div>
+      <div id="google-status" style="font-size:13px;color:var(--text-muted);margin-bottom:8px;">未接続</div>
+
+      <div id="google-not-connected">
+        <details style="margin-bottom:10px;">
+          <summary style="font-size:13px;font-weight:700;color:var(--accent-deep);cursor:pointer;padding:6px 0;">📖 初回セットアップ手順（約5分）</summary>
+          <ol style="font-size:12px;line-height:1.7;padding-left:22px;margin-top:6px;color:var(--text-secondary);">
+            <li><a href="https://console.cloud.google.com/" target="_blank" style="color:var(--accent-deep);">Google Cloud Console</a> を開く</li>
+            <li>上部でプロジェクトを新規作成（例: 「kondate-family」）</li>
+            <li>検索バーで「Google Calendar API」を検索 → <strong>有効にする</strong></li>
+            <li>同様に「Google Tasks API」を検索 → <strong>有効にする</strong></li>
+            <li>左メニュー「APIとサービス」→「OAuth同意画面」→ User Type「外部」で作成、アプリ名を入力、**テストユーザー**に自分のGmailアドレスを追加</li>
+            <li>左メニュー「認証情報」→「+ 認証情報を作成」→「OAuth クライアント ID」</li>
+            <li>アプリケーションの種類: <strong>ウェブアプリケーション</strong></li>
+            <li>「承認済みの JavaScript 生成元」に次を追加:<br><code style="background:#eee;padding:2px 6px;border-radius:4px;font-size:11px;">https://kondate-kun.pages.dev</code></li>
+            <li>作成後の「クライアントID」（末尾が <code>.apps.googleusercontent.com</code>）をコピー → 下欄に貼り付け</li>
+          </ol>
+        </details>
+        <input id="google-client-id" class="text-field" placeholder="xxxxx.apps.googleusercontent.com">
+        <button id="btn-google-save-id" class="btn-secondary" style="width:100%;margin-bottom:8px;">💾 クライアントIDを保存</button>
+        <button id="btn-google-connect" class="btn-primary" disabled>🔑 Googleアカウントと接続</button>
+      </div>
+
+      <div id="google-connected" style="display:none;">
+        <div style="font-size:13px;margin-bottom:6px;">
+          <span style="color:var(--accent-deep);font-weight:700;">✅ 接続中</span>
+          <span id="google-email" style="color:var(--text-secondary);"></span>
+        </div>
+        <div style="display:flex;gap:6px;">
+          <button id="btn-google-disconnect" class="btn-danger" style="flex:1;">🔌 接続解除</button>
+          <button id="btn-google-edit-id" class="btn-secondary" style="flex:1;">✏️ ID変更</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
       <div class="card-title">データ管理</div>
       <button id="btn-export" class="btn-secondary" style="width: 100%; margin-bottom: 8px;">📦 データをエクスポート</button>
       <button id="btn-import" class="btn-secondary" style="width: 100%; margin-bottom: 8px;">📥 データをインポート</button>
@@ -347,6 +385,49 @@
       </select>
       <input id="stock-expires" type="date" class="text-field">
       <button id="btn-stock-save" class="btn-primary">追加</button>
+    </div>
+  </div>
+
+  <!-- Googleカレンダー 選択モーダル -->
+  <div id="gcal-modal" class="modal hidden">
+    <div class="modal-content">
+      <button class="modal-close" data-close-modal="gcal-modal">×</button>
+      <div class="modal-title">🗓️ Googleカレンダーに追加</div>
+      <div class="member-row" style="grid-template-columns:80px 1fr;">
+        <label>カレンダー</label>
+        <select id="gcal-calendar-select" class="select-field" style="margin:0;"></select>
+      </div>
+      <div style="display:flex;gap:6px;margin-bottom:8px;">
+        <button id="btn-gcal-select-all" class="btn-secondary" style="flex:1;font-size:13px;padding:8px;">全選択</button>
+        <button id="btn-gcal-select-none" class="btn-secondary" style="flex:1;font-size:13px;padding:8px;">全解除</button>
+        <button id="btn-gcal-select-dinner" class="btn-secondary" style="flex:1;font-size:13px;padding:8px;">夕食だけ</button>
+      </div>
+      <div id="gcal-event-list" style="max-height:50vh;overflow-y:auto;"></div>
+      <div style="display:flex;gap:8px;margin-top:12px;">
+        <button class="btn-danger" data-close-modal="gcal-modal" style="flex:1;">キャンセル</button>
+        <button id="btn-gcal-submit" class="btn-primary" style="flex:2;">選択を追加</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Google Tasks 選択モーダル -->
+  <div id="gtasks-modal" class="modal hidden">
+    <div class="modal-content">
+      <button class="modal-close" data-close-modal="gtasks-modal">×</button>
+      <div class="modal-title">✅ Google Tasks に追加</div>
+      <div class="member-row" style="grid-template-columns:80px 1fr;">
+        <label>リスト</label>
+        <select id="gtasks-list-select" class="select-field" style="margin:0;"></select>
+      </div>
+      <div style="display:flex;gap:6px;margin-bottom:8px;">
+        <button id="btn-gtasks-select-all" class="btn-secondary" style="flex:1;font-size:13px;padding:8px;">全選択</button>
+        <button id="btn-gtasks-select-none" class="btn-secondary" style="flex:1;font-size:13px;padding:8px;">全解除</button>
+      </div>
+      <div id="gtasks-item-list" style="max-height:50vh;overflow-y:auto;"></div>
+      <div style="display:flex;gap:8px;margin-top:12px;">
+        <button class="btn-danger" data-close-modal="gtasks-modal" style="flex:1;">キャンセル</button>
+        <button id="btn-gtasks-submit" class="btn-primary" style="flex:2;">選択を追加</button>
+      </div>
     </div>
   </div>
 

@@ -257,7 +257,7 @@
     if (name === 'recipes') renderRecipes();
     if (name === 'shopping') renderShopping();
     if (name === 'stock') renderStock();
-    if (name === 'settings') renderMembers();
+    if (name === 'settings') { renderMembers(); renderGoogleUI(); }
     // カメラは離れるときに停止
     if (name !== 'home' && state.cameraStream) stopCamera();
   }
@@ -1693,43 +1693,7 @@
     toast('.icsファイルをダウンロードしました', 'success');
   });
 
-  // ---- Google カレンダーテンプレートURL（最初の1件のみ、残りは .ics 推奨）----
-  $('#btn-gcal').addEventListener('click', () => {
-    if (!state.currentGeneration || !state.currentGeneration.days[0]) return;
-    const WEEK_JA = '日月火水木金土';
-    const dateBase = new Date();
-    const mealTimes = { breakfast: [7, 0, 30], lunch: [12, 0, 30], dinner: [18, 30, 45] };
-    // 最初の食事を取得
-    let firstMeal = null, firstMealKey = null;
-    for (const mk of ['breakfast', 'lunch', 'dinner']) {
-      if (state.currentGeneration.days[0].meals[mk]) {
-        firstMeal = state.currentGeneration.days[0].meals[mk];
-        firstMealKey = mk;
-        break;
-      }
-    }
-    if (!firstMeal) return;
-    const [h, mm, dur] = mealTimes[firstMealKey];
-    const start = new Date(dateBase); start.setHours(h, mm, 0, 0);
-    const end = new Date(start); end.setMinutes(end.getMinutes() + dur);
-    const fmt = (d) => `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}T${pad(d.getHours())}${pad(d.getMinutes())}00`;
-    const title = `${MEAL_LABEL[firstMealKey]} ${firstMeal.name}`;
-    const desc = [
-      '【材料】',
-      ...(firstMeal.ingredients || []).map(i => `・${i.name} ${i.amount || ''}${i.unit || ''}`),
-      '',
-      '【作り方】',
-      ...(firstMeal.steps || []).map((s, i) => `${i + 1}. ${s}`),
-    ].join('\n');
-    const url = 'https://calendar.google.com/calendar/render?action=TEMPLATE'
-      + '&text=' + encodeURIComponent(title)
-      + '&dates=' + fmt(start) + '/' + fmt(end)
-      + '&details=' + encodeURIComponent(desc);
-    window.open(url, '_blank');
-    toast('Googleカレンダー（最初の1件）を開きました。残りは .ics 一括インポート推奨', 'success');
-  });
-
-  // ---- Google Keep（クリップボードコピー + 新規ノート画面を開く）----
+  // ---- Google Keep（API無しのためクリップボード＋新規ノート画面を開く）----
   $('#btn-keep').addEventListener('click', async () => {
     const text = await formatShoppingAsChecklistText();
     if (!text) { toast('買い物リストが空です', 'error'); return; }
@@ -1742,16 +1706,376 @@
     }
   });
 
-  // ---- Google Tasks ----
-  $('#btn-tasks').addEventListener('click', async () => {
-    const text = await formatShoppingAsChecklistText();
-    if (!text) { toast('買い物リストが空です', 'error'); return; }
+  // ============ Google OAuth（Calendar API / Tasks API） ============
+  const GOOGLE_SCOPES = [
+    'https://www.googleapis.com/auth/calendar',
+    'https://www.googleapis.com/auth/tasks',
+    'https://www.googleapis.com/auth/userinfo.email',
+  ].join(' ');
+
+  let googleTokenClient = null;
+  let googleAccessToken = null;
+  let googleTokenExpiresAt = 0;
+
+  async function getGoogleSettings() {
+    return (await dbGet('household', 'googleAuth')) || { id: 'googleAuth', clientId: null, email: null };
+  }
+  async function saveGoogleSettings(obj) {
+    obj.id = 'googleAuth';
+    await dbPutRaw('household', obj);
+  }
+
+  function initGoogleTokenClient(clientId) {
+    if (!window.google || !google.accounts || !google.accounts.oauth2) {
+      throw new Error('Google Identity Services がまだ読み込まれていません。数秒後に再度お試しください。');
+    }
+    googleTokenClient = google.accounts.oauth2.initTokenClient({
+      client_id: clientId,
+      scope: GOOGLE_SCOPES,
+      callback: (resp) => {
+        if (resp.error) {
+          toast('Google認証エラー: ' + resp.error, 'error');
+          return;
+        }
+        googleAccessToken = resp.access_token;
+        googleTokenExpiresAt = Date.now() + (resp.expires_in * 1000);
+        // ユーザー情報を取得
+        fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+          headers: { Authorization: 'Bearer ' + googleAccessToken },
+        }).then(r => r.json()).then(async (user) => {
+          const s = await getGoogleSettings();
+          s.email = user.email || null;
+          await saveGoogleSettings(s);
+          renderGoogleUI();
+          toast('Google接続完了: ' + (user.email || ''), 'success');
+          // 待機中のコールバックがあれば実行
+          if (pendingAfterAuth) { const cb = pendingAfterAuth; pendingAfterAuth = null; cb(); }
+        }).catch(() => renderGoogleUI());
+      },
+    });
+  }
+
+  let pendingAfterAuth = null;
+  async function ensureGoogleAuth(afterCb) {
+    const s = await getGoogleSettings();
+    if (!s.clientId) {
+      toast('「家族」タブで Google クライアントIDを設定してください', 'error');
+      switchPage('settings');
+      return false;
+    }
+    if (googleAccessToken && Date.now() < googleTokenExpiresAt - 5000) {
+      afterCb && afterCb();
+      return true;
+    }
+    if (!googleTokenClient) initGoogleTokenClient(s.clientId);
+    pendingAfterAuth = afterCb || null;
+    googleTokenClient.requestAccessToken();
+    return true;
+  }
+
+  async function gapi(url, options = {}) {
+    const opts = { ...options };
+    opts.headers = { ...(opts.headers || {}), Authorization: 'Bearer ' + googleAccessToken };
+    if (opts.body && typeof opts.body !== 'string') {
+      opts.body = JSON.stringify(opts.body);
+      opts.headers['Content-Type'] = 'application/json';
+    }
+    const res = await fetch(url, opts);
+    if (!res.ok) {
+      const txt = await res.text();
+      throw new Error(`${res.status}: ${txt.slice(0, 200)}`);
+    }
+    return res.json();
+  }
+
+  // ---- Google UI ----
+  async function renderGoogleUI() {
+    const s = await getGoogleSettings();
+    $('#google-client-id').value = s.clientId || '';
+    const connected = !!(s.email && googleAccessToken && Date.now() < googleTokenExpiresAt);
+    $('#google-not-connected').style.display = connected ? 'none' : '';
+    $('#google-connected').style.display = connected ? '' : 'none';
+    $('#btn-google-connect').disabled = !s.clientId;
+    $('#google-email').textContent = s.email || '';
+    $('#google-status').textContent = connected
+      ? `✅ ${s.email} と接続中`
+      : (s.clientId ? 'クライアントID設定済み。接続待機中' : 'クライアントID未設定');
+  }
+
+  $('#btn-google-save-id').addEventListener('click', async () => {
+    const id = $('#google-client-id').value.trim();
+    if (!id || !id.endsWith('.apps.googleusercontent.com')) {
+      toast('クライアントIDの形式が違います（末尾が .apps.googleusercontent.com）', 'error');
+      return;
+    }
+    const s = await getGoogleSettings();
+    s.clientId = id;
+    await saveGoogleSettings(s);
+    try { initGoogleTokenClient(id); } catch (e) { /* スクリプト未ロードなら後で再初期化 */ }
+    renderGoogleUI();
+    toast('クライアントIDを保存しました', 'success');
+  });
+
+  $('#btn-google-connect').addEventListener('click', () => {
+    ensureGoogleAuth(() => toast('接続完了', 'success'));
+  });
+
+  $('#btn-google-disconnect').addEventListener('click', async () => {
+    if (googleAccessToken) {
+      try { google.accounts.oauth2.revoke(googleAccessToken, () => {}); } catch {}
+    }
+    googleAccessToken = null;
+    googleTokenExpiresAt = 0;
+    const s = await getGoogleSettings();
+    s.email = null;
+    await saveGoogleSettings(s);
+    renderGoogleUI();
+    toast('Googleアカウントの接続を解除しました', 'success');
+  });
+
+  $('#btn-google-edit-id').addEventListener('click', async () => {
+    $('#google-not-connected').style.display = '';
+    $('#google-connected').style.display = 'none';
+  });
+
+  // ---- カレンダー選択モーダル ----
+  let gcalSelectionState = null; // { events: [{id, checked, ...}], calendars: [...] }
+
+  $('#btn-gcal-select').addEventListener('click', async () => {
+    if (!state.currentGeneration) return;
+    const ok = await ensureGoogleAuth(() => openGcalModal());
+    if (!ok) return;
+    if (googleAccessToken) openGcalModal();
+  });
+
+  async function openGcalModal() {
+    showLoading('カレンダー一覧を取得中...');
     try {
-      await navigator.clipboard.writeText(text);
-      window.open('https://tasks.google.com/embed/?origin=https://mail.google.com&fullWidth=1', '_blank');
-      toast('Tasksは1行ずつ貼り付け推奨。テキストはコピー済みです', 'success');
+      const { items: calendars } = await gapi('https://www.googleapis.com/calendar/v3/users/me/calendarList?minAccessRole=writer');
+      const calSelect = $('#gcal-calendar-select');
+      calSelect.innerHTML = '';
+      calendars.forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c.id;
+        opt.textContent = (c.primary ? '★ ' : '') + c.summary + (c.accessRole ? ` (${c.accessRole})` : '');
+        if (c.primary) opt.selected = true;
+        calSelect.appendChild(opt);
+      });
+      // イベント候補を作成
+      const dateBase = new Date();
+      const mealTimes = { breakfast: [7, 0, 30], lunch: [12, 0, 30], dinner: [18, 30, 45] };
+      const events = [];
+      state.currentGeneration.days.forEach((day, dayIdx) => {
+        const d = new Date(dateBase);
+        d.setDate(d.getDate() + dayIdx);
+        ['breakfast', 'lunch', 'dinner'].forEach(mk => {
+          const m = day.meals && day.meals[mk];
+          if (!m) return;
+          const [h, mm, dur] = mealTimes[mk];
+          const start = new Date(d); start.setHours(h, mm, 0, 0);
+          const end = new Date(start); end.setMinutes(end.getMinutes() + dur);
+          events.push({
+            id: `${dayIdx}-${mk}`, mk, dayIdx,
+            checked: mk === 'dinner', // デフォルトは夕食のみ
+            summary: `${MEAL_LABEL[mk]} ${m.name}`,
+            dateLabel: `${d.getMonth() + 1}/${d.getDate()}(${'日月火水木金土'[d.getDay()]}) ${pad(h)}:${pad(mm)}`,
+            start, end, meal: m,
+          });
+        });
+      });
+      gcalSelectionState = { events, calendars };
+      renderGcalList();
+      $('#gcal-modal').classList.remove('hidden');
     } catch (e) {
-      toast('コピー失敗: ' + e.message, 'error');
+      toast('カレンダー取得失敗: ' + e.message, 'error');
+    } finally {
+      hideLoading();
+    }
+  }
+
+  function renderGcalList() {
+    const container = $('#gcal-event-list');
+    container.innerHTML = '';
+    gcalSelectionState.events.forEach(ev => {
+      const row = document.createElement('label');
+      row.className = 'detected-ingredient';
+      row.style.cursor = 'pointer';
+      row.innerHTML = `
+        <input type="checkbox" data-id="${ev.id}" ${ev.checked ? 'checked' : ''}>
+        <div class="di-name">${ev.summary}</div>
+        <div class="di-amount">${ev.dateLabel}</div>
+      `;
+      row.querySelector('input').addEventListener('change', (e) => {
+        const target = gcalSelectionState.events.find(x => x.id === ev.id);
+        if (target) target.checked = e.target.checked;
+      });
+      container.appendChild(row);
+    });
+  }
+
+  $('#btn-gcal-select-all').addEventListener('click', () => {
+    gcalSelectionState.events.forEach(e => e.checked = true);
+    renderGcalList();
+  });
+  $('#btn-gcal-select-none').addEventListener('click', () => {
+    gcalSelectionState.events.forEach(e => e.checked = false);
+    renderGcalList();
+  });
+  $('#btn-gcal-select-dinner').addEventListener('click', () => {
+    gcalSelectionState.events.forEach(e => e.checked = (e.mk === 'dinner'));
+    renderGcalList();
+  });
+
+  $('#btn-gcal-submit').addEventListener('click', async () => {
+    const calId = $('#gcal-calendar-select').value;
+    const selected = gcalSelectionState.events.filter(e => e.checked);
+    if (selected.length === 0) { toast('1件以上選択してください', 'error'); return; }
+    showLoading(`カレンダーに ${selected.length} 件追加中...`);
+    let ok = 0, fail = 0;
+    for (const ev of selected) {
+      const m = ev.meal;
+      const descParts = [];
+      if ((m.ingredients || []).length) {
+        descParts.push('【材料】');
+        m.ingredients.forEach(i => descParts.push(`・${i.name} ${i.amount || ''}${i.unit || ''}`));
+      }
+      if ((m.steps || []).length) {
+        descParts.push('');
+        descParts.push('【作り方】');
+        m.steps.forEach((s, i) => descParts.push(`${i + 1}. ${s}`));
+      }
+      descParts.push('');
+      descParts.push('— 献立くん');
+      try {
+        await gapi(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calId)}/events`, {
+          method: 'POST',
+          body: {
+            summary: ev.summary,
+            description: descParts.join('\n'),
+            start: { dateTime: ev.start.toISOString(), timeZone: 'Asia/Tokyo' },
+            end: { dateTime: ev.end.toISOString(), timeZone: 'Asia/Tokyo' },
+            reminders: { useDefault: false },
+          },
+        });
+        ok++;
+      } catch (e) {
+        console.error(e);
+        fail++;
+      }
+    }
+    hideLoading();
+    closeModal('gcal-modal');
+    toast(`追加完了: ${ok}件${fail > 0 ? ` / 失敗: ${fail}件` : ''}`, fail > 0 ? 'error' : 'success');
+  });
+
+  // ---- Google Tasks 選択モーダル ----
+  let gtasksSelectionState = null; // { items, lists }
+
+  $('#btn-gtasks-select').addEventListener('click', async () => {
+    const ok = await ensureGoogleAuth(() => openGtasksModal());
+    if (!ok) return;
+    if (googleAccessToken) openGtasksModal();
+  });
+
+  async function openGtasksModal() {
+    showLoading('Tasksリスト取得中...');
+    try {
+      const { items: lists } = await gapi('https://tasks.googleapis.com/tasks/v1/users/@me/lists');
+      const sel = $('#gtasks-list-select');
+      sel.innerHTML = '';
+      (lists || []).forEach(l => {
+        const opt = document.createElement('option');
+        opt.value = l.id;
+        opt.textContent = l.title;
+        sel.appendChild(opt);
+      });
+      // オプション：新しいリストを作成
+      const newOpt = document.createElement('option');
+      newOpt.value = '__create__';
+      newOpt.textContent = '➕ 新しいリストを作成（買い物リスト）';
+      sel.appendChild(newOpt);
+
+      const shopping = await dbAll('shopping');
+      const pending = shopping.filter(x => !x.checked);
+      gtasksSelectionState = {
+        items: pending.map(x => ({ ...x, _checked: true })),
+        lists: lists || [],
+      };
+      renderGtasksList();
+      $('#gtasks-modal').classList.remove('hidden');
+    } catch (e) {
+      toast('Tasksリスト取得失敗: ' + e.message, 'error');
+    } finally {
+      hideLoading();
+    }
+  }
+
+  function renderGtasksList() {
+    const container = $('#gtasks-item-list');
+    container.innerHTML = '';
+    gtasksSelectionState.items.forEach((it, idx) => {
+      const row = document.createElement('label');
+      row.className = 'detected-ingredient';
+      row.style.cursor = 'pointer';
+      const amount = it.amount ? ` ${it.amount}${it.unit || ''}` : '';
+      row.innerHTML = `
+        <input type="checkbox" ${it._checked ? 'checked' : ''} data-idx="${idx}">
+        <div class="di-name">${it.name}</div>
+        <div class="di-amount">${amount}</div>
+      `;
+      row.querySelector('input').addEventListener('change', (e) => {
+        gtasksSelectionState.items[idx]._checked = e.target.checked;
+      });
+      container.appendChild(row);
+    });
+  }
+
+  $('#btn-gtasks-select-all').addEventListener('click', () => {
+    gtasksSelectionState.items.forEach(i => i._checked = true);
+    renderGtasksList();
+  });
+  $('#btn-gtasks-select-none').addEventListener('click', () => {
+    gtasksSelectionState.items.forEach(i => i._checked = false);
+    renderGtasksList();
+  });
+
+  $('#btn-gtasks-submit').addEventListener('click', async () => {
+    let listId = $('#gtasks-list-select').value;
+    const selected = gtasksSelectionState.items.filter(i => i._checked);
+    if (selected.length === 0) { toast('1件以上選択してください', 'error'); return; }
+    showLoading(`Tasksに ${selected.length} 件追加中...`);
+    try {
+      if (listId === '__create__') {
+        const today = todayStr();
+        const created = await gapi('https://tasks.googleapis.com/tasks/v1/users/@me/lists', {
+          method: 'POST',
+          body: { title: `買い物リスト ${today}` },
+        });
+        listId = created.id;
+      }
+      let ok = 0, fail = 0;
+      for (const it of selected) {
+        const amount = it.amount ? ` ${it.amount}${it.unit || ''}` : '';
+        try {
+          await gapi(`https://tasks.googleapis.com/tasks/v1/lists/${encodeURIComponent(listId)}/tasks`, {
+            method: 'POST',
+            body: {
+              title: `${it.name}${amount}`,
+              notes: (it.sources || []).join(' / ') || '献立くん',
+            },
+          });
+          ok++;
+        } catch (e) {
+          console.error(e);
+          fail++;
+        }
+      }
+      hideLoading();
+      closeModal('gtasks-modal');
+      toast(`追加完了: ${ok}件${fail > 0 ? ` / 失敗: ${fail}件` : ''}`, fail > 0 ? 'error' : 'success');
+    } catch (e) {
+      hideLoading();
+      toast('追加失敗: ' + e.message, 'error');
     }
   });
 
@@ -1769,8 +2093,20 @@
     }
     renderMembers();
     renderSyncUI();
+    renderGoogleUI();
     // 起動時に同期（世帯ID があれば）
     setTimeout(() => { sync().catch(() => {}); }, 500);
+    // GIS が読み込まれたら TokenClient を初期化
+    const waitGoogle = setInterval(async () => {
+      if (window.google && google.accounts && google.accounts.oauth2) {
+        clearInterval(waitGoogle);
+        const s = await getGoogleSettings();
+        if (s.clientId) {
+          try { initGoogleTokenClient(s.clientId); } catch {}
+        }
+      }
+    }, 300);
+    setTimeout(() => clearInterval(waitGoogle), 15000);
   }
 
   init().catch(err => {
