@@ -324,6 +324,47 @@ body {
 
 input, select, textarea { font-size: 16px; }
 
+/* 食事別の詳細設定カード */
+.meal-setting-card { border-left: 4px solid var(--accent); }
+.meal-sub-title { font-size: 12px; font-weight: 700; color: var(--text-muted); margin: 10px 0 4px; letter-spacing: 0.2px; }
+.meal-sub-title:first-of-type { margin-top: 4px; }
+
+/* ========= 印刷用（PDF保存・ブラウザ印刷） ========= */
+@media print {
+  /* タブバー・ヘッダー・操作ボタンを非表示 */
+  .tab-bar, .app-header, .segmented, .noprint,
+  #mode-params-panel > .card:not(:last-child),
+  #mode-camera-panel,
+  #meal-settings-container,
+  #btn-generate, #btn-save-all, #btn-add-all-shopping {
+    display: none !important;
+  }
+  body {
+    padding: 10mm !important;
+    background: #fff !important;
+    color: #000 !important;
+    font-size: 11pt;
+  }
+  .page-title { font-size: 20pt; margin-bottom: 10px; }
+  /* 献立の見た目を紙向きに */
+  #generated-menus { margin-top: 0 !important; }
+  .menu-card {
+    break-inside: avoid;
+    page-break-inside: avoid;
+    border: 1px solid #ccc !important;
+    box-shadow: none !important;
+    margin-bottom: 10px !important;
+    padding: 10px 12px !important;
+  }
+  .menu-card-title { font-size: 14pt; }
+  .menu-card-ingredients, .menu-card-steps { font-size: 10.5pt; }
+  .badge { border: 1px solid #999 !important; background: #fff !important; color: #000 !important; }
+  .menu-card-day-meal { color: #444 !important; }
+}
+
+/* 体裁：印刷ダイアログ中のUI切替用（将来の拡張用） */
+body.printing .tab-bar { display: none; }
+
 @media (min-width: 640px) {
   body { padding-left: calc(max(16px, 50vw - 240px) + var(--sa-left)); padding-right: calc(max(16px, 50vw - 240px) + var(--sa-right)); }
   .tab-bar { padding-left: calc(max(16px, 50vw - 240px) + var(--sa-left)); padding-right: calc(max(16px, 50vw - 240px) + var(--sa-right)); }

@@ -201,6 +201,81 @@
     eventTemplates = evtRes;
   }
 
+  // ============ 使い方モーダル ============
+  function openHelp() {
+    const backdrop = $('modal-backdrop');
+    const body = $('modal-body');
+    $('modal-title').textContent = '❓ 使い方';
+    body.innerHTML = `
+      <div class="help-section">
+        <h3>💡 このツールでできること</h3>
+        <p>現在年齢〜想定寿命までの<b>家計キャッシュフロー</b>と<b>資産推移</b>を可視化し、老後資金の枯渇リスクを数値で把握します。新NISA・特定口座・個別株/暗号の複利を税引き後で自動計算します。</p>
+      </div>
+
+      <div class="help-section">
+        <h3>🚀 初回セットアップ（推奨順）</h3>
+        <ol>
+          <li><span class="tag">1</span><b>基本</b>タブ → 年齢・退職予定・想定寿命・子供を登録</li>
+          <li><span class="tag">2</span><b>収支</b>タブ → 年収と月額支出を年齢区間で追加</li>
+          <li><span class="tag">3</span><b>教育</b>タブ → 子供ごとの進路（公立/私立）を選択</li>
+          <li><span class="tag">4</span><b>資産</b>タブ → 口座を追加（または MF CSV を取込）</li>
+          <li><span class="tag">5</span><b>イベント</b>タブ → 車買替・旅行などテンプレから追加</li>
+          <li><span class="tag">6</span><b>ホーム</b>タブ → CF表・グラフ・枯渇年齢を確認</li>
+        </ol>
+      </div>
+
+      <div class="help-section">
+        <h3>✏️ 編集・削除</h3>
+        <p>登録した項目の<b>白いカード部分をタップ</b>すると編集モーダルが開きます。右側の「削除」ボタンは確認後に消去します。</p>
+      </div>
+
+      <div class="help-section">
+        <h3>📈 投資の複利計算</h3>
+        <ul>
+          <li><b>新NISA</b>：つみたて＋成長で生涯1,800万円非課税。上限を超えた積立は自動で特定口座へ回ります</li>
+          <li><b>特定口座</b>：運用中は複利、取崩時に譲渡益20.315%を控除</li>
+          <li><b>個別株・暗号資産</b>：シナリオ（強気+12% / 中立+5% / 弱気-3%）で切替可能</li>
+        </ul>
+      </div>
+
+      <div class="help-section">
+        <h3>🏦 マネーフォワード連携</h3>
+        <p>資産タブの「MF資産CSVをドロップ」にMFからエクスポートしたCSVを投入すると、残高を差分プレビュー付きで一括反映します。列名「名称」「残高」または「評価額」を含むフォーマットに対応。</p>
+      </div>
+
+      <div class="help-section">
+        <h3>🔒 データの保存先</h3>
+        <p>すべての入力は<b>端末のブラウザ内（IndexedDB）</b>に保存されます。クラウドには送信されません。スマホのPWAとしてホーム画面に追加すればアプリのように使えます。</p>
+      </div>
+
+      <div class="help-section">
+        <h3>💡 見方のコツ</h3>
+        <ul>
+          <li>ホーム上部の「資産枯渇リスク」が「枯渇なし」ならOK、年齢が出ていたら対策が必要</li>
+          <li>CF表で赤字年（薄いピンク）は支出見直しのサイン</li>
+          <li>グラフの積み上げは口座別、青い太線が純資産合計</li>
+        </ul>
+      </div>
+    `;
+    // Save/Cancelは不要、閉じるのみ
+    $('modal-save').textContent = '閉じる';
+    $('modal-cancel').style.display = 'none';
+    const close = () => {
+      backdrop.classList.add('hidden');
+      $('modal-save').textContent = '保存';
+      $('modal-cancel').style.display = '';
+      $('modal-save').onclick = null;
+      $('modal-close').onclick = null;
+      backdrop.onclick = null;
+    };
+    $('modal-save').onclick = close;
+    $('modal-close').onclick = close;
+    backdrop.onclick = (e) => { if (e.target === backdrop) close(); };
+    backdrop.classList.remove('hidden');
+  }
+
+  $('btn-help').addEventListener('click', openHelp);
+
   // ============ タブ切替 ============
   function switchPage(pageKey) {
     document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));

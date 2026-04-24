@@ -48,7 +48,7 @@
       </div>
 
       <div class="card">
-        <div class="card-title">食事タイプ</div>
+        <div class="card-title">食事タイプ（複数選択可）</div>
         <div id="chip-meals" class="chip-row">
           <button class="chip" data-value="breakfast">🌅 朝</button>
           <button class="chip" data-value="lunch">🍱 昼</button>
@@ -56,16 +56,28 @@
         </div>
       </div>
 
-      <div class="card">
-        <div class="card-title">調理時間の上限（時短優先）</div>
-        <div id="chip-time" class="chip-row">
-          <button class="chip" data-value="10">10分</button>
-          <button class="chip" data-value="15">15分</button>
-          <button class="chip active" data-value="20">20分</button>
-          <button class="chip" data-value="30">30分</button>
-          <button class="chip" data-value="45">45分</button>
+      <!-- 食事別の詳細設定（選択した食事分だけ表示される） -->
+      <div id="meal-settings-container"></div>
+
+      <template id="meal-settings-template">
+        <div class="card meal-setting-card" data-meal="">
+          <div class="card-title meal-setting-title"></div>
+          <div class="meal-sub-title">⏱ 時間</div>
+          <div class="chip-row meal-chip-time"></div>
+          <div class="meal-sub-title">🎯 難易度</div>
+          <div class="chip-row meal-chip-difficulty">
+            <button class="chip" data-value="easy">かんたん</button>
+            <button class="chip active" data-value="normal">ふつう</button>
+            <button class="chip" data-value="elaborate">本格</button>
+          </div>
+          <div class="meal-sub-title">🍚 量・食材の品数</div>
+          <div class="chip-row meal-chip-portion">
+            <button class="chip" data-value="less">少なめ・品数少</button>
+            <button class="chip active" data-value="normal">ふつう</button>
+            <button class="chip" data-value="more">多め・品数多</button>
+          </div>
         </div>
-      </div>
+      </template>
 
       <div class="card">
         <div class="card-title">ジャンル</div>
@@ -167,6 +179,22 @@
       </div>
       <div id="menu-list"></div>
       <button id="btn-add-all-shopping" class="btn-primary" style="margin-top: 10px;">🛒 全食材を買い物リストへ</button>
+
+      <!-- 共有・出力パネル（noprint） -->
+      <div class="card noprint" style="margin-top: 12px;">
+        <div class="card-title">📤 共有・出力</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+          <button id="btn-print" class="btn-secondary">📄 印刷・PDF保存</button>
+          <button id="btn-share-menu" class="btn-secondary">📤 テキスト共有</button>
+          <button id="btn-export-ics" class="btn-secondary">📅 カレンダー(.ics)</button>
+          <button id="btn-gcal" class="btn-secondary">🗓️ Googleカレンダー</button>
+          <button id="btn-keep" class="btn-secondary">📝 Google Keep</button>
+          <button id="btn-tasks" class="btn-secondary">✅ Google Tasks</button>
+        </div>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:8px;line-height:1.5;">
+          Keep/Tasks は自動書き込みできないため、チェックリスト用テキストをコピーして貼り付けてください。
+        </div>
+      </div>
     </div>
   </main>
 

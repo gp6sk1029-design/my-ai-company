@@ -51,9 +51,35 @@ body {
 .app-header {
   display: flex; align-items: center; gap: 10px; margin-bottom: 14px;
 }
-.app-logo { font-size: 26px; }
+.app-logo { font-size: 26px; flex-shrink: 0; }
+.app-header-text { flex: 1; min-width: 0; }
 .app-title { font-size: 18px; font-weight: 800; letter-spacing: -0.3px; }
 .app-subtitle { font-size: 11px; color: var(--text-muted); font-weight: 600; }
+#btn-help { flex-shrink: 0; }
+
+/* 使い方モーダル（内容が長いので少し広め） */
+.help-section { margin-bottom: 14px; }
+.help-section h3 {
+  font-size: 14px; font-weight: 800; color: var(--accent-deep);
+  margin-bottom: 6px; display: flex; align-items: center; gap: 6px;
+}
+.help-section p, .help-section li {
+  font-size: 13px; line-height: 1.6; color: var(--text-secondary);
+}
+.help-section ol, .help-section ul {
+  padding-left: 20px; margin-top: 4px;
+}
+.help-section li { margin-bottom: 4px; }
+.help-section .tag {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent-deep);
+  font-size: 11px;
+  font-weight: 700;
+  margin-right: 4px;
+}
 
 /* ページタイトル */
 .page-title {

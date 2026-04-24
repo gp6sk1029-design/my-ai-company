@@ -213,12 +213,24 @@
   }
 
   // ============ 状態 ============
+  // 食事別のデフォルト設定
+  const DEFAULT_MEAL_SETTINGS = {
+    breakfast: { maxCookTimeMin: 10, difficulty: 'easy', portion: 'normal' },
+    lunch:     { maxCookTimeMin: 15, difficulty: 'normal', portion: 'normal' },
+    dinner:    { maxCookTimeMin: 20, difficulty: 'normal', portion: 'normal' },
+  };
+
   const state = {
     generationMode: 'params', // 'params' | 'camera'
     selected: {
-      days: DEFAULTS.days || 3,
+      days: DEFAULTS.days || 7,
       mealTypes: [...(DEFAULTS.mealTypes || ['dinner'])],
-      maxCookTimeMin: DEFAULTS.maxCookTimeMin || 20,
+      // 食事別の個別設定（選択中のものだけ使う）
+      mealSettings: {
+        breakfast: { ...DEFAULT_MEAL_SETTINGS.breakfast },
+        lunch:     { ...DEFAULT_MEAL_SETTINGS.lunch },
+        dinner:    { ...DEFAULT_MEAL_SETTINGS.dinner },
+      },
       mood: DEFAULTS.moodTag || 'normal',
       cuisine: 'any', // any/japanese/chinese/western/italian/korean/ethnic/donburi/mixed
       basicIngredientsOnly: true,
@@ -292,15 +304,80 @@
 
   wireChipGroup('#chip-days', 'days', false);
   wireChipGroup('#chip-meals', 'mealTypes', true);
-  wireChipGroup('#chip-time', 'maxCookTimeMin', false);
   wireChipGroup('#chip-mood', 'mood', false);
   wireChipGroup('#chip-cuisine', 'cuisine', false);
+
+  // 食事タイプの選択変更 → 食事別設定カードを再描画
+  $('#chip-meals').addEventListener('click', () => setTimeout(renderMealSettings, 0));
 
   $('#toggle-basic').addEventListener('change', (e) => state.selected.basicIngredientsOnly = e.target.checked);
   $('#toggle-commercial').addEventListener('change', (e) => state.selected.useCommercialSauces = e.target.checked);
   $('#toggle-batch').addEventListener('change', (e) => state.selected.batchShopping = e.target.checked);
   $('#toggle-usestock').addEventListener('change', (e) => state.selected.useStock = e.target.checked);
   $('#input-budget').addEventListener('input', (e) => state.selected.budgetYen = Number(e.target.value) || 1500);
+
+  // ============ 食事別の詳細設定UIレンダリング ============
+  const MEAL_FULL_LABEL = { breakfast: '🌅 朝食', lunch: '🍱 昼食', dinner: '🌙 夕食' };
+  const TIME_CHOICES = {
+    breakfast: [5, 10, 15, 20],
+    lunch:     [10, 15, 20, 30],
+    dinner:    [15, 20, 30, 45],
+  };
+
+  function renderMealSettings() {
+    const container = $('#meal-settings-container');
+    const tmpl = $('#meal-settings-template');
+    container.innerHTML = '';
+    const types = state.selected.mealTypes || [];
+    ['breakfast', 'lunch', 'dinner'].forEach(mt => {
+      if (!types.includes(mt)) return;
+      const node = tmpl.content.cloneNode(true);
+      const card = node.querySelector('.meal-setting-card');
+      card.dataset.meal = mt;
+      card.querySelector('.meal-setting-title').textContent = MEAL_FULL_LABEL[mt] + ' の詳細';
+      // 時間チップ
+      const timeWrap = card.querySelector('.meal-chip-time');
+      const current = state.selected.mealSettings[mt] || {};
+      TIME_CHOICES[mt].forEach(min => {
+        const b = document.createElement('button');
+        b.className = 'chip' + (current.maxCookTimeMin === min ? ' active' : '');
+        b.dataset.value = String(min);
+        b.textContent = min + '分';
+        timeWrap.appendChild(b);
+      });
+      // 難易度・量は active class 初期調整
+      card.querySelectorAll('.meal-chip-difficulty .chip').forEach(c => {
+        c.classList.toggle('active', c.dataset.value === current.difficulty);
+      });
+      card.querySelectorAll('.meal-chip-portion .chip').forEach(c => {
+        c.classList.toggle('active', c.dataset.value === current.portion);
+      });
+      container.appendChild(card);
+    });
+    wireMealSettingChips();
+  }
+
+  function wireMealSettingChips() {
+    $$('.meal-setting-card').forEach(card => {
+      const mt = card.dataset.meal;
+      const bind = (selector, key, isNumber = false) => {
+        card.querySelector(selector).addEventListener('click', (e) => {
+          const btn = e.target.closest('.chip');
+          if (!btn) return;
+          card.querySelectorAll(selector + ' .chip').forEach(c => c.classList.remove('active'));
+          btn.classList.add('active');
+          const v = isNumber ? Number(btn.dataset.value) : btn.dataset.value;
+          state.selected.mealSettings[mt][key] = v;
+        });
+      };
+      bind('.meal-chip-time', 'maxCookTimeMin', true);
+      bind('.meal-chip-difficulty', 'difficulty');
+      bind('.meal-chip-portion', 'portion');
+    });
+  }
+
+  // 初期描画
+  renderMealSettings();
 
   // ============ カメラ ============
   async function startCamera() {
@@ -534,7 +611,13 @@
         householdAllergies: [...new Set(members.flatMap(m => m.allergies || []))],
         avoidMode,
         budgetYen: state.selected.budgetYen,
-        maxCookTimeMin: state.selected.maxCookTimeMin,
+        // 食事別の詳細設定（選択中のもののみ）
+        mealSettings: state.selected.mealTypes.reduce((acc, mt) => {
+          acc[mt] = state.selected.mealSettings[mt];
+          return acc;
+        }, {}),
+        // 互換用：後方互換のため maxCookTimeMin に最大値を入れる
+        maxCookTimeMin: Math.max(...state.selected.mealTypes.map(mt => state.selected.mealSettings[mt].maxCookTimeMin)),
         moodTag: state.selected.mood,
         cuisine: state.selected.cuisine,
         seasonalHint,
@@ -1436,6 +1519,223 @@
       toast('世帯IDをコピーしました', 'success');
     } catch {
       $('#household-id-value').select();
+    }
+  });
+
+  // ============ 外部出力（印刷・共有・カレンダー・Keep・Tasks） ============
+  function formatMenuAsText(result, { includeRecipeDetail = true } = {}) {
+    if (!result || !result.days) return '';
+    const WEEK_JA = '日月火水木金土';
+    const dateBase = new Date();
+    const lines = [];
+    lines.push(`📅 ${result.days.length}日間の献立（${dateBase.getMonth() + 1}/${dateBase.getDate()}〜）`);
+    lines.push('');
+    result.days.forEach((day, idx) => {
+      const d = new Date(dateBase); d.setDate(d.getDate() + idx);
+      lines.push(`━━━ Day ${idx + 1} ${d.getMonth() + 1}/${d.getDate()}(${WEEK_JA[d.getDay()]}) ━━━`);
+      ['breakfast', 'lunch', 'dinner'].forEach(mk => {
+        const m = day.meals && day.meals[mk];
+        if (!m) return;
+        lines.push(`${MEAL_LABEL[mk]} ${m.name} (${m.cookTimeMin || '?'}分)`);
+        if (includeRecipeDetail) {
+          if ((m.ingredients || []).length) {
+            lines.push('  材料:');
+            m.ingredients.forEach(i => {
+              lines.push(`    ・${i.name} ${i.amount || ''}${i.unit || ''}`);
+            });
+          }
+          if ((m.steps || []).length) {
+            lines.push('  作り方:');
+            m.steps.forEach((s, i) => lines.push(`    ${i + 1}. ${s}`));
+          }
+          lines.push('');
+        }
+      });
+    });
+    if (result.notes) { lines.push(''); lines.push('💡 ' + result.notes); }
+    lines.push('');
+    lines.push('— 献立くん (https://kondate-kun.pages.dev/)');
+    return lines.join('\n');
+  }
+
+  // 買い物リストのテキスト（Keep/Tasks用、チェックリスト形式）
+  async function formatShoppingAsChecklistText() {
+    const items = await dbAll('shopping');
+    if (items.length === 0) return '';
+    const lines = ['🛒 買い物リスト', ''];
+    const byStorage = { urgent: [], fridge: [], freezer: [], room: [] };
+    for (const it of items) {
+      const sl = it.shelfLifeDays;
+      if (it.storage === 'freezer') byStorage.freezer.push(it);
+      else if (sl && sl < 3) byStorage.urgent.push(it);
+      else if (it.storage === 'fridge' || (sl && sl < 7)) byStorage.fridge.push(it);
+      else byStorage.room.push(it);
+    }
+    const labels = { urgent: '🔴 要早消費', fridge: '🟡 冷蔵', freezer: '🔵 冷凍', room: '🟢 常温' };
+    ['urgent', 'fridge', 'freezer', 'room'].forEach(k => {
+      if (byStorage[k].length === 0) return;
+      lines.push(`【${labels[k]}】`);
+      byStorage[k].forEach(i => {
+        const amt = i.amount ? ` ${i.amount}${i.unit || ''}` : '';
+        lines.push(`☐ ${i.name}${amt}`);
+      });
+      lines.push('');
+    });
+    return lines.join('\n');
+  }
+
+  // ---- 印刷・PDF ----
+  $('#btn-print').addEventListener('click', () => {
+    document.body.classList.add('printing');
+    window.print();
+    setTimeout(() => document.body.classList.remove('printing'), 500);
+  });
+
+  // ---- テキスト共有 ----
+  $('#btn-share-menu').addEventListener('click', async () => {
+    if (!state.currentGeneration) return;
+    const text = formatMenuAsText(state.currentGeneration);
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: '献立くん - 1週間の献立', text });
+      } else {
+        await navigator.clipboard.writeText(text);
+        toast('献立をコピーしました', 'success');
+      }
+    } catch (e) {
+      if (e.name !== 'AbortError') toast('共有失敗: ' + e.message, 'error');
+    }
+  });
+
+  // ---- .ics (iCalendar) ファイル生成 ----
+  function pad(n) { return String(n).padStart(2, '0'); }
+  function icsDate(d) {
+    // YYYYMMDDTHHmmss (ローカル時刻)
+    return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}T${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
+  }
+  function icsEscape(s) {
+    return String(s || '').replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\n/g, '\\n');
+  }
+  function generateICS(result) {
+    const WEEK_JA = '日月火水木金土';
+    const dateBase = new Date();
+    const mealTimes = { breakfast: [7, 0, 30], lunch: [12, 0, 30], dinner: [18, 30, 45] };
+    const nowStamp = icsDate(new Date());
+    const lines = [
+      'BEGIN:VCALENDAR',
+      'VERSION:2.0',
+      'PRODID:-//KondateKun//JP',
+      'CALSCALE:GREGORIAN',
+    ];
+    result.days.forEach((day, idx) => {
+      const d = new Date(dateBase);
+      d.setDate(d.getDate() + idx);
+      ['breakfast', 'lunch', 'dinner'].forEach(mk => {
+        const m = day.meals && day.meals[mk];
+        if (!m) return;
+        const [h, mm, durationMin] = mealTimes[mk];
+        const start = new Date(d); start.setHours(h, mm, 0, 0);
+        const end = new Date(start); end.setMinutes(end.getMinutes() + durationMin);
+        const uid = `kondate-${idx}-${mk}-${Date.now()}@kondate-kun.pages.dev`;
+        const descParts = [];
+        if ((m.ingredients || []).length) {
+          descParts.push('【材料】');
+          m.ingredients.forEach(i => descParts.push(`・${i.name} ${i.amount || ''}${i.unit || ''}`));
+        }
+        if ((m.steps || []).length) {
+          descParts.push('');
+          descParts.push('【作り方】');
+          m.steps.forEach((s, i) => descParts.push(`${i + 1}. ${s}`));
+        }
+        lines.push(
+          'BEGIN:VEVENT',
+          `UID:${uid}`,
+          `DTSTAMP:${nowStamp}`,
+          `DTSTART:${icsDate(start)}`,
+          `DTEND:${icsDate(end)}`,
+          `SUMMARY:${icsEscape(`${MEAL_LABEL[mk]} ${m.name} (${m.cookTimeMin || '?'}分)`)}`,
+          `DESCRIPTION:${icsEscape(descParts.join('\n'))}`,
+          `CATEGORIES:${icsEscape(m.cuisine || 'meal')}`,
+          'END:VEVENT'
+        );
+      });
+    });
+    lines.push('END:VCALENDAR');
+    return lines.join('\r\n');
+  }
+
+  $('#btn-export-ics').addEventListener('click', () => {
+    if (!state.currentGeneration) return;
+    const ics = generateICS(state.currentGeneration);
+    const blob = new Blob([ics], { type: 'text/calendar' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `kondate-${todayStr()}.ics`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast('.icsファイルをダウンロードしました', 'success');
+  });
+
+  // ---- Google カレンダーテンプレートURL（最初の1件のみ、残りは .ics 推奨）----
+  $('#btn-gcal').addEventListener('click', () => {
+    if (!state.currentGeneration || !state.currentGeneration.days[0]) return;
+    const WEEK_JA = '日月火水木金土';
+    const dateBase = new Date();
+    const mealTimes = { breakfast: [7, 0, 30], lunch: [12, 0, 30], dinner: [18, 30, 45] };
+    // 最初の食事を取得
+    let firstMeal = null, firstMealKey = null;
+    for (const mk of ['breakfast', 'lunch', 'dinner']) {
+      if (state.currentGeneration.days[0].meals[mk]) {
+        firstMeal = state.currentGeneration.days[0].meals[mk];
+        firstMealKey = mk;
+        break;
+      }
+    }
+    if (!firstMeal) return;
+    const [h, mm, dur] = mealTimes[firstMealKey];
+    const start = new Date(dateBase); start.setHours(h, mm, 0, 0);
+    const end = new Date(start); end.setMinutes(end.getMinutes() + dur);
+    const fmt = (d) => `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}T${pad(d.getHours())}${pad(d.getMinutes())}00`;
+    const title = `${MEAL_LABEL[firstMealKey]} ${firstMeal.name}`;
+    const desc = [
+      '【材料】',
+      ...(firstMeal.ingredients || []).map(i => `・${i.name} ${i.amount || ''}${i.unit || ''}`),
+      '',
+      '【作り方】',
+      ...(firstMeal.steps || []).map((s, i) => `${i + 1}. ${s}`),
+    ].join('\n');
+    const url = 'https://calendar.google.com/calendar/render?action=TEMPLATE'
+      + '&text=' + encodeURIComponent(title)
+      + '&dates=' + fmt(start) + '/' + fmt(end)
+      + '&details=' + encodeURIComponent(desc);
+    window.open(url, '_blank');
+    toast('Googleカレンダー（最初の1件）を開きました。残りは .ics 一括インポート推奨', 'success');
+  });
+
+  // ---- Google Keep（クリップボードコピー + 新規ノート画面を開く）----
+  $('#btn-keep').addEventListener('click', async () => {
+    const text = await formatShoppingAsChecklistText();
+    if (!text) { toast('買い物リストが空です', 'error'); return; }
+    try {
+      await navigator.clipboard.writeText(text);
+      window.open('https://keep.google.com/u/0/#NOTE', '_blank');
+      toast('買い物リストをコピー。Keepで新規ノート作成し貼り付けてください', 'success');
+    } catch (e) {
+      toast('コピー失敗: ' + e.message, 'error');
+    }
+  });
+
+  // ---- Google Tasks ----
+  $('#btn-tasks').addEventListener('click', async () => {
+    const text = await formatShoppingAsChecklistText();
+    if (!text) { toast('買い物リストが空です', 'error'); return; }
+    try {
+      await navigator.clipboard.writeText(text);
+      window.open('https://tasks.google.com/embed/?origin=https://mail.google.com&fullWidth=1', '_blank');
+      toast('Tasksは1行ずつ貼り付け推奨。テキストはコピー済みです', 'success');
+    } catch (e) {
+      toast('コピー失敗: ' + e.message, 'error');
     }
   });
 

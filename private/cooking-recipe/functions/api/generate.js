@@ -169,8 +169,10 @@ ${seasonalList || 'なし（特に指定なし）'}
 - 予算: 1日あたり約${p.budgetYen}円
 
 # 厳守ルール
+## 【食事別の個別条件】
+${buildMealSettingsBlock(p)}
+
 ## 【時短】
-- cookTimeMin は ${p.maxCookTimeMin} 分以下。朝食は10分以内。
 - 工程は3〜5手順に収め、「切る→炒める→味付け」系の簡潔な流れに。
 - 電子レンジ・フライパン1つで完結するレシピを優先。cookwareHint にヒントを書く。
 
