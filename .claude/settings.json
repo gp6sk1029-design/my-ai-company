@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "cd \"$(git rev-parse --show-toplevel)\" && if [ -f .claude/.push_failed ]; then echo '⚠️ 前回のpushが失敗しています。手動で確認してください：' && cat .claude/.push_failed && echo '---' && echo '対処法: git pull origin main してから git push origin main'; fi && git pull origin main 2>/dev/null || true",
+            "command": "cd \"$(git rev-parse --show-toplevel)\" && if [ -f .claude/.push_failed ]; then echo '⚠️ 前回のpushが失敗しています。手動で確認してください：' && cat .claude/.push_failed && echo '---' && echo '対処法: git pull origin main してから git push origin main'; fi && git pull origin main 2>/dev/null || true && if [ -f global_rules/install.sh ]; then bash global_rules/install.sh 2>/dev/null || true; fi",
             "statusMessage": "GitHubから最新設定を取得中...",
             "timeout": 30
           }

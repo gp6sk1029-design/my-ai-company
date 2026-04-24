@@ -23,12 +23,20 @@ git clone https://github.com/gp6sk1029-design/my-ai-company
 
 if [ $? -eq 0 ]; then
   echo ""
+
+  # 社内AI開発ルール（グローバルCLAUDE.md）をインストール
+  if [ -f ~/my-ai-company/global_rules/install.sh ]; then
+    echo "=== 社内AI開発ルールを ~/.claude/CLAUDE.md に同期中 ==="
+    bash ~/my-ai-company/global_rules/install.sh || true
+    echo ""
+  fi
+
   echo "=== ✅ セットアップ完了！ ==="
   echo ""
   echo "最新のコミット:"
   cd ~/my-ai-company && git log --oneline -3
   echo ""
-  echo "自動sync設定: 入ってます"
+  echo "自動sync設定: 入ってます（SessionStart時にグローバルルールも自動同期）"
   echo "次のステップ: Claude Codeで ~/my-ai-company を開くだけ"
   echo ""
 
