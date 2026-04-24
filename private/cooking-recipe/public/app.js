@@ -611,10 +611,45 @@
     const container = $('#menu-list');
     container.innerHTML = '';
     const dateBase = new Date();
+    const WEEK_JA = '日月火水木金土';
+    const numDays = result.days.length;
+
+    // 1週間以上なら週間サマリーを最上部に表示
+    if (numDays >= 5) {
+      const endDate = new Date(dateBase);
+      endDate.setDate(endDate.getDate() + numDays - 1);
+      const totalMeals = result.days.reduce((acc, d) => acc + Object.keys(d.meals || {}).length, 0);
+      const totalBudget = result.totalBudgetYen || '-';
+      const summary = document.createElement('div');
+      summary.className = 'card';
+      summary.style.cssText = 'background:linear-gradient(135deg,#dcfce7,#bbf7d0);border:1px solid #86efac;';
+      summary.innerHTML = `
+        <div style="font-size:13px;font-weight:800;color:var(--accent-deep);margin-bottom:4px;">📅 ${numDays}日間の献立プラン</div>
+        <div style="font-size:18px;font-weight:800;color:var(--text);margin-bottom:6px;">
+          ${dateBase.getMonth() + 1}/${dateBase.getDate()}（${WEEK_JA[dateBase.getDay()]}）
+          〜 ${endDate.getMonth() + 1}/${endDate.getDate()}（${WEEK_JA[endDate.getDay()]}）
+        </div>
+        <div style="display:flex;gap:14px;font-size:13px;color:var(--text-secondary);flex-wrap:wrap;">
+          <span>🍽️ ${totalMeals}食</span>
+          <span>💰 合計目安 ¥${typeof totalBudget === 'number' ? totalBudget.toLocaleString() : totalBudget}</span>
+        </div>
+      `;
+      container.appendChild(summary);
+    }
+
     result.days.forEach((day, dayIdx) => {
       const date = new Date(dateBase);
       date.setDate(date.getDate() + dayIdx);
-      const dayLabel = `${date.getMonth() + 1}/${date.getDate()}（${'日月火水木金土'[date.getDay()]}）`;
+      const dayOfWeek = WEEK_JA[date.getDay()];
+      const dayLabel = `${date.getMonth() + 1}/${date.getDate()}（${dayOfWeek}）`;
+      const isWeekend = date.getDay() === 0 || date.getDay() === 6;
+
+      // 日付の区切りヘッダー
+      const dayHeader = document.createElement('div');
+      dayHeader.style.cssText = `margin:16px 0 8px;padding:6px 12px;background:${isWeekend ? 'rgba(239,68,68,0.08)' : 'rgba(22,163,74,0.08)'};border-radius:10px;font-size:13px;font-weight:800;color:${isWeekend ? '#dc2626' : 'var(--accent-deep)'};display:flex;align-items:center;gap:8px;`;
+      dayHeader.innerHTML = `<span style="font-size:15px;">📅</span><span>${dayLabel}</span><span style="margin-left:auto;font-size:11px;color:var(--text-muted);font-weight:600;">Day ${dayIdx + 1}/${numDays}</span>`;
+      container.appendChild(dayHeader);
+
       ['breakfast', 'lunch', 'dinner'].forEach(mealKey => {
         const meal = day.meals && day.meals[mealKey];
         if (!meal) return;

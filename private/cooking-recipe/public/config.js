@@ -7,11 +7,11 @@ window.COOKING_APP_CONFIG = {
   DETECT_URL: '/api/detect-ingredients',
   // 開発者向け: 本番で既定の献立生成条件
   DEFAULTS: {
-    days: 3,
-    mealTypes: ['dinner'],
+    days: 7,                    // 1週間の献立がデフォルト
+    mealTypes: ['dinner'],      // 週間プランは夕食中心（朝昼を追加したい人は選択）
     maxCookTimeMin: 20,
     basicIngredientsOnly: true,
-    batchShopping: true,
+    batchShopping: true,        // 1週間→ため買い前提
     moodTag: 'normal',
     budgetYen: 1500,
     avoidMode: 'any',
