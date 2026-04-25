@@ -12,6 +12,12 @@
       "runtimeExecutable": "python3",
       "runtimeArgs": ["-c", "import os; from http.server import HTTPServer, SimpleHTTPRequestHandler; from functools import partial; print('[life-plan] http://localhost:8791'); HTTPServer(('0.0.0.0', 8791), partial(SimpleHTTPRequestHandler, directory='/Users/shoheikoda/Documents/my-ai-company/private/life-plan/public')).serve_forever()"],
       "port": 8791
+    },
+    {
+      "name": "kiji-meshi",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["-c", "from http.server import HTTPServer, SimpleHTTPRequestHandler; from functools import partial; print('[kiji-meshi] http://localhost:8792'); HTTPServer(('0.0.0.0', 8792), partial(SimpleHTTPRequestHandler, directory='/Users/shoheikoda/Documents/my-ai-company/blog/pwa-cloudflare')).serve_forever()"],
+      "port": 8792
     }
   ]
 }
