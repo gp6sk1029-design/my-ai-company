@@ -2,6 +2,8 @@
 blog/google_credentials.json
 blog/google_token.pickle
 blog/config.json
+ec/config.json
+tools/ec/config.json
 *.pickle
 
 # 環境設定ファイル

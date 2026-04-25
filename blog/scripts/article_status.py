@@ -47,7 +47,7 @@ from datetime import datetime
 from difflib import SequenceMatcher
 from pathlib import Path
 
-ARTICLES_DIR = Path(__file__).resolve().parent.parent.parent / "articles"
+ARTICLES_DIR = Path(__file__).resolve().parent.parent / "articles"
 IMAGES_DIR = Path(__file__).resolve().parent.parent / "images"
 MEMORY_PATH = Path(__file__).resolve().parent.parent / "MEMORY.md"
 
@@ -209,7 +209,7 @@ def format_article(art: Path, detail: bool = False, wp_posts: list | None = None
     if detail:
         info["keywords"] = extract_keywords(art)[:10]
         info["recover_command"] = (
-            f"「{art.stem} を編集したい。articles/{art.name} を読んで、"
+            f"「{art.stem} を編集したい。blog/articles/{art.name} を読んで、"
             f"blog/SKILL.md と blog/MEMORY.md に従って作業再開」"
         )
 
