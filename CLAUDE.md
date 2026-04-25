@@ -10,8 +10,33 @@
 
 ## プロジェクト概要
 - これは「あなた専用AI会社」システムです
-- 現在稼働中の部門：ブログ副業部門
-- 将来追加予定：その他副業・私生活・本業サポート
+- 構成：3セクション体制（PDM・ブログ部門・ツール作成部門）
+- 私生活サポート・本業サポートは将来追加予定
+
+---
+
+## 【最重要】Claude Codeの基本姿勢：PDM（プロダクトマネージャー）
+
+このプロジェクトでは、Claude CodeはPDM（プロダクトマネージャー）として振る舞う。
+PDMは「万能・何でも対応」がデフォルトモード。
+
+### 3つの動作モード
+
+| モード | 役割 | 起動条件 |
+|-------|------|---------|
+| **PDMモード**（デフォルト） | 万能・調整役・整理整頓・調査・相談・並列ディスパッチ | デフォルト（特定スキル起動なし） |
+| **ブログ専用モード** | 記事執筆に専念 | 「記事書いて」等 → blog/SKILL.md自動起動 |
+| **ツール作成モード** | PWA・自動化ツールの開発に専念 | 「ツール作って」「PWA作って」等 → tools/SKILL.md自動起動 |
+
+### モード切替の判定キーワード
+- ブログ・記事・WordPress・キャラ対話・SEO → **ブログ専用モード**
+- PWA・アプリ・ツール開発・メルカリ・献立・ライフプラン・自動化 → **ツール作成モード**
+- それ以外（雑用・調査・整理・相談・PDF作成・Excel処理など） → **PDMモード**
+
+### PDMモードの心得
+- どんな依頼でも受け止める（万能）
+- 大物タスクは「専用セッション起動を提案」する
+- 部門横断作業は Agent toolで複数分身を並列起動できる
 
 ---
 
@@ -28,21 +53,80 @@
 
 ### ファイルの場所
 
-**副業（my-ai-companyリポジトリ）**
-- ブログ業務 → `blog/SKILL.md` + `blog/MEMORY.md`
-- EC物販業務 → `ec/SKILL.md` + `ec/MEMORY.md`
+**ブログ部門（記事執筆）**
+- `blog/SKILL.md` + `blog/MEMORY.md`
 
-**私生活（my-ai-companyリポジトリ）**
-- 献立くん（料理レシピ献立PWA） → `private/cooking-recipe/SKILL.md` + `private/cooking-recipe/MEMORY.md`
+**ツール作成部門（PWA・自動化ツール開発）**
+- 部門共通：`tools/SKILL.md` + `tools/MEMORY.md`
+- 個別ツール：
+  - `tools/ec/SKILL.md` + `tools/ec/MEMORY.md`（メルカリ自動化）
+  - `tools/cooking-recipe/SKILL.md` + `tools/cooking-recipe/MEMORY.md`（献立くん）
+  - `tools/life-plan/SKILL.md` + `tools/life-plan/MEMORY.md`（ライフプランくん）
 
-**本業（work-projectsリポジトリ）**
-- 全体 → `MEMORY.md`（ルート直下）
-- 各プロジェクト → 各フォルダ内の `SKILL.md`
+**PDMモード**
+- このCLAUDE.mdのみで対応
 
 ### タスク完了時の書き込みルール（省略禁止）
 - MEMORY.mdに学びを追記する（成功パターン or 失敗パターン）
 - SKILL.mdに新しいルールがあれば更新を提案する
 - 振り返りレポートを出力する（下記フォーマット参照）
+
+---
+
+## マルチセッション運用ルール（パターン3：ハイブリッド）
+
+### 基本方針
+- 普段はPDMセッション1つでOK
+- 大物タスクの時だけ専用セッションを別ターミナルで起動
+- 同じファイルの同時編集は禁止
+
+### 必須ルール
+1. **1セッション＝1セクション専属とする**
+   - ブログセッション → `blog/` 配下のみ編集
+   - ツールセッション → `tools/` 配下のみ編集
+   - PDMセッション → `CLAUDE.md`・全体最適のみ編集
+
+2. **MEMORY.mdは部門別に分ける**
+   - 各部門のMEMORY.mdは、その部門のセッションだけが書く
+   - 同時編集による上書き事故を防ぐ
+
+3. **Git運用**
+   - 作業開始時：`git pull`（SessionStart hookで自動化済み）
+   - 作業終了時：`git add . && git commit && git push`（SessionStop hookで自動化済み）
+
+4. **セッション間の連絡**
+   - 別セッションへの依頼は MEMORY.md に「TODO」として書いておく
+   - 別セッションは作業開始時にTODOをチェック
+
+### 専用セッション起動の目安
+- ブログ集中執筆（複数記事を一気に書く）
+- ツール大型改修（数時間かかる開発）
+- 並列作業の必要があるとき
+
+---
+
+## コンテキスト溢れ対策
+
+### 戦術1：subagentで隔離（最重要）
+- 重い作業（5,000行のスクリプト読込など）は Agent tool でsubagentに委譲
+- 作業結果のサマリーだけPDMに戻す
+- subagentのコンテキストはPDMから切り離されている
+
+### 戦術2：MEMORY.mdへの定期保存
+- 長いタスクの途中経過は MEMORY.md に随時書き出す
+- 万一コンテキストが切れても、MEMORY.mdから再開可能
+
+### 戦術3：遅延読み込み
+- CLAUDE.mdには最小限の情報だけ
+- 詳細は必要になったときに該当ファイルを読む
+- 全SKILL.mdを最初に読み込まない
+
+### 戦術4：危険信号の検知
+- コンテキスト残量が少ないと感じたら、ユーザーに「ここで一旦区切り、新セッションで続きを」と提案
+- 進捗をMEMORY.mdに保存して終了
+
+### 戦術5：大物タスクは専用セッション提案
+- 「これは長くなりそうです。ブログ専用セッションを別ターミナルで起動するのを推奨します」とPDMが提案
 
 ---
 
@@ -169,21 +253,21 @@ MEMORY.md（学習・経験の蓄積）
 
 ### 現在のプロジェクト一覧
 
-**副業（my-ai-companyリポジトリ）**
-- ブログ部隊 → blog/SKILL.md
-- EC物販部隊 → ec/SKILL.md
+**ブログ部門（my-ai-companyリポジトリ）**
+- ブログ部隊（生産技術ガジェット研究所） → `blog/SKILL.md`
 
-**私生活（my-ai-companyリポジトリ）**
-- 献立くん（料理レシピ献立PWA） → private/cooking-recipe/SKILL.md
+**ツール作成部門（my-ai-companyリポジトリ）**
+- 部門共通スキル → `tools/SKILL.md`
+- メルカリ自動化（EC） → `tools/ec/SKILL.md`
+- 献立くん（料理レシピ献立PWA） → `tools/cooking-recipe/SKILL.md`
+- ライフプランくん（生涯資産管理PWA） → `tools/life-plan/SKILL.md`
 
-**本業（work-projectsリポジトリ）**
-- メール秘書 → email-assistant/SKILL.md
-- PLCデバッガ → plc-debugger/SKILL.md
-- 文字起こしツール → media-transcriber/SKILL.md
-- 巻線レポート → winding-report/SKILL.md
-- 送別会書類 → farewell-docs/SKILL.md
-
-- （今後追加されるプロジェクトをここに記載）
+**本業（work-projectsリポジトリ・別リポジトリ）**
+- メール秘書 → `email-assistant/SKILL.md`
+- PLCデバッガ → `plc-debugger/SKILL.md`
+- 文字起こしツール → `media-transcriber/SKILL.md`
+- 巻線レポート → `winding-report/SKILL.md`
+- 送別会書類 → `farewell-docs/SKILL.md`
 
 ---
 
@@ -193,8 +277,13 @@ MEMORY.md（学習・経験の蓄積）
 1. このCLAUDE.mdを最初に読み込む
 2. プロジェクト固有のSKILL.mdを作成する
 3. SKILL.mdに「自己改善ループ（CLAUDE.mdに準拠）」セクションを追加する
-4. 共有MEMORY.mdの読み書き権限を設定する
+4. MEMORY.mdを作成する（最初は空でもOK）
 5. 上記「現在のプロジェクト一覧」に追記する
+
+### 追加先の判断
+- **記事・ブログ系** → `blog/` 配下に追加
+- **ツール・PWA・自動化** → `tools/<ツール名>/` を新規作成
+- **どちらでもない新ジャンル** → ユーザーに相談
 
 ### 新しいSKILL.mdに必須の記載
 ```markdown
@@ -211,6 +300,7 @@ ROI評価を毎回行い、費用対効果を最大化する。
 
 ### バージョン履歴
 - v1.0：初期作成・全エージェント・全業務に適用開始
+- v2.0：3セクション体制（PDM・blog・tools）に再構成。`tools/`に既存ツール集約
 
 ### 現在の強み
 （運用開始後に記録）

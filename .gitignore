@@ -24,9 +24,11 @@ __pycache__/
 blog/images/processed/
 blog/images/characters/
 ec/data/temp_photos/
+tools/ec/data/temp_photos/
 
 # Chromeプロファイル（大容量）
 ec/data/mercari_chrome/
+tools/ec/data/mercari_chrome/
 
 # DBファイル
 *.db
