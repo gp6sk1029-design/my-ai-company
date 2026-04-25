@@ -409,10 +409,43 @@
     articleSelect.value = '';
     showToast('新規記事として使用: ' + title, 'success');
   });
-  articleSelect.addEventListener('change', () => {
+  articleSelect.addEventListener('change', async () => {
     selectedNewArticle = null;
     newArticleInput.value = '';
+    // 既存記事を選んだら PROMPT.md をDriveから復元
+    const folderId = articleSelect.value;
+    if (folderId) await loadExistingPrompt(folderId);
   });
+
+  async function loadExistingPrompt(folderId) {
+    try {
+      const url = GAS_URL + '?' + new URLSearchParams({
+        token: TOKEN, action: 'getPrompt', articleFolderId: folderId,
+      }).toString();
+      const res = await fetch(url).then((r) => r.json());
+      if (!res.ok || !res.exists) return;
+      // 既存メモを上書きして良いか軽く確認
+      if (hasPromptData()) {
+        if (!confirm('この記事に既存のメモが見つかりました。現在の入力を破棄して読み込みますか？')) return;
+      }
+      articleTypes = Array.from(new Set([
+        ...articleTypes,
+        ...(res.articleType ? [res.articleType] : []),
+      ]));
+      saveArticleTypes();
+      renderArticleTypes();
+      articleTypeSelect.value = res.articleType || '';
+      memos = Array.isArray(res.memos) ? res.memos.slice() : [];
+      persistMemoState();
+      renderMemos();
+      // メモセクションを開く
+      const det = document.getElementById('memo-details');
+      if (det && !det.open) det.open = true;
+      showToast('既存メモを読み込みました', 'success');
+    } catch (e) {
+      console.error('loadExistingPrompt error:', e);
+    }
+  }
 
   // ─── 記事作成メモ（AIへの指示） ─────────────────────
   const LS_TYPES_KEY = 'kiji-meshi:article-types';

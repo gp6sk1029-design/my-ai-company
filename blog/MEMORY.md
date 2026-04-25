@@ -19,7 +19,8 @@
 - wp_block_builder.py でJIN:Rブロック構造の自動生成が可能に
 - ファクトチェック手順を型化したことで誤情報リスクが低下
 - **md_to_html_inline()にJIN:R装飾自動付与を実装（2026/04/21）**。`***重要***` と `**数値を含む**` を自動で水色下線化
-- **記事めしPWAにメモ機能実装（2026/04/25）**：アップロード時に「記事タイプ」＋「読者に伝えたいポイント（優先度順）」をDriveの画像フォルダに `PROMPT.md` として自動生成。AIはこれを最優先で読んで記事方針に反映（SKILL.md §0参照）
+- **記事めしPWAにメモ機能実装（2026/04/25）**：アップロード時に「記事タイプ」＋「読者に伝えたいポイント（優先度順）」をDriveの画像フォルダに `PROMPT.md` として自動生成。AIはこれを最優先で読んで記事方針に反映（SKILL.md §0参照）。GAS deployment v13、Cloudflare Pages `blog-capture` に反映済み（2026-04-26）。本番動作確認：savePrompt + getPrompt + パース・既存復元すべて成功
+- **GASデプロイは clasp + create-deployment -i &lt;deploymentId&gt; で「URL不変・新版」可能**：clasp push → `clasp create-deployment -i AKfyc...&lt;同ID&gt; -d "v13: ..."` でWeb App URLを変えずに新バージョンを公開できる。Cloudflare PWAのGAS_URL更新が不要で安全
 
 ### 前回記事スタイル踏襲チェック（必須フロー・2026/04/21新設）
 記事執筆前に以下を必ず実行する：

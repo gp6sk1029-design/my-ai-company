@@ -54,6 +54,10 @@
 - 優先度1番目を忘れるとメモ作成の意味がなくなる → 記事の冒頭200文字以内で必ず触れる
 - 記事タイプが「商品比較」なら比較表を必ず含める等、タイプ固有の構成要素を機械的に付与
 
+### 関連エンドポイント（GAS／PWAから利用）
+- `POST action=savePrompt` — articleType と memosJson(JSON配列) を渡して PROMPT.md を生成（既存は上書き）
+- `GET  action=getPrompt&articleFolderId=xxx` — 既存 PROMPT.md をパースして articleType と memos を返却（再撮影時にPWAが自動復元）
+
 ### JIN:R装飾の使い分けガイド
 | 書き方（Markdown） | 出力 | 用途 |
 |---|---|---|

@@ -16,6 +16,8 @@ function doGet(e) {
       return jsonResponse_({ ok: true, articles: listArticleFolders() });
     case 'resumableUrl':
       return handleResumableUrl_(p);
+    case 'getPrompt':
+      return handleGetPrompt_(p);
     case 'ping':
       return jsonResponse_({ ok: true, time: new Date().toISOString() });
     default:
@@ -176,6 +178,55 @@ function handleSavePrompt_(p) {
   } finally {
     lock.releaseLock();
   }
+}
+
+// ─── 既存 PROMPT.md 取得（編集復元用） ─────────────────────
+function handleGetPrompt_(p) {
+  try {
+    if (!p.articleFolderId) {
+      return jsonResponse_({ ok: true, exists: false, message: 'no folderId' });
+    }
+    const folder = getArticleFolderById(p.articleFolderId);
+    const files = folder.getFilesByName('PROMPT.md');
+    if (!files.hasNext()) {
+      return jsonResponse_({ ok: true, exists: false });
+    }
+    const file = files.next();
+    const text = file.getBlob().getDataAsString('UTF-8');
+
+    // パースして articleType と memos を抽出
+    const parsed = parsePromptMd_(text);
+
+    return jsonResponse_({
+      ok: true, exists: true,
+      articleType: parsed.articleType,
+      memos: parsed.memos,
+      raw: text,
+    });
+  } catch (err) {
+    return jsonResponse_({ ok: false, message: err.message });
+  }
+}
+
+function parsePromptMd_(text) {
+  const result = { articleType: '', memos: [] };
+  if (!text) return result;
+  const lines = text.split(/\r?\n/);
+  let section = '';
+  for (var i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (/^##\s*記事タイプ/.test(line)) { section = 'type'; continue; }
+    if (/^##\s*読者に伝えたいポイント/.test(line)) { section = 'memos'; continue; }
+    if (/^##\s/.test(line)) { section = ''; continue; }
+    if (section === 'type') {
+      const m = line.match(/^\*\*(.+?)\*\*\s*$/) || line.match(/^([^\s*-].+?)\s*$/);
+      if (m && m[1]) { result.articleType = m[1].trim(); section = ''; }
+    } else if (section === 'memos') {
+      const m = line.match(/^\d+\.\s+(.+?)\s*$/);
+      if (m && m[1]) result.memos.push(m[1].trim());
+    }
+  }
+  return result;
 }
 
 // ─── Resumable URL 発行 ─────────────────────
