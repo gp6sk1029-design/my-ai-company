@@ -2,7 +2,7 @@
 
 - **トピック**: 献立くんPWA 構築（Gemini + D1同期 + Google連携 + 1週間献立）
 - **本番URL**: https://kondate-kun.pages.dev/
-- **リポジトリ**: `/Users/shoheikoda/Documents/my-ai-company/private/cooking-recipe/`
+- **リポジトリ**: `/Users/shoheikoda/Documents/my-ai-company/tools/cooking-recipe/`
 - **セッションID**: `e065c587-b56c-43a2-8916-a9ba04eb889a`
 
 ---
@@ -14,8 +14,8 @@
 
 1. handover/2026-04-27-0206-献立くんPWA構築（Gemini+D1同期+Google連携+1週間献立）.md ← 引き継ぎ書（必読）
 2. CLAUDE.md ← 全体ルール
-3. private/cooking-recipe/SKILL.md ← 部門ルール
-4. private/cooking-recipe/MEMORY.md ← 過去の学び
+3. tools/cooking-recipe/SKILL.md ← 部門ルール
+4. tools/cooking-recipe/MEMORY.md ← 過去の学び
 
 確認後、引き継ぎ書「未完了タスク」「既知の問題」を踏まえて作業再開してください。
 不明点があれば必ず先に質問してください。
@@ -65,25 +65,25 @@
 ## 📁 重要なファイル（全て絶対パス）
 
 ### クライアント
-- `/Users/shoheikoda/Documents/my-ai-company/private/cooking-recipe/public/index.html` - 5タブ構成
-- `/Users/shoheikoda/Documents/my-ai-company/private/cooking-recipe/public/app.js` - 約2100行の単一ファイル
-- `/Users/shoheikoda/Documents/my-ai-company/private/cooking-recipe/public/styles.css`
-- `/Users/shoheikoda/Documents/my-ai-company/private/cooking-recipe/public/config.js` - DEFAULTS, GENERATE_URL等
-- `/Users/shoheikoda/Documents/my-ai-company/private/cooking-recipe/public/manifest.webmanifest`
-- `/Users/shoheikoda/Documents/my-ai-company/private/cooking-recipe/public/data/seasonal.json` - 月別旬食材
+- `/Users/shoheikoda/Documents/my-ai-company/tools/cooking-recipe/public/index.html` - 5タブ構成
+- `/Users/shoheikoda/Documents/my-ai-company/tools/cooking-recipe/public/app.js` - 約2100行の単一ファイル
+- `/Users/shoheikoda/Documents/my-ai-company/tools/cooking-recipe/public/styles.css`
+- `/Users/shoheikoda/Documents/my-ai-company/tools/cooking-recipe/public/config.js` - DEFAULTS, GENERATE_URL等
+- `/Users/shoheikoda/Documents/my-ai-company/tools/cooking-recipe/public/manifest.webmanifest`
+- `/Users/shoheikoda/Documents/my-ai-company/tools/cooking-recipe/public/data/seasonal.json` - 月別旬食材
 
 ### サーバー（Cloudflare Pages Functions）
-- `/Users/shoheikoda/Documents/my-ai-company/private/cooking-recipe/functions/api/generate.js`
-- `/Users/shoheikoda/Documents/my-ai-company/private/cooking-recipe/functions/api/detect-ingredients.js`
-- `/Users/shoheikoda/Documents/my-ai-company/private/cooking-recipe/functions/api/sync.js`
+- `/Users/shoheikoda/Documents/my-ai-company/tools/cooking-recipe/functions/api/generate.js`
+- `/Users/shoheikoda/Documents/my-ai-company/tools/cooking-recipe/functions/api/detect-ingredients.js`
+- `/Users/shoheikoda/Documents/my-ai-company/tools/cooking-recipe/functions/api/sync.js`
 
 ### 設定・ドキュメント
-- `/Users/shoheikoda/Documents/my-ai-company/private/cooking-recipe/wrangler.toml`
-- `/Users/shoheikoda/Documents/my-ai-company/private/cooking-recipe/schema.sql` - D1テーブル定義
-- `/Users/shoheikoda/Documents/my-ai-company/private/cooking-recipe/SKILL.md`
-- `/Users/shoheikoda/Documents/my-ai-company/private/cooking-recipe/MEMORY.md`
-- `/Users/shoheikoda/Documents/my-ai-company/private/cooking-recipe/README.md`
-- `/Users/shoheikoda/Documents/my-ai-company/private/cooking-recipe/tools/generate_icons.py` - アイコン生成
+- `/Users/shoheikoda/Documents/my-ai-company/tools/cooking-recipe/wrangler.toml`
+- `/Users/shoheikoda/Documents/my-ai-company/tools/cooking-recipe/schema.sql` - D1テーブル定義
+- `/Users/shoheikoda/Documents/my-ai-company/tools/cooking-recipe/SKILL.md`
+- `/Users/shoheikoda/Documents/my-ai-company/tools/cooking-recipe/MEMORY.md`
+- `/Users/shoheikoda/Documents/my-ai-company/tools/cooking-recipe/README.md`
+- `/Users/shoheikoda/Documents/my-ai-company/tools/cooking-recipe/tools/generate_icons.py` - アイコン生成
 
 ### 設計プラン
 - `/Users/shoheikoda/.claude/plans/quirky-baking-kernighan.md` - 初期設計プラン
@@ -115,7 +115,7 @@
 
 ### ローカル起動
 ```bash
-cd /Users/shoheikoda/Documents/my-ai-company/private/cooking-recipe
+cd /Users/shoheikoda/Documents/my-ai-company/tools/cooking-recipe
 export GEMINI_API_KEY='AIzaSyDrTDbVUhYww8-rbm_o5XjM1W_vNbrG6t4'
 npx wrangler pages dev public --compatibility-date=2024-11-01 --port 8788
 # → http://localhost:8788
@@ -123,7 +123,7 @@ npx wrangler pages dev public --compatibility-date=2024-11-01 --port 8788
 
 ### デプロイ
 ```bash
-cd /Users/shoheikoda/Documents/my-ai-company/private/cooking-recipe
+cd /Users/shoheikoda/Documents/my-ai-company/tools/cooking-recipe
 npx wrangler pages deploy public --project-name=kondate-kun --commit-dirty=true --branch=main
 ```
 
@@ -142,7 +142,7 @@ npx wrangler d1 execute kondate-kun-db --remote \
 
 ### アイコン再生成
 ```bash
-cd /Users/shoheikoda/Documents/my-ai-company/private/cooking-recipe
+cd /Users/shoheikoda/Documents/my-ai-company/tools/cooking-recipe
 python3 tools/generate_icons.py
 ```
 
@@ -265,6 +265,6 @@ python3 tools/generate_icons.py
 ## 関連リソース
 
 - 全体ルール: `/Users/shoheikoda/Documents/my-ai-company/CLAUDE.md`
-- プロジェクトルール: `/Users/shoheikoda/Documents/my-ai-company/private/cooking-recipe/SKILL.md`
-- 学習記録: `/Users/shoheikoda/Documents/my-ai-company/private/cooking-recipe/MEMORY.md`
+- プロジェクトルール: `/Users/shoheikoda/Documents/my-ai-company/tools/cooking-recipe/SKILL.md`
+- 学習記録: `/Users/shoheikoda/Documents/my-ai-company/tools/cooking-recipe/MEMORY.md`
 - 初期設計プラン: `/Users/shoheikoda/.claude/plans/quirky-baking-kernighan.md`
