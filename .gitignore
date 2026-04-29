@@ -41,6 +41,9 @@ tools/ec/data/mercari_chrome/
 .claude/.push_failed
 .claude/.push_error
 
+# Git worktree（個人の作業領域。GitHubに上げない）
+.claude/worktrees/
+
 # blog-capture（ブログ素材転送ツール）
 blog/images/raw/
 blog/apps-script/**/.clasp.json

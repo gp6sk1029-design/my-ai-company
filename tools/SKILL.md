@@ -138,6 +138,75 @@ npx wrangler pages dev public --compatibility-date=2024-11-01
 
 ---
 
+## Git Worktree運用ノウハウ（ツール部門共通）
+
+### Worktreeとは何か（一言で）
+**「同じリポジトリを別フォルダで同時に開ける機能」**。
+1つのPCで複数のブランチを並行作業でき、ブランチ切替で他作業を巻き込まない。
+ツール部門は複数ツール（EC・献立・ライフプラン・新規）を持つので相性が良い。
+
+### 配置ルール（厳守）
+すべてのworktreeは**この場所のみ**に作る：
+```
+my-ai-company/.claude/worktrees/<worktree名>/
+```
+**フラット構造**（ネスト禁止）。`.claude/worktrees/.claude/worktrees/...` のような二重パスは絶対に作らない。
+過去にネスト事故で4つのworktreeが迷子になった（2026-04-29に解消）。
+
+### `.gitignore` 必須設定
+`.claude/worktrees/` は **GitHubに上げない**。`.gitignore` に必ず以下が入っていること：
+```
+.claude/worktrees/
+```
+worktreeは個人の作業領域。GitHubには各worktreeで作った**ブランチ**をpushする形で反映する（worktreeフォルダそのものではない）。
+
+### 使うべき場面
+| 場面 | Worktreeを使う？ |
+|------|----------------|
+| 1ツールを30分以内で改修 | ❌ 通常セッションでOK |
+| 複数ツールを同時並行で改修 | ✅ ツールごとに別worktree |
+| 大型開発（数時間〜半日） | ✅ 専用worktreeで隔離 |
+| ブログ部門と同時並行で動く | ✅ ブログ用と別worktree |
+| `main`を壊さず実験したい | ✅ 実験用worktreeで安全に |
+
+### CLAUDE.mdとの整合性
+CLAUDE.mdのマルチセッション運用ルールに従う：
+- **1 worktree ＝ 1部門専属**（tools用worktreeは `tools/` 配下のみ編集）
+- **同じファイルを複数worktreeで同時編集しない**（コンフリクトの元）
+- **作業終了時はコミット & push**（SessionStop hookで自動化済み）
+
+### 基本コマンド集
+```bash
+# 一覧
+git worktree list
+
+# 新規作成（新ブランチで）
+git worktree add .claude/worktrees/<名前> -b claude/<ブランチ名>
+
+# 不要になったworktreeを削除（フォルダごと安全に消える）
+git worktree remove .claude/worktrees/<名前>
+
+# 移動（パスを直したい時）
+git worktree move <現在のパス> <新しいパス>
+
+# 孤児（git管理外のworktreeフォルダ）の掃除
+git worktree prune
+```
+
+### トラブルシューティング
+| 症状 | 原因 | 対処 |
+|------|------|------|
+| `.claude/worktrees/.claude/worktrees/` ができている | worktree作成時のパス指定ミス | `git worktree move` で正しい場所へ |
+| worktree内で `tools/` が無い | そのブランチがmainより古い | `git pull origin main` でmain取込 or 新規worktree作成 |
+| `git worktree list` に出ないフォルダがある | 孤児（中身ありなら要救出） | 中身確認 → 必要ならコミット → `rmdir` で削除 |
+| pushしようとするとworktreesごと上がりそう | `.gitignore` に `.claude/worktrees/` が無い | 即追加 |
+
+### 命名のコツ
+- Claude Codeが自動命名する `claude/<形容詞>-<人物名>` 形式に合わせる（例：`claude/upbeat-mestorf-fa903c`）
+- 自分で作る場合は `claude/tools-<ツール名>-<目的>` のように部門と目的を含める（例：`claude/tools-ec-price-update`）
+
+---
+
 ## 自己改善ループ（CLAUDE.mdに準拠）
 
 このスキルはCLAUDE.mdの方針に従い、タスク完了のたびに：
