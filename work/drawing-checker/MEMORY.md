@@ -1,7 +1,7 @@
 # drawing-checker MEMORY.md
 
 > 本プロジェクト固有の学び・失敗パターンを記録する。  
-> 上位の `work-projects/MEMORY.md` と併せて参照のこと。
+> 上位の `work/MEMORY.md` と併せて参照のこと。
 
 ---
 
@@ -70,7 +70,7 @@ SolidWorks 2D図面（PDF/DXF/DWG/SLDDRW/画像）を入力とし、JIS規格＋
 - サンプル管理機能の説明追加 → ✅ 適用済
 
 💾 **MEMORY.md追記内容**
-- 「Python+Expressブリッジ」の具体パターンを work-projects/MEMORY.md に昇格 → ✅ 完了
+- 「Python+Expressブリッジ」の具体パターンを work/MEMORY.md に昇格 → ✅ 完了
 - 「ファビコン必須」をCLAUDE.mdに昇格 → ✅ 完了
 
 💰 **ROI評価**
@@ -178,7 +178,7 @@ learned_rules.json（サンプル学習）> jis_rules.json（JIS規格）> check
 
 **📝 SKILL.md更新提案**: 初版ゆえ特になし。実運用で見えた制約があれば追加する
 
-**💾 MEMORY.md追記内容**: 本記録とwork-projects/MEMORY.md両方に記録済み
+**💾 MEMORY.md追記内容**: 本記録とwork/MEMORY.md両方に記録済み
 
 **💰 ROI評価**
 - 投じた時間: 約3時間（プラン〜初版実装・動作確認）

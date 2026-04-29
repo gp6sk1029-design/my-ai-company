@@ -10,8 +10,8 @@
 
 ## プロジェクト概要
 - これは「あなた専用AI会社」システムです
-- 構成：3セクション体制（PDM・ブログ部門・ツール作成部門）
-- 私生活サポート・本業サポートは将来追加予定
+- 構成：4セクション体制（PDM・ブログ部門・ツール作成部門・本業部門）
+- 私生活サポートは将来追加予定
 
 ---
 
@@ -20,17 +20,19 @@
 このプロジェクトでは、Claude CodeはPDM（プロダクトマネージャー）として振る舞う。
 PDMは「万能・何でも対応」がデフォルトモード。
 
-### 3つの動作モード
+### 4つの動作モード
 
 | モード | 役割 | 起動条件 |
 |-------|------|---------|
 | **PDMモード**（デフォルト） | 万能・調整役・整理整頓・調査・相談・並列ディスパッチ | デフォルト（特定スキル起動なし） |
 | **ブログ専用モード** | 記事執筆に専念 | 「記事書いて」等 → blog/SKILL.md自動起動 |
 | **ツール作成モード** | PWA・自動化ツールの開発に専念 | 「ツール作って」「PWA作って」等 → tools/SKILL.md自動起動 |
+| **本業モード** | 一宮電機・生産技術部の業務ツール開発に専念 | 「PLC」「検図」「文字起こし」「メール秘書」「巻線」等 → work/SKILL.md自動起動 |
 
 ### モード切替の判定キーワード
 - ブログ・記事・WordPress・キャラ対話・SEO → **ブログ専用モード**
 - PWA・アプリ・ツール開発・メルカリ・献立・ライフプラン・自動化 → **ツール作成モード**
+- PLC・Sysmac・検図・図面・文字起こし・録音・メール秘書・巻線レポート・送別会・本業 → **本業モード**
 - それ以外（雑用・調査・整理・相談・PDF作成・Excel処理など） → **PDMモード**
 
 ### PDMモードの心得
@@ -103,6 +105,16 @@ python3 tools/handover.py --title "blog記事3執筆"
   - `tools/cooking-recipe/SKILL.md` + `tools/cooking-recipe/MEMORY.md`（献立くん）
   - `tools/life-plan/SKILL.md` + `tools/life-plan/MEMORY.md`（ライフプランくん）
 
+**本業部門（一宮電機・生産技術部の業務ツール）**
+- 部門共通：`work/SKILL.md` + `work/MEMORY.md`
+- 個別ツール：
+  - `work/plc-debugger/`（PLC Craft AI／プログラムサポート）
+  - `work/drawing-checker/SKILL.md` + `work/drawing-checker/MEMORY.md`（検図サポート）
+  - `work/media-transcriber/`（AIレコーダー／文字起こし）
+  - `work/email-assistant/`（メール秘書）
+  - `work/winding-report/`（巻線レポート）
+  - `work/farewell-docs/`（送別会書類）
+
 **PDMモード**
 - このCLAUDE.mdのみで対応
 
@@ -124,6 +136,7 @@ python3 tools/handover.py --title "blog記事3執筆"
 1. **1セッション＝1セクション専属とする**
    - ブログセッション → `blog/` 配下のみ編集
    - ツールセッション → `tools/` 配下のみ編集
+   - 本業セッション → `work/` 配下のみ編集
    - PDMセッション → `CLAUDE.md`・全体最適のみ編集
 
 2. **MEMORY.mdは部門別に分ける**
@@ -302,12 +315,16 @@ MEMORY.md（学習・経験の蓄積）
 - 献立くん（料理レシピ献立PWA） → `tools/cooking-recipe/SKILL.md`
 - ライフプランくん（生涯資産管理PWA） → `tools/life-plan/SKILL.md`
 
-**本業（work-projectsリポジトリ・別リポジトリ）**
-- メール秘書 → `email-assistant/SKILL.md`
-- PLCデバッガ → `plc-debugger/SKILL.md`
-- 文字起こしツール → `media-transcriber/SKILL.md`
-- 巻線レポート → `winding-report/SKILL.md`
-- 送別会書類 → `farewell-docs/SKILL.md`
+**本業部門（my-ai-companyリポジトリ・work/配下に統合済み）**
+- 部門共通スキル → `work/SKILL.md`
+- PLC Craft AI（PLCプログラムサポート） → `work/plc-debugger/`
+- 検図サポートツール → `work/drawing-checker/SKILL.md`
+- AIレコーダー（文字起こし） → `work/media-transcriber/`
+- メール秘書 → `work/email-assistant/`
+- 巻線レポート → `work/winding-report/`
+- 送別会書類 → `work/farewell-docs/`
+
+> 旧 `work-projects` リポジトリは2026-04-29にgit subtree方式で `work/` 配下に履歴ごと統合した。旧リポジトリはアーカイブ予定。
 
 ---
 
@@ -322,7 +339,8 @@ MEMORY.md（学習・経験の蓄積）
 
 ### 追加先の判断
 - **記事・ブログ系** → `blog/` 配下に追加
-- **ツール・PWA・自動化** → `tools/<ツール名>/` を新規作成
+- **副業ツール・PWA・自動化** → `tools/<ツール名>/` を新規作成
+- **本業ツール（一宮電機・生産技術部の業務支援）** → `work/<ツール名>/` を新規作成
 - **どちらでもない新ジャンル** → ユーザーに相談
 
 ### 新しいSKILL.mdに必須の記載
@@ -341,6 +359,7 @@ ROI評価を毎回行い、費用対効果を最大化する。
 ### バージョン履歴
 - v1.0：初期作成・全エージェント・全業務に適用開始
 - v2.0：3セクション体制（PDM・blog・tools）に再構成。`tools/`に既存ツール集約
+- v3.0：4セクション体制（PDM・blog・tools・work）に拡張。旧 work-projects リポジトリを `work/` 配下に履歴ごと統合（2026-04-29）
 
 ### 現在の強み
 （運用開始後に記録）

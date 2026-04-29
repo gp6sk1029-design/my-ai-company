@@ -1,6 +1,15 @@
-# 社内全体ルール
-# CLAUDE.md
-# ── すべての業務・すべてのエージェントが従う普遍的な方針 ──
+---
+name: 本業部門スキル
+description: 一宮電機（生産技術部）本業ツール（PLCデバッガ・検図サポート・AIレコーダー・メール秘書・巻線レポート・送別会書類）の開発時に使うスキル。Windows環境・社内データの取り扱い・ツール標準パターン・start.bat運用を規定。
+type: skill
+---
+
+# 本業部門 SKILL.md
+
+> このファイルはルートの `CLAUDE.md`（4部門共通ルール）に **追加する形** で運用される、本業部門固有のスキル定義。
+> 本業ツール（`work/` 配下）の改修時は、ルート `CLAUDE.md` → 本SKILL.md → `work/MEMORY.md` の順で読み込んでから着手する。
+>
+> 旧名は `work/CLAUDE.md`（旧 work-projects リポジトリ時代）。2026-04-29にmy-ai-company統合に伴い、SKILL.md にリネームした。
 
 ---
 
@@ -32,7 +41,7 @@
 - ブログ業務 → `blog/SKILL.md` + `blog/MEMORY.md`
 - EC物販業務 → `ec/SKILL.md` + `ec/MEMORY.md`
 
-**本業（work-projectsリポジトリ）**
+**本業（my-ai-company/work/ 配下）**
 - 全体 → `MEMORY.md`（ルート直下）
 - 各プロジェクト → 各フォルダ内の `SKILL.md`
 
@@ -170,7 +179,7 @@ MEMORY.md（学習・経験の蓄積）
 - ブログ部隊 → blog/SKILL.md
 - EC物販部隊 → ec/SKILL.md
 
-**本業（work-projectsリポジトリ）**
+**本業（my-ai-company/work/ 配下）**
 - メール秘書 → email-assistant/SKILL.md
 - PLCデバッガ → plc-debugger/SKILL.md
 - 文字起こしツール → media-transcriber/SKILL.md
@@ -360,7 +369,7 @@ Thumbs.db
 
 ### G. start.bat / stop.bat の標準パターン
 
-参考実装：`work-projects/drawing-checker/start.bat` または `work-projects/plc-debugger/start.bat`
+参考実装：`work/drawing-checker/start.bat` または `work/plc-debugger/start.bat`
 
 `start.bat`の役割（順番通り）：
 1. Node.js/Python の存在確認
@@ -408,7 +417,7 @@ const storage = multer.diskStorage({
   ↓
 他プロジェクトでも使えそうか判定
   ↓ Yes
-work-projects/MEMORY.md の「共通パターン」に昇格
+work/MEMORY.md の「共通パターン」に昇格
   ↓
 さらに汎用性が高い（全ツールに適用すべき）
   ↓ Yes
@@ -421,7 +430,7 @@ CLAUDE.md の「ツール・アプリ開発の標準パターン」に昇格
 | 汎用度 | 置き場所 |
 |---|---|
 | 単一プロジェクトのみ | プロジェクト/MEMORY.md |
-| 複数の類似プロジェクトに適用可 | work-projects/MEMORY.md 共通パターン |
+| 複数の類似プロジェクトに適用可 | work/MEMORY.md 共通パターン |
 | すべてのツール/アプリに適用すべき | CLAUDE.md 標準パターン |
 | すべての業務（副業含む）に適用すべき | CLAUDE.md（両リポジトリに同期） |
 

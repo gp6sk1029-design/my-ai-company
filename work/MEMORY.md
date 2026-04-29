@@ -11,7 +11,7 @@
 > **CLAUDE.md の「ツール・アプリ開発の標準パターン」** に昇格済み。
 > このMEMORY.mdには「昇格未満・プロジェクト横断の知見」を置く。
 >
-> エスカレーションの流れ：プロジェクト/MEMORY.md → work-projects/MEMORY.md → CLAUDE.md
+> エスカレーションの流れ：プロジェクト/MEMORY.md → work/MEMORY.md → CLAUDE.md
 
 ### 共通パターン（全ツールに適用できる知見）
 
@@ -187,7 +187,7 @@
 ### GitHub同期（2台PC間）
 - SessionStartフックで自動pull、Stopフックで自動commit&push
 - push失敗時は.claude/.push_failedに記録、次回起動時に警告
-- 本業（work-projects）と副業（my-ai-company）はリポジトリを分離
+- 本業（work/）と副業（blog/・tools/）は同一リポジトリ my-ai-company に統合済み（2026-04-29、旧 work-projects は履歴保持で取込）
 
 ### MacBookセットアップ
 - `bash <(curl -s https://raw.githubusercontent.com/.../setup_mac.sh)` で1行クローン
