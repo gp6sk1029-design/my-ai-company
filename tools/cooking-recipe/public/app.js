@@ -600,14 +600,29 @@
 
       const payload = {
         month,
-        members: members.map(m => ({
-          name: m.name || '名無し',
-          kind: m.kind || 'adult',
-          age: m.age || null,
-          allergies: m.allergies || [],
-          dislikes: m.dislikes || [],
-          likes: m.likes || [],
-        })),
+        members: members.map(m => {
+          const base = {
+            name: m.name || '名無し',
+            kind: m.kind || 'adult',
+            age: m.age || null,
+            allergies: m.allergies || [],
+            dislikes: m.dislikes || [],
+            likes: m.likes || [],
+          };
+          // 体調不良：期間判定して有効分のみ送る（治るまで=days null は常に有効）
+          if (isHealthIssueActive(m.healthIssue)) {
+            const hi = m.healthIssue;
+            const remainingDays = (hi.days === null || hi.days === undefined)
+              ? null
+              : Math.max(0, Math.ceil(hi.days - (Date.now() - hi.since) / (1000 * 60 * 60 * 24)));
+            base.healthIssue = {
+              symptom: hi.symptom,
+              note: hi.note || '',
+              remainingDays,
+            };
+          }
+          return base;
+        }),
         householdAllergies: [...new Set(members.flatMap(m => m.allergies || []))],
         avoidMode,
         budgetYen: state.selected.budgetYen,
@@ -1181,8 +1196,11 @@
   function createMemberCard(m) {
     const card = document.createElement('div');
     card.className = 'member-card';
+    const hi = m.healthIssue || null;
+    const hiActive = isHealthIssueActive(hi);
     card.innerHTML = `
       <div class="member-card-head">
+        <span class="member-health-badge ${hiActive ? '' : 'is-hidden'}" title="体調不良モード適用中">🤒</span>
         <input class="member-name-input" value="${m.name || ''}" placeholder="名前（例: たろう）" data-field="name">
         <button class="member-delete-btn" title="削除">🗑</button>
       </div>
@@ -1209,6 +1227,53 @@
         <label>😋 好き</label>
         <div class="tag-input-wrap" data-field="likes"></div>
       </div>
+      <details class="health-section" ${hi ? 'open' : ''}>
+        <summary>🤒 体調管理${hiActive ? '（適用中）' : ''}</summary>
+        <div class="health-body">
+          <div class="health-row">
+            <label class="health-toggle">
+              <input type="checkbox" data-health="enabled" ${hi ? 'checked' : ''}>
+              <span>体調不良モードON</span>
+            </label>
+          </div>
+          <div class="health-fields ${hi ? '' : 'is-hidden'}">
+            <div class="member-row">
+              <label>症状</label>
+              <select data-health="symptom">
+                <option value="cold"     ${hi?.symptom === 'cold'     ? 'selected' : ''}>風邪</option>
+                <option value="stomach"  ${hi?.symptom === 'stomach'  ? 'selected' : ''}>胃腸炎・胃もたれ</option>
+                <option value="fever"    ${hi?.symptom === 'fever'    ? 'selected' : ''}>発熱</option>
+                <option value="mouth"    ${hi?.symptom === 'mouth'    ? 'selected' : ''}>口内炎・歯痛</option>
+                <option value="summer"   ${hi?.symptom === 'summer'   ? 'selected' : ''}>夏バテ・食欲不振</option>
+                <option value="hangover" ${hi?.symptom === 'hangover' ? 'selected' : ''}>二日酔い</option>
+                <option value="allergy"  ${hi?.symptom === 'allergy'  ? 'selected' : ''}>アレルギー悪化</option>
+                <option value="other"    ${hi?.symptom === 'other'    ? 'selected' : ''}>その他</option>
+              </select>
+            </div>
+            <div class="member-row">
+              <label>メモ</label>
+              <input type="text" data-health="note" value="${(hi?.note || '').replace(/"/g, '&quot;')}" placeholder="例: 歯を抜いたので硬いもの不可">
+            </div>
+            <div class="member-row">
+              <label>期間</label>
+              <select data-health="duration">
+                <option value="3"      ${String(hi?.days) === '3'      ? 'selected' : ''}>3日間</option>
+                <option value="5"      ${String(hi?.days) === '5'      ? 'selected' : ''}>5日間</option>
+                <option value="7"      ${String(hi?.days) === '7'      ? 'selected' : ''}>1週間</option>
+                <option value="until"  ${hi?.days === null              ? 'selected' : ''}>治るまで（手動OFF）</option>
+                <option value="custom" ${hi && ![3,5,7,null].includes(hi.days) ? 'selected' : ''}>カスタム…</option>
+              </select>
+            </div>
+            <div class="member-row health-custom-row ${hi && ![3,5,7,null].includes(hi.days) ? '' : 'is-hidden'}">
+              <label>日数</label>
+              <input type="number" data-health="customDays" min="1" max="30" value="${hi && ![3,5,7,null].includes(hi.days) ? hi.days : ''}" placeholder="日">
+            </div>
+            <div class="health-status ${hiActive ? '' : 'is-expired'}">
+              ${hi ? formatHealthStatus(hi) : ''}
+            </div>
+          </div>
+        </div>
+      </details>
     `;
     // タグ入力
     ['allergies', 'dislikes', 'likes'].forEach(field => {
@@ -1248,12 +1313,103 @@
         });
       }
     });
+    // 体調管理
+    bindHealthSection(card, m);
     card.querySelector('.member-delete-btn').addEventListener('click', async () => {
       if (!confirm(`${m.name || 'このメンバー'}を削除しますか？`)) return;
       await dbDelete('members', m.id);
       renderMembers();
     });
     return card;
+  }
+
+  // ============ 体調管理ヘルパー ============
+  function isHealthIssueActive(hi) {
+    if (!hi || !hi.symptom || !hi.since) return false;
+    if (hi.days === null || hi.days === undefined) return true; // 治るまで（手動OFF）
+    const elapsedDays = (Date.now() - hi.since) / (1000 * 60 * 60 * 24);
+    return elapsedDays < hi.days;
+  }
+
+  function formatHealthStatus(hi) {
+    if (!hi || !hi.since) return '';
+    const startDate = new Date(hi.since);
+    const startStr = `${startDate.getMonth() + 1}/${startDate.getDate()}`;
+    if (hi.days === null || hi.days === undefined) {
+      return `↳ 開始: ${startStr} → 治るまで（手動OFFまで継続）`;
+    }
+    const elapsedDays = (Date.now() - hi.since) / (1000 * 60 * 60 * 24);
+    const remaining = hi.days - elapsedDays;
+    if (remaining <= 0) {
+      return `↳ 開始: ${startStr} → 期間終了（自動的に献立反映から除外）`;
+    }
+    const remDays = Math.ceil(remaining);
+    return `↳ 開始: ${startStr} → あと約${remDays}日`;
+  }
+
+  function readHealthFromCard(card) {
+    const enabled = card.querySelector('[data-health="enabled"]').checked;
+    if (!enabled) return null;
+    const symptom = card.querySelector('[data-health="symptom"]').value;
+    const note = card.querySelector('[data-health="note"]').value.trim();
+    const dur = card.querySelector('[data-health="duration"]').value;
+    let days;
+    if (dur === 'until') days = null;
+    else if (dur === 'custom') {
+      const v = Number(card.querySelector('[data-health="customDays"]').value);
+      days = (v > 0 && v <= 30) ? v : 3;
+    } else {
+      days = Number(dur);
+    }
+    return { symptom, note, days };
+  }
+
+  function bindHealthSection(card, m) {
+    const enabledEl = card.querySelector('[data-health="enabled"]');
+    const fields = card.querySelector('.health-fields');
+    const customRow = card.querySelector('.health-custom-row');
+    const durationEl = card.querySelector('[data-health="duration"]');
+    const statusEl = card.querySelector('.health-status');
+
+    const badgeEl = card.querySelector('.member-health-badge');
+    const refresh = async () => {
+      const next = readHealthFromCard(card);
+      if (next) {
+        const since = (m.healthIssue && m.healthIssue.since) ? m.healthIssue.since : Date.now();
+        m.healthIssue = { ...next, since };
+      } else {
+        m.healthIssue = null;
+      }
+      if (m.healthIssue) {
+        fields.classList.remove('is-hidden');
+        statusEl.textContent = formatHealthStatus(m.healthIssue);
+        const active = isHealthIssueActive(m.healthIssue);
+        statusEl.classList.toggle('is-expired', !active);
+        badgeEl.classList.toggle('is-hidden', !active);
+      } else {
+        fields.classList.add('is-hidden');
+        statusEl.textContent = '';
+        statusEl.classList.remove('is-expired');
+        badgeEl.classList.add('is-hidden');
+      }
+      customRow.classList.toggle('is-hidden', durationEl.value !== 'custom');
+      await dbPut('members', m);
+    };
+
+    enabledEl.addEventListener('change', () => {
+      // ONに切り替えたタイミングで since をリセット
+      if (enabledEl.checked && (!m.healthIssue || !m.healthIssue.since)) {
+        m.healthIssue = m.healthIssue || {};
+        m.healthIssue.since = Date.now();
+      }
+      refresh();
+    });
+    durationEl.addEventListener('change', refresh);
+    card.querySelector('[data-health="symptom"]').addEventListener('change', refresh);
+    card.querySelector('[data-health="note"]').addEventListener('blur', refresh);
+    const custom = card.querySelector('[data-health="customDays"]');
+    custom.addEventListener('change', refresh);
+    custom.addEventListener('blur', refresh);
   }
 
   function renderTagsInto(wrap, tags) {

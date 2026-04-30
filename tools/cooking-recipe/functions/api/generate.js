@@ -142,6 +142,45 @@ function buildMealSettingsBlock(p) {
   return lines.join('\n') || '- （食事別設定なし）';
 }
 
+// 症状キー → AIへのヒント文（クライアントには露出させずサーバー側で解決）
+const SYMPTOM_HINTS = {
+  cold:     { label: '風邪',           hint: '温かく消化に良い・水分多め（おかゆ・卵雑炊・うどん・鶏スープ・煮込みうどん等）。生もの・揚げ物・刺激物は避ける。' },
+  stomach:  { label: '胃腸炎・胃もたれ', hint: '油控えめ・刺激物（香辛料・酸・カフェイン）なし・柔らかい（おかゆ・蒸し野菜・白身魚・湯豆腐・りんごのすりおろし等）。乳製品・脂質の多い肉は控える。' },
+  fever:    { label: '発熱',           hint: '食べやすく水分補給を兼ねる（雑炊・スープ・ゼリー・素うどん・ポカリ系）。消化早く冷ましやすい状態で提供。' },
+  mouth:    { label: '口内炎・歯痛',     hint: '噛む量少なめ・塩味/酸味/辛味の刺激なし・温度はぬるめ（茶碗蒸し・ポタージュ・豆腐・やわらかいうどん・バナナ等）。' },
+  summer:   { label: '夏バテ・食欲不振',  hint: 'さっぱり・酢や薬味で食欲増進・冷製OK（冷やし中華・冷ややっこ・梅しらす丼・トマトと豚しゃぶサラダ・素麺等）。脂っこいものは避ける。' },
+  hangover: { label: '二日酔い',         hint: '水分・タンパク質・優しい味（しじみ味噌汁・湯豆腐・卵雑炊・お粥・うどん）。アルコール・辛味・脂質は避ける。' },
+  allergy:  { label: 'アレルギー悪化',    hint: 'アレルゲン回避を強化。ヒスタミン誘発食材（青魚・発酵食品・ナッツ・チョコ等）にも注意し、温かくシンプルな調理で皮膚や粘膜への負担を減らす。' },
+  other:    { label: 'その他',           hint: '本人のメモ欄の指示を最優先で反映する。' },
+};
+
+function buildHealthIssueBlock(members) {
+  const sick = (members || []).filter(m => m.healthIssue && m.healthIssue.symptom);
+  if (sick.length === 0) return '';
+  const lines = sick.map(m => {
+    const hi = m.healthIssue;
+    const def = SYMPTOM_HINTS[hi.symptom] || SYMPTOM_HINTS.other;
+    const remain = (hi.remainingDays === null || hi.remainingDays === undefined)
+      ? '治るまで継続中'
+      : `あと約${hi.remainingDays}日`;
+    const note = hi.note ? `／本人メモ: 「${hi.note}」` : '';
+    return `- ${m.name}: ${def.label}（${remain}）${note}\n  → ${def.hint}`;
+  });
+  return `# 【体調不良の家族】配慮必須
+以下の家族は体調不良中です。期間内は献立に必ず配慮してください。
+
+${lines.join('\n')}
+
+## 体調不良配慮の方針
+- 体調不良者と健康な家族で**別メニューに分けるかは状況判断**:
+  (a) 健康家族のメインを少しアレンジで対応できそう（例: 揚げ物→焼き物に変更、辛さを抜く）なら**全員共通＋アレンジ案を steps に併記**して効率重視。
+  (b) 共通化が無理（例: 胃腸炎で全員カレーは厳しい）なら、その人専用の**別メニュー**を提案し name 末尾に「（〇〇さん用）」と明記する。
+- 体調不良者向けメニューは原則 cookTimeMin を 15分以内に抑え、「無理なく食べきれる量」を優先（servings は控えめに）。
+- アレルギー食材は健康時と変わらず**完全除外**（最優先ルール）。
+- 通知系の出力は notes 欄に「体調不良配慮: 〇〇さん（症状）→対応した内容」を明記。
+`;
+}
+
 // ------------ プロンプト構築 ------------
 function buildPrompt(p) {
   const mealLabel = { breakfast: '朝食', lunch: '昼食', dinner: '夕食' };
@@ -153,8 +192,11 @@ function buildPrompt(p) {
     const al = (m.allergies || []).join('、') || 'なし';
     const dl = (m.dislikes || []).join('、') || 'なし';
     const lk = (m.likes || []).join('、') || 'なし';
-    return `- ${m.name}（${kindLabel}・${ageLabel}）アレルギー:[${al}] 嫌い:[${dl}] 好き:[${lk}]`;
+    const healthMark = m.healthIssue ? ' 🤒体調不良中' : '';
+    return `- ${m.name}（${kindLabel}・${ageLabel}）アレルギー:[${al}] 嫌い:[${dl}] 好き:[${lk}]${healthMark}`;
   }).join('\n') || '- （メンバー情報なし）';
+
+  const healthBlock = buildHealthIssueBlock(p.members);
 
   const avoidText = {
     any: '誰か1人でも嫌いな食材は使用禁止',
@@ -181,6 +223,8 @@ ${membersDesc}
 
 # 【最優先】アレルギー食材（必ず完全除外）
 ${allergyUnion}
+
+${healthBlock}
 
 # 嫌い食材の扱い
 ${avoidText}
