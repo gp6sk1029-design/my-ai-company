@@ -209,6 +209,34 @@ body {
 .mini-chip { padding: 4px 10px; background: #fff; border-radius: 999px; font-size: 12px; font-weight: 600; display: inline-flex; align-items: center; gap: 4px; }
 .mini-chip .x { cursor: pointer; color: var(--text-muted); font-size: 14px; }
 
+/* 単発レシピ検索 */
+.recipe-search-card { background: linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%); }
+.recipe-search-row { display: flex; gap: 8px; align-items: center; margin-top: 6px; }
+.recipe-search-row input { flex: 1; padding: 10px 12px; border: none; background: #fff; border-radius: 12px; font-size: 15px; outline: none; box-shadow: var(--shadow-sm); }
+.primary-btn-sm { padding: 10px 16px; background: var(--brand, #f97316); color: #fff; border: none; border-radius: 12px; font-weight: 700; cursor: pointer; font-size: 14px; white-space: nowrap; }
+.primary-btn-sm:hover { opacity: 0.9; }
+.ghost-btn-sm { padding: 10px 16px; background: transparent; border: 2px solid var(--brand, #f97316); color: var(--brand, #f97316); border-radius: 12px; font-weight: 700; cursor: pointer; font-size: 14px; }
+.recipe-search-status { font-size: 12px; padding: 8px 0 4px; color: var(--text-muted); min-height: 18px; }
+.recipe-search-status.is-loading { color: #f97316; font-weight: 600; }
+.recipe-search-status.is-ok { color: #16a34a; font-weight: 600; }
+.recipe-search-status.is-error { color: #ef4444; font-weight: 600; }
+.recipe-search-results { display: flex; flex-direction: column; gap: 10px; margin-top: 8px; }
+.search-result-card { background: #fff; border-radius: var(--radius); padding: 14px 16px; box-shadow: var(--shadow-sm); }
+.search-card-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 6px; }
+.search-card-num { background: var(--brand, #f97316); color: #fff; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; }
+.search-card-title { font-size: 16px; font-weight: 700; margin: 0; flex: 1; }
+.search-card-meta { font-size: 12px; color: var(--text-muted); margin-bottom: 8px; }
+.search-match { font-size: 13px; color: #92400e; background: #fef3c7; padding: 6px 10px; border-radius: 8px; margin-bottom: 6px; }
+.search-health-note { font-size: 13px; color: #7e22ce; background: #f3e8ff; padding: 6px 10px; border-radius: 8px; margin-bottom: 6px; }
+.search-card-details { margin: 8px 0; }
+.search-card-details summary { cursor: pointer; font-size: 13px; font-weight: 600; color: var(--text-muted); padding: 4px 0; }
+.search-card-section { margin: 8px 0; font-size: 13px; }
+.search-card-section strong { display: block; font-size: 12px; color: var(--text-muted); margin-bottom: 4px; }
+.search-card-ingredients { line-height: 1.6; }
+.search-card-steps { padding-left: 20px; line-height: 1.7; }
+.search-card-hint { font-size: 12px; color: var(--text-muted); padding: 4px 0; }
+.search-card-actions { display: flex; gap: 8px; margin-top: 10px; }
+
 /* 体調管理セクション */
 .member-health-badge { font-size: 18px; line-height: 1; }
 .member-health-badge.is-hidden { display: none; }

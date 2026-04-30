@@ -10,6 +10,7 @@
   const CONFIG = window.COOKING_APP_CONFIG || {};
   const GENERATE_URL = CONFIG.GENERATE_URL || '/api/generate';
   const DETECT_URL = CONFIG.DETECT_URL || '/api/detect-ingredients';
+  const SEARCH_URL = CONFIG.SEARCH_URL || '/api/search-recipes';
   const DEFAULTS = CONFIG.DEFAULTS || {};
   const MAX_EDGE = CONFIG.MAX_IMAGE_EDGE_PX || 1280;
 
@@ -1429,6 +1430,139 @@
     const m = { id: uid(), name: '', kind: 'adult', age: null, allergies: [], dislikes: [], likes: [] };
     await dbPut('members', m);
     renderMembers();
+  });
+
+  // ============ 単発レシピ検索 ============
+  async function runRecipeSearch(query) {
+    const statusEl = $('#recipe-search-status');
+    const resultsEl = $('#recipe-search-results');
+    if (!query || !query.trim()) {
+      statusEl.textContent = 'キーワードを入力してください';
+      statusEl.className = 'recipe-search-status is-error';
+      return;
+    }
+    statusEl.textContent = '🔍 検索中…（10〜20秒）';
+    statusEl.className = 'recipe-search-status is-loading';
+    resultsEl.innerHTML = '';
+
+    try {
+      const members = await dbAll('members');
+      const household = (await dbGet('household', 'default')) || {};
+      const payload = {
+        query: query.trim(),
+        members: members.map(m => {
+          const base = {
+            name: m.name || '名無し',
+            kind: m.kind || 'adult',
+            age: m.age || null,
+            allergies: m.allergies || [],
+            dislikes: m.dislikes || [],
+            likes: m.likes || [],
+          };
+          if (isHealthIssueActive(m.healthIssue)) {
+            const hi = m.healthIssue;
+            base.healthIssue = {
+              symptom: hi.symptom,
+              note: hi.note || '',
+            };
+          }
+          return base;
+        }),
+        householdAllergies: [...new Set(members.flatMap(m => m.allergies || []))],
+        avoidMode: household.avoidMode || 'any',
+        useCommercialSauces: state.selected?.useCommercialSauces ?? true,
+        maxCookTimeMin: 30,
+      };
+
+      const res = await fetch(SEARCH_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        const err = await res.text();
+        throw new Error(res.status + ': ' + err.slice(0, 200));
+      }
+      const data = await res.json();
+      const candidates = data.candidates || [];
+      if (candidates.length === 0) throw new Error('候補が空でした');
+
+      statusEl.textContent = `✨ ${candidates.length}件の候補が見つかりました`;
+      statusEl.className = 'recipe-search-status is-ok';
+      renderRecipeSearchResults(candidates);
+    } catch (e) {
+      statusEl.textContent = '検索失敗: ' + (e.message || e);
+      statusEl.className = 'recipe-search-status is-error';
+    }
+  }
+
+  function renderRecipeSearchResults(candidates) {
+    const resultsEl = $('#recipe-search-results');
+    resultsEl.innerHTML = '';
+    candidates.forEach((meal, idx) => {
+      const card = document.createElement('div');
+      card.className = 'search-result-card';
+      const ingredientsText = (meal.ingredients || []).map(i => {
+        const amt = i.amount ? ` ${i.amount}${i.unit || ''}` : '';
+        return `${i.name}${amt}`;
+      }).join('、');
+      const stepsHtml = (meal.steps || []).map((s, i) => `<li>${escapeHtml(s)}</li>`).join('');
+      const healthHtml = meal.healthAdjustNote
+        ? `<div class="search-health-note">🤒 ${escapeHtml(meal.healthAdjustNote)}</div>`
+        : '';
+      const matchHtml = meal.matchReason
+        ? `<div class="search-match">💡 ${escapeHtml(meal.matchReason)}</div>`
+        : '';
+      card.innerHTML = `
+        <div class="search-card-head">
+          <span class="search-card-num">候補${idx + 1}</span>
+          <h3 class="search-card-title">${escapeHtml(meal.name)}</h3>
+        </div>
+        <div class="search-card-meta">
+          ⏱ ${meal.cookTimeMin || '?'}分 ・ ${escapeHtml(meal.category || '主菜')} ・ ${meal.servings || 2}人前
+        </div>
+        ${matchHtml}
+        ${healthHtml}
+        <details class="search-card-details">
+          <summary>材料・手順を見る</summary>
+          <div class="search-card-section">
+            <strong>材料</strong>
+            <div class="search-card-ingredients">${escapeHtml(ingredientsText)}</div>
+          </div>
+          <div class="search-card-section">
+            <strong>手順</strong>
+            <ol class="search-card-steps">${stepsHtml}</ol>
+          </div>
+          ${meal.cookwareHint ? `<div class="search-card-hint">🍳 ${escapeHtml(meal.cookwareHint)}</div>` : ''}
+        </details>
+        <div class="search-card-actions">
+          <button class="primary-btn-sm save-btn">⭐ レシピに保存</button>
+          <button class="ghost-btn-sm shopping-btn">🛒 買い物リストへ</button>
+        </div>
+      `;
+      card.querySelector('.save-btn').addEventListener('click', async () => {
+        await saveMealAsRecipe(meal);
+      });
+      card.querySelector('.shopping-btn').addEventListener('click', async () => {
+        await addMealToShopping(meal, { dayLabel: '検索', mealKey: 'search' });
+        toast('買い物リストに追加しました', 'success');
+      });
+      resultsEl.appendChild(card);
+    });
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
+
+  $('#btn-recipe-search').addEventListener('click', () => {
+    runRecipeSearch($('#recipe-search-input').value);
+  });
+  $('#recipe-search-input').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      runRecipeSearch($('#recipe-search-input').value);
+    }
   });
 
   $('#avoid-mode').addEventListener('change', async (e) => {

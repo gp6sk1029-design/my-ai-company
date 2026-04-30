@@ -30,6 +30,17 @@
   <main id="page-home" class="page active">
     <h1 class="page-title">今夜の献立</h1>
 
+    <!-- 単発レシピ検索 -->
+    <div class="card recipe-search-card">
+      <div class="card-title">🔍 レシピをすぐ探す</div>
+      <div class="recipe-search-row">
+        <input id="recipe-search-input" type="text" placeholder="例: カレー / 炒めもの / 鶏むね 簡単" autocomplete="off">
+        <button id="btn-recipe-search" class="primary-btn-sm">検索</button>
+      </div>
+      <div id="recipe-search-status" class="recipe-search-status"></div>
+      <div id="recipe-search-results" class="recipe-search-results"></div>
+    </div>
+
     <!-- 生成モード切替 -->
     <div class="segmented" role="tablist">
       <button id="mode-params" class="active" role="tab" aria-selected="true">条件から生成</button>

@@ -5,6 +5,7 @@ window.COOKING_APP_CONFIG = {
   // 本番（Cloudflare Pages）にデプロイ後はこの相対URLで動く。ローカルでも wrangler pages dev 時に動作。
   GENERATE_URL: '/api/generate',
   DETECT_URL: '/api/detect-ingredients',
+  SEARCH_URL: '/api/search-recipes',
   // 開発者向け: 本番で既定の献立生成条件
   DEFAULTS: {
     days: 7,                    // 1週間の献立がデフォルト
