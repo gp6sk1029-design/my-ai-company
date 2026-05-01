@@ -759,15 +759,24 @@
       const dayLabel = `${date.getMonth() + 1}/${date.getDate()}（${dayOfWeek}）`;
       const isWeekend = date.getDay() === 0 || date.getDay() === 6;
 
+      // 1日分を <section class="day-block"> でラップ → PDF印刷時に曜日ごと改ページ可
+      const dayBlock = document.createElement('section');
+      dayBlock.className = 'day-block';
+      dayBlock.dataset.dayIndex = dayIdx;
+      dayBlock.dataset.dayLabel = dayLabel;
+
       // 日付の区切りヘッダー
       const dayHeader = document.createElement('div');
+      dayHeader.className = 'day-block-header';
       dayHeader.style.cssText = `margin:16px 0 8px;padding:6px 12px;background:${isWeekend ? 'rgba(239,68,68,0.08)' : 'rgba(22,163,74,0.08)'};border-radius:10px;font-size:13px;font-weight:800;color:${isWeekend ? '#dc2626' : 'var(--accent-deep)'};display:flex;align-items:center;gap:8px;`;
       dayHeader.innerHTML = `<span style="font-size:15px;">📅</span><span>${dayLabel}</span><span style="margin-left:auto;font-size:11px;color:var(--text-muted);font-weight:600;">Day ${dayIdx + 1}/${numDays}</span>`;
-      container.appendChild(dayHeader);
+      dayBlock.appendChild(dayHeader);
 
+      let mealsAdded = 0;
       ['breakfast', 'lunch', 'dinner'].forEach(mealKey => {
         const meal = day.meals && day.meals[mealKey];
         if (!meal) return;
+        mealsAdded++;
         const card = document.createElement('div');
         card.className = 'menu-card';
         card.dataset.dayIndex = day.dayIndex;
@@ -813,8 +822,13 @@
         // イベント
         card.querySelector('[data-act="save"]').addEventListener('click', () => saveMealAsRecipe(meal));
         card.querySelector('[data-act="shopping"]').addEventListener('click', () => addMealToShopping(meal, { dayIndex: day.dayIndex, mealKey, dayLabel }));
-        container.appendChild(card);
+        dayBlock.appendChild(card);
       });
+
+      // 食事が1つも無ければ section ごとスキップ（空ブロックで改ページしないため）
+      if (mealsAdded > 0) {
+        container.appendChild(dayBlock);
+      }
     });
     if (result.notes) {
       const note = document.createElement('div');

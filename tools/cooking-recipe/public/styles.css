@@ -381,7 +381,9 @@ input, select, textarea { font-size: 16px; }
   #mode-params-panel > .card:not(:last-child),
   #mode-camera-panel,
   #meal-settings-container,
-  #btn-generate, #btn-save-all, #btn-add-all-shopping {
+  #btn-generate, #btn-save-all, #btn-add-all-shopping,
+  .recipe-search-card,
+  .menu-card-actions {
     display: none !important;
   }
   body {
@@ -393,6 +395,23 @@ input, select, textarea { font-size: 16px; }
   .page-title { font-size: 20pt; margin-bottom: 10px; }
   /* 献立の見た目を紙向きに */
   #generated-menus { margin-top: 0 !important; }
+  /* 曜日ごとに改ページ：各 .day-block の終わりで強制改ページ。
+     最後の1日だけは余分な空白ページを出さないため改ページを抑制。 */
+  .day-block {
+    break-after: page;
+    page-break-after: always;
+    /* 1日が大きい場合の収まり改善：可能なら同ページにまとめる */
+    break-inside: avoid;
+  }
+  .day-block:last-of-type {
+    break-after: auto;
+    page-break-after: auto;
+  }
+  .day-block-header {
+    break-after: avoid;
+    page-break-after: avoid;
+    margin-top: 0 !important;
+  }
   .menu-card {
     break-inside: avoid;
     page-break-inside: avoid;
