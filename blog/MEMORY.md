@@ -105,6 +105,8 @@
 - 2026/03/30: my-ai-companyシステム初期構成（CLAUDE.md + blog/agents/9名 + scripts/）
 - 2026/04/01: CLAUDE.md刷新、全エージェント定義を更新
 - 2026/04/14: 9エージェントの知見をSKILL.mdに統合、MEMORY.md新設
+- 2026/05/02: SNS部門新設（`sns/`）でハブ&スポーク戦略採用。`blog/SKILL.md` §12をsnsへ移管
+- 2026/05/02: コノハWING→Cloudflare移設プラン詳細書を作成 → `blog/migration/cloudflare-migration-plan.md`（エンジニア相談用・着手前段階）
 
 ### 使用ツール
 - WordPress REST API: wp_api.py
