@@ -107,6 +107,7 @@
 - 2026/04/14: 9エージェントの知見をSKILL.mdに統合、MEMORY.md新設
 - 2026/05/02: SNS部門新設（`sns/`）でハブ&スポーク戦略採用。`blog/SKILL.md` §12をsnsへ移管
 - 2026/05/02: コノハWING→Cloudflare移設プラン詳細書を作成 → `blog/migration/cloudflare-migration-plan.md`（エンジニア相談用・着手前段階）
+- 2026/05/02: Cloudflareプレビューサイト構築（案A・自動）→ https://ootanisatan-preview.pages.dev 稼働。`blog/cloudflare-preview/` 配下に build.py + JIN:R風CSS + 静的HTML。noindex+robots.txtで検索除外。本番無影響。所要約30分
 
 ### 使用ツール
 - WordPress REST API: wp_api.py
