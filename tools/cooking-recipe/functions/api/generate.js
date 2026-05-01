@@ -350,12 +350,67 @@ ${p.days >= 7 ? `## 【1週間献立プランとしての構成・必須】
 - 各食事のカロリー・塩分バランスを家族の年齢に合わせて調整。子供向けに辛味は控えめに。
 - notes に「新規◯品＋お気に入り再登場◯品」のように内訳を書く。
 
-## 【スキーマ厳守】
-- days 配列は**日数分ちょうど**（${p.days}個）返す。1日の中に breakfast/lunch/dinner をすべて入れること。
-- 同じ dayIndex を重複させないこと。
-- 選ばれていない食事タイプ（例: 朝昼が未選択なら breakfast/lunch プロパティ）は、そのプロパティを**含めないこと**。
+## 【スキーマ厳守】← 違反は自動再生成の対象。必ず守ること
+- **days 配列は ${p.days} 個ちょうど**返す（${p.days} 個未満も超過もNG）。dayIndex は 0 から ${p.days - 1} まで連番で重複なし。
+- **各 day.meals には「${mealList}」のキーのみ**を含める。${(p.mealTypes || ['dinner']).map(m => `\`${m}\``).join('、')} 以外のキー（${(['breakfast', 'lunch', 'dinner']).filter(k => !(p.mealTypes || []).includes(k)).map(k => `\`${k}\``).join('、') || 'なし'}）は**含めてはいけない**。
+- ${(p.mealTypes || ['dinner']).map(m => `\`${m}\``).join('・')} はそれぞれ各日に**必ず1つずつ**生成する（欠落NG）。
+
+# 出力前の自己チェック（必須）
+出力前に以下を必ず確認：
+1. days.length === ${p.days} か？
+2. 各 day.meals のキー集合が [${(p.mealTypes || ['dinner']).map(m => `"${m}"`).join(', ')}] と完全一致するか？
+3. dayIndex が 0〜${p.days - 1} の範囲で重複なしか？
+全てYESになるまで内部で見直してから出力すること。
 
 では、献立をJSONで生成してください。`;
+}
+
+// ------------ 結果検証 ------------
+/**
+ * Gemini レスポンスがユーザー指定通りか検証。違反があれば違反内容の文字列配列を返す（空配列＝合格）。
+ */
+function validateGeneratedResult(parsed, payload) {
+  const violations = [];
+  const expectedDays = Number(payload.days || 1);
+  const expectedMealKeys = new Set(payload.mealTypes || ['dinner']);
+
+  if (!parsed || !Array.isArray(parsed.days)) {
+    violations.push('days 配列が存在しない');
+    return violations;
+  }
+
+  if (parsed.days.length !== expectedDays) {
+    violations.push(`days 長さが不一致: 指定=${expectedDays} / 実際=${parsed.days.length}`);
+  }
+
+  const seenIndex = new Set();
+  parsed.days.forEach((day, i) => {
+    const idx = day.dayIndex;
+    if (typeof idx !== 'number') {
+      violations.push(`days[${i}].dayIndex が数値でない`);
+    } else if (seenIndex.has(idx)) {
+      violations.push(`dayIndex=${idx} が重複`);
+    } else {
+      seenIndex.add(idx);
+    }
+
+    const meals = day.meals || {};
+    const actualKeys = new Set(Object.keys(meals).filter(k => meals[k]));
+    // 期待キーが全部揃っているか
+    for (const k of expectedMealKeys) {
+      if (!actualKeys.has(k)) {
+        violations.push(`day=${idx} に必要な食事キー「${k}」が欠落`);
+      }
+    }
+    // 期待外のキーが入っていないか
+    for (const k of actualKeys) {
+      if (!expectedMealKeys.has(k)) {
+        violations.push(`day=${idx} に不要な食事キー「${k}」が混入`);
+      }
+    }
+  });
+
+  return violations;
 }
 
 // ------------ ハンドラ ------------
@@ -373,21 +428,44 @@ export async function onRequestPost(context) {
     return new Response('不正なJSON', { status: 400 });
   }
 
-  const prompt = buildPrompt(payload);
+  const basePrompt = buildPrompt(payload);
 
-  const geminiBody = {
-    contents: [{ role: 'user', parts: [{ text: prompt }] }],
-    generationConfig: {
-      responseMimeType: 'application/json',
-      responseSchema: OUTPUT_SCHEMA,
-      temperature: 0.8,
-      maxOutputTokens: 16384,
-    },
-  };
-
-  // リトライ1回
+  // 試行ループ：通信失敗（HTTP/JSON）で2回、検証失敗で2回までフィードバック付き再生成（最大3往復）。
+  const MAX_API_FAILS = 2;       // ネットワーク・JSON parse 等の失敗
+  const MAX_VALIDATION_RETRY = 2; // バリデーション違反で再生成
   let lastError = null;
-  for (let attempt = 0; attempt < 2; attempt++) {
+  let lastViolations = null;
+  let apiFailCount = 0;
+  let validationRetry = 0;
+  let regenerationLog = [];
+
+  while (true) {
+    // フィードバック付きプロンプト（前回違反があれば追記）
+    let prompt = basePrompt;
+    if (lastViolations && lastViolations.length > 0) {
+      prompt = basePrompt + `
+
+# 【最重要】前回の出力にスキーマ違反がありました
+前回の出力で以下の違反が検出され、自動的に再生成されています。**今回は絶対に厳守**してください：
+${lastViolations.map(v => `- ${v}`).join('\n')}
+
+特に以下を再確認してから出力してください：
+- days 配列の長さは **${payload.days}** 個ちょうど
+- 各 day.meals のキーは **${(payload.mealTypes || ['dinner']).join('・')}** のみ（それ以外含めない）
+`;
+    }
+
+    const geminiBody = {
+      contents: [{ role: 'user', parts: [{ text: prompt }] }],
+      generationConfig: {
+        responseMimeType: 'application/json',
+        responseSchema: OUTPUT_SCHEMA,
+        temperature: 0.65,        // 0.8→0.65 に下げて指示遵守強化
+        maxOutputTokens: 16384,
+      },
+    };
+
+    let parsed = null;
     try {
       const res = await fetch(GEMINI_ENDPOINT(apiKey), {
         method: 'POST',
@@ -396,27 +474,54 @@ export async function onRequestPost(context) {
       });
       if (!res.ok) {
         lastError = 'Gemini API ' + res.status + ': ' + (await res.text()).slice(0, 300);
-        continue;
+      } else {
+        const data = await res.json();
+        const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (!text) {
+          lastError = 'Gemini レスポンスにテキストなし';
+        } else {
+          try { parsed = JSON.parse(text); }
+          catch (e) { lastError = 'JSON parse 失敗: ' + e.message; }
+        }
       }
-      const data = await res.json();
-      const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (!text) {
-        lastError = 'Gemini レスポンスにテキストなし';
-        continue;
+    } catch (e) {
+      lastError = String(e);
+    }
+
+    // 通信・パース失敗 → API失敗扱い
+    if (!parsed) {
+      apiFailCount++;
+      if (apiFailCount >= MAX_API_FAILS) {
+        return new Response('生成失敗: ' + lastError, { status: 502 });
       }
-      let parsed;
-      try { parsed = JSON.parse(text); }
-      catch (e) { lastError = 'JSON parse 失敗: ' + e.message; continue; }
-      if (!parsed.days || !Array.isArray(parsed.days)) {
-        lastError = 'days 配列なし';
-        continue;
+      continue;
+    }
+
+    // 検証
+    const violations = validateGeneratedResult(parsed, payload);
+    if (violations.length === 0) {
+      // 合格。再生成があった場合は notes 末尾に記録
+      if (regenerationLog.length > 0) {
+        const tag = `\n[自動再生成 ${regenerationLog.length}回: ${regenerationLog.join(' / ')}]`;
+        parsed.notes = (parsed.notes || '') + tag;
       }
       return new Response(JSON.stringify(parsed), {
         headers: { 'Content-Type': 'application/json' },
       });
-    } catch (e) {
-      lastError = String(e);
     }
+
+    // 検証失敗
+    regenerationLog.push(violations.slice(0, 3).join('・'));
+    if (validationRetry >= MAX_VALIDATION_RETRY) {
+      // 上限到達。やむなく結果を返す（notesに違反内容を記録）
+      const tag = `\n[警告: 検証違反が解消できませんでした: ${violations.join(' / ')}]`;
+      parsed.notes = (parsed.notes || '') + tag;
+      return new Response(JSON.stringify(parsed), {
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+    validationRetry++;
+    lastViolations = violations;
+    // ループ継続でフィードバック付き再生成
   }
-  return new Response('生成失敗: ' + lastError, { status: 502 });
 }
