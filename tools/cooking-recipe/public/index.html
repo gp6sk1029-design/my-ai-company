@@ -308,21 +308,85 @@
       <div id="google-status" style="font-size:13px;color:var(--text-muted);margin-bottom:8px;">未接続</div>
 
       <div id="google-not-connected">
-        <details style="margin-bottom:10px;">
+        <details class="google-setup-guide" style="margin-bottom:10px;">
           <summary style="font-size:13px;font-weight:700;color:var(--accent-deep);cursor:pointer;padding:6px 0;">📖 初回セットアップ手順（約5分）</summary>
-          <ol style="font-size:12px;line-height:1.7;padding-left:22px;margin-top:6px;color:var(--text-secondary);">
-            <li><a href="https://console.cloud.google.com/" target="_blank" style="color:var(--accent-deep);">Google Cloud Console</a> を開く</li>
-            <li>上部でプロジェクトを新規作成（例: 「kondate-family」）</li>
-            <li>検索バーで「Google Calendar API」を検索 → <strong>有効にする</strong></li>
-            <li>同様に「Google Tasks API」を検索 → <strong>有効にする</strong></li>
-            <li>左メニュー「APIとサービス」→「OAuth同意画面」→ User Type「外部」で作成、アプリ名を入力、**テストユーザー**に自分のGmailアドレスを追加</li>
-            <li>左メニュー「認証情報」→「+ 認証情報を作成」→「OAuth クライアント ID」</li>
-            <li>アプリケーションの種類: <strong>ウェブアプリケーション</strong></li>
-            <li>「承認済みの JavaScript 生成元」に次を追加:<br><code style="background:#eee;padding:2px 6px;border-radius:4px;font-size:11px;">https://kondate-kun.pages.dev</code></li>
-            <li>作成後の「クライアントID」（末尾が <code>.apps.googleusercontent.com</code>）をコピー → 下欄に貼り付け</li>
-          </ol>
+
+          <div class="setup-intro">
+            <div style="font-size:12px;line-height:1.6;color:var(--text-secondary);margin:6px 0 10px;">
+              「献立をGoogleカレンダーに自動で追加したい」「買い物リストをGoogle Tasksに送りたい」ためには、Googleに「このアプリの利用を許可します」と一度だけ伝える設定が必要です。<br>
+              <strong>下の4つのステップを順番にやれば完了します。</strong>
+            </div>
+          </div>
+
+          <!-- ステップ1：プロジェクト作成 -->
+          <div class="setup-step">
+            <div class="setup-step-head">① プロジェクトを作る <span class="setup-step-time">（1分）</span></div>
+            <div class="setup-step-body">
+              <div class="setup-step-goal">📌 目的：このアプリ専用の「箱」をGoogle側に作る</div>
+              <ol>
+                <li><a href="https://console.cloud.google.com/projectcreate" target="_blank" rel="noopener" class="setup-link">▶ プロジェクト作成画面を開く</a>（自動でフォームが開きます）</li>
+                <li>「プロジェクト名」に好きな名前（例: <code>kondate-family</code>）を入力 → 「<strong>作成</strong>」</li>
+                <li>作成完了の通知が出たら、画面上部の「プロジェクトを選択」が新しい名前になっているか確認</li>
+              </ol>
+            </div>
+          </div>
+
+          <!-- ステップ2：API有効化 -->
+          <div class="setup-step">
+            <div class="setup-step-head">② Google側で必要な機能をONにする <span class="setup-step-time">（1分）</span></div>
+            <div class="setup-step-body">
+              <div class="setup-step-goal">📌 目的：カレンダーとTasksをアプリから使えるようにする</div>
+              <ol>
+                <li><a href="https://console.cloud.google.com/apis/library/calendar-json.googleapis.com" target="_blank" rel="noopener" class="setup-link">▶ Google Calendar API を開く</a> → 青い「<strong>有効にする</strong>」ボタンを押す</li>
+                <li><a href="https://console.cloud.google.com/apis/library/tasks.googleapis.com" target="_blank" rel="noopener" class="setup-link">▶ Google Tasks API を開く</a> → 同じく「<strong>有効にする</strong>」</li>
+              </ol>
+              <div class="setup-tip">💡 「APIが有効化されました」と緑チェックが出ればOK</div>
+            </div>
+          </div>
+
+          <!-- ステップ3：OAuth同意画面 -->
+          <div class="setup-step">
+            <div class="setup-step-head">③ アプリの紹介文を登録 <span class="setup-step-time">（2分）</span></div>
+            <div class="setup-step-body">
+              <div class="setup-step-goal">📌 目的：Googleに「このアプリは私が個人で使うものです」と申請する</div>
+              <ol>
+                <li><a href="https://console.cloud.google.com/auth/overview/create" target="_blank" rel="noopener" class="setup-link">▶ OAuth同意画面を開く</a></li>
+                <li>「<strong>外部</strong>」を選択 → 「作成」</li>
+                <li>「アプリ名」: <code>kondate-kun</code> など分かる名前</li>
+                <li>「ユーザーサポートメール」「デベロッパー連絡先」: ご自身のGmailアドレス</li>
+                <li>あとは入力せず「保存して次へ」を最後まで連打</li>
+                <li>左メニューに「<strong>対象</strong>」（または「テストユーザー」）→ 「ユーザーを追加」 → 自分のGmailアドレスを追加</li>
+              </ol>
+              <div class="setup-warn">⚠️ 「公開ステータス: テスト中」のままでOKです（公開する必要はありません）</div>
+            </div>
+          </div>
+
+          <!-- ステップ4：クライアントID作成 -->
+          <div class="setup-step">
+            <div class="setup-step-head">④ クライアントIDを作って貼り付け <span class="setup-step-time">（1分）</span></div>
+            <div class="setup-step-body">
+              <div class="setup-step-goal">📌 目的：このアプリだけの「鍵」を発行する</div>
+              <ol>
+                <li><a href="https://console.cloud.google.com/auth/clients/create" target="_blank" rel="noopener" class="setup-link">▶ クライアントID作成画面を開く</a></li>
+                <li>「アプリケーションの種類」: <strong>ウェブアプリケーション</strong></li>
+                <li>「名前」: <code>kondate-kun-web</code> など何でもOK</li>
+                <li>「<strong>承認済みの JavaScript 生成元</strong>」の「+ URI を追加」を押して、下のURLをそのまま貼る：
+                  <div class="copy-row">
+                    <code id="copy-origin-url">https://kondate-kun.pages.dev</code>
+                    <button type="button" class="copy-btn" data-copy-target="copy-origin-url">📋 コピー</button>
+                  </div>
+                </li>
+                <li>「作成」を押すと、ポップアップに「クライアントID」が表示される</li>
+                <li>表示されたクライアントID（末尾が <code>.apps.googleusercontent.com</code>）を<strong>そのまま全部コピー</strong>して、↓下の入力欄に貼り付け</li>
+              </ol>
+              <div class="setup-warn">⚠️ クライアントシークレット（secret）は<strong>使いません</strong>。コピーするのはIDの方だけ。</div>
+            </div>
+          </div>
+
+          <div class="setup-finish">🎉 ここまで終わったら、下の入力欄に貼り付け → 「💾 保存」 → 「🔑 接続」の順に押せば完了です</div>
         </details>
-        <input id="google-client-id" class="text-field" placeholder="xxxxx.apps.googleusercontent.com">
+
+        <input id="google-client-id" class="text-field" placeholder="ここに貼り付け（xxxxx.apps.googleusercontent.com）">
         <button id="btn-google-save-id" class="btn-secondary" style="width:100%;margin-bottom:8px;">💾 クライアントIDを保存</button>
         <button id="btn-google-connect" class="btn-primary" disabled>🔑 Googleアカウントと接続</button>
       </div>

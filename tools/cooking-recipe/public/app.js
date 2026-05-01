@@ -2106,6 +2106,27 @@
       : (s.clientId ? 'クライアントID設定済み。接続待機中' : 'クライアントID未設定');
   }
 
+  // コピーボタン（セットアップガイド内のURL貼り付け補助）
+  document.addEventListener('click', (e) => {
+    const btn = e.target.closest('.copy-btn');
+    if (!btn) return;
+    const targetId = btn.dataset.copyTarget;
+    const targetEl = document.getElementById(targetId);
+    if (!targetEl) return;
+    const text = targetEl.textContent || '';
+    (async () => {
+      try {
+        await navigator.clipboard.writeText(text);
+        const orig = btn.textContent;
+        btn.textContent = '✅ コピー済';
+        btn.classList.add('copied');
+        setTimeout(() => { btn.textContent = orig; btn.classList.remove('copied'); }, 1500);
+      } catch (err) {
+        toast('コピーできませんでした: ' + err.message, 'error');
+      }
+    })();
+  });
+
   $('#btn-google-save-id').addEventListener('click', async () => {
     const id = $('#google-client-id').value.trim();
     if (!id || !id.endsWith('.apps.googleusercontent.com')) {

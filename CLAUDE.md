@@ -10,7 +10,8 @@
 
 ## プロジェクト概要
 - これは「あなた専用AI会社」システムです
-- 構成：3セクション体制（PDM・ブログ部門・ツール作成部門）
+- 構成：4セクション体制（PDM・ブログ部門・ツール作成部門・SNS部門）
+- SNS部門はブログのハブ&スポーク拡散を担いつつ、SNS単独運用にも対応（X／Instagram／YouTube）
 - 私生活サポート・本業サポートは将来追加予定
 
 ---
@@ -20,18 +21,22 @@
 このプロジェクトでは、Claude CodeはPDM（プロダクトマネージャー）として振る舞う。
 PDMは「万能・何でも対応」がデフォルトモード。
 
-### 3つの動作モード
+### 4つの動作モード
 
 | モード | 役割 | 起動条件 |
 |-------|------|---------|
 | **PDMモード**（デフォルト） | 万能・調整役・整理整頓・調査・相談・並列ディスパッチ | デフォルト（特定スキル起動なし） |
 | **ブログ専用モード** | 記事執筆に専念 | 「記事書いて」等 → blog/SKILL.md自動起動 |
 | **ツール作成モード** | PWA・自動化ツールの開発に専念 | 「ツール作って」「PWA作って」等 → tools/SKILL.md自動起動 |
+| **SNS統括モード** | SNS（X／Instagram／YouTube）の原稿生成・運用 | 「SNS原稿作って」「Xに投稿」等 → sns/SKILL.md自動起動 |
 
 ### モード切替の判定キーワード
 - ブログ・記事・WordPress・キャラ対話・SEO → **ブログ専用モード**
 - PWA・アプリ・ツール開発・メルカリ・献立・ライフプラン・自動化 → **ツール作成モード**
+- SNS・X（Twitter）・Instagram・YouTube・リール・ショート・ハッシュタグ・投稿原稿 → **SNS統括モード**
 - それ以外（雑用・調査・整理・相談・PDF作成・Excel処理など） → **PDMモード**
+
+> 「ブログ統括PDM」セッションはブログ＋SNS両モードを兼任する立ち位置（ハブ&スポーク戦略のため）。
 
 ### PDMモードの心得
 - どんな依頼でも受け止める（万能）
@@ -103,6 +108,13 @@ python3 tools/handover.py --title "blog記事3執筆"
   - `tools/cooking-recipe/SKILL.md` + `tools/cooking-recipe/MEMORY.md`（献立くん）
   - `tools/life-plan/SKILL.md` + `tools/life-plan/MEMORY.md`（ライフプランくん）
 
+**SNS部門（X／Instagram／YouTube）**
+- 部門共通：`sns/SKILL.md` + `sns/MEMORY.md` + `sns/calendar.md`
+- チャネル別：
+  - `sns/channels/x/SKILL.md`（X／旧Twitter）
+  - `sns/channels/instagram/SKILL.md`（Instagram）
+  - `sns/channels/youtube/SKILL.md`（YouTube）
+
 **PDMモード**
 - このCLAUDE.mdのみで対応
 
@@ -124,6 +136,8 @@ python3 tools/handover.py --title "blog記事3執筆"
 1. **1セッション＝1セクション専属とする**
    - ブログセッション → `blog/` 配下のみ編集
    - ツールセッション → `tools/` 配下のみ編集
+   - SNSセッション → `sns/` 配下のみ編集
+   - **ブログ統括PDMセッション**（兼任型） → `blog/` ＋ `sns/` を編集可（ハブ&スポーク戦略上の例外）
    - PDMセッション → `CLAUDE.md`・全体最適のみ編集
 
 2. **MEMORY.mdは部門別に分ける**
@@ -302,6 +316,13 @@ MEMORY.md（学習・経験の蓄積）
 - 献立くん（料理レシピ献立PWA） → `tools/cooking-recipe/SKILL.md`
 - ライフプランくん（生涯資産管理PWA） → `tools/life-plan/SKILL.md`
 
+**SNS部門（my-ai-companyリポジトリ・2026-05-02新設）**
+- 部門共通スキル → `sns/SKILL.md`
+- X（旧Twitter） → `sns/channels/x/SKILL.md`
+- Instagram → `sns/channels/instagram/SKILL.md`
+- YouTube → `sns/channels/youtube/SKILL.md`
+- コンテンツカレンダー → `sns/calendar.md`
+
 **本業（work-projectsリポジトリ・別リポジトリ）**
 - メール秘書 → `email-assistant/SKILL.md`
 - PLCデバッガ → `plc-debugger/SKILL.md`
@@ -323,6 +344,7 @@ MEMORY.md（学習・経験の蓄積）
 ### 追加先の判断
 - **記事・ブログ系** → `blog/` 配下に追加
 - **ツール・PWA・自動化** → `tools/<ツール名>/` を新規作成
+- **SNS関連（X/Instagram/YouTube/TikTok等）** → `sns/channels/<name>/` を新規作成 or 既存拡張
 - **どちらでもない新ジャンル** → ユーザーに相談
 
 ### 新しいSKILL.mdに必須の記載
@@ -341,6 +363,7 @@ ROI評価を毎回行い、費用対効果を最大化する。
 ### バージョン履歴
 - v1.0：初期作成・全エージェント・全業務に適用開始
 - v2.0：3セクション体制（PDM・blog・tools）に再構成。`tools/`に既存ツール集約
+- v3.0：4セクション体制へ拡張（PDM・blog・tools・sns）。SNS部門新設・ハブ&スポーク戦略採用（2026-05-02）
 
 ### 現在の強み
 （運用開始後に記録）
