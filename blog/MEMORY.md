@@ -108,6 +108,7 @@
 - 2026/05/02: SNS部門新設（`sns/`）でハブ&スポーク戦略採用。`blog/SKILL.md` §12をsnsへ移管
 - 2026/05/02: コノハWING→Cloudflare移設プラン詳細書を作成 → `blog/migration/cloudflare-migration-plan.md`（エンジニア相談用・着手前段階）
 - 2026/05/02: Cloudflareプレビューサイト構築（案A・自動）→ https://ootanisatan-preview.pages.dev 稼働。`blog/cloudflare-preview/` 配下に build.py + JIN:R風CSS + 静的HTML。noindex+robots.txtで検索除外。本番無影響。所要約30分
+- 2026/05/02: 上記プレビューを「本物サイトミラー」に切替（mirror.py 追加）。本番ootanisatan.comから HTML/JIN:R CSS×7/画像×23/jin-iconsフォントを取得しCloudflareへ転載。**本物JIN:Rが生成したHTMLそのまま**を再現（90KB級・1:1の見た目）。noindex/noarchive設定済
 
 ### 使用ツール
 - WordPress REST API: wp_api.py
