@@ -1,21 +1,14 @@
 #!/usr/bin/env python3
 """
-Cloudflare Pages 用プレビューサイト ビルダー
+Cloudflare Pages 用プレビューサイト ビルダー（本番デザイン準拠）
 
-blog/articles/*.md を JIN:R 風の静的HTMLに変換し、
-blog/cloudflare-preview/ 配下に出力する。
+blog/articles/*.md を JIN:R 風の静的HTMLに変換。
+本番ホーム（生産技術ガジェット研究所）のレイアウトを参考に、
+ヒーロー＋カテゴリカード×4＋注目記事＋サイドバー＋ボトム特徴を実装。
 
 使い方:
   cd /Users/shoheikoda/Documents/my-ai-company
   python3 blog/cloudflare-preview/build.py
-
-出力:
-  blog/cloudflare-preview/index.html              (トップページ)
-  blog/cloudflare-preview/<slug>/index.html       (各記事)
-  blog/cloudflare-preview/assets/style.css        (JIN:R風CSS)
-  blog/cloudflare-preview/assets/images/...       (画像)
-  blog/cloudflare-preview/robots.txt              (noindex)
-  blog/cloudflare-preview/_headers                (X-Robots-Tag)
 """
 from __future__ import annotations
 import re
@@ -29,29 +22,45 @@ OUT_DIR = ROOT / "blog" / "cloudflare-preview"
 ASSETS_DIR = OUT_DIR / "assets"
 
 SITE_TITLE = "生産技術ガジェット研究所"
-SITE_TAGLINE = "ガジェット・時短ツールを生産技術視点で本気レビュー"
+SITE_TAGLINE = "現場の課題をガジェットで、仕事と生活をもっと良く。"
+SITE_DESCRIPTION = "ガジェット・時短ツール・PLC・FA・効率ノウハウまで、生産技術視点で発信"
 
-# --- 各記事のメタ情報（手動定義） ---
+# --- 各記事のメタ情報 ---
 ARTICLES = [
     {
         "slug": "garmin-venu2s-review",
         "md": "garmin-venu2s-review.md",
         "title": "Garmin Venu 2S を4年半使ったリアルレビュー｜27円/日で健康管理できる最強スマートウォッチ",
-        "excerpt": "Garmin Venu 2Sを4年半・1,600日以上使い込んだ超長期レビュー。1日27円のコスト・年間12万円分の生産性向上・損益分岐点135日。数字だけが証明できる本当の価値。",
+        "title_short": "Garmin Venu 2S 4年使用レビュー｜1.2万円台でも高機能できるスマートウォッチ",
+        "excerpt": "Garmin Venu 2Sを4年半・1,600日以上使い込んだ超長期レビュー。1日27円のコスト・年間12万円分の生産性向上・損益分岐点135日。",
         "date": "2026-03-29",
-        "category": "ガジェット",
+        "category": "ガジェットレビュー",
+        "category_class": "",
         "thumb": "garmin_venu2s_exterior.jpg",
     },
     {
         "slug": "huawei-gt-runner2-review",
         "md": "huawei-gt-runner2-review.md",
         "title": "【10km実走データ】HUAWEI GT Runner 2 を生産技術視点で本気レビュー",
-        "excerpt": "HUAWEI GT Runner 2を3週間実走テスト。10kmマラソンでの実測データ・ランナー特化機能・Garmin比較。生産技術現場経験から見る本当の費用対効果。",
+        "title_short": "HUAWEI GT Runner 2 を生産技術視点で本気レビュー｜10km実走データ",
+        "excerpt": "HUAWEI GT Runner 2を3週間実走テスト。10kmマラソンでの実測データ・ランナー特化機能・Garmin比較。",
         "date": "2026-04-21",
-        "category": "ガジェット",
+        "category": "ガジェットレビュー",
+        "category_class": "",
         "thumb": "edited_20260420_011522.jpg",
     },
 ]
+
+# 「Coming Soon」プレースホルダ（持っていない記事の枠を埋めるダミー）
+PLACEHOLDER = {
+    "slug": "#",
+    "title_short": "Coming Soon｜近日公開予定",
+    "category": "準備中",
+    "category_class": "kurashi",
+    "date": "----.--.--",
+    "thumb": None,
+    "is_placeholder": True,
+}
 
 
 # ============================================================
@@ -62,26 +71,17 @@ _UL_TRIGGER = re.compile(r'[0-9]|[０-９]|¥|円|％|%|日|分|時間|週|月|�
 
 
 def md_inline(text: str) -> str:
-    """インライン装飾を JIN:R 風 HTML に変換"""
-    # ***text*** → 水色アンダーライン強調（最優先）
-    text = re.sub(
-        r'\*\*\*(.+?)\*\*\*',
-        lambda m: f'<strong class="jinr-emph">{m.group(1)}</strong>',
-        text
-    )
-    # **text** → 数値含めば水色アンダーライン、それ以外は普通の bold
+    text = re.sub(r'\*\*\*(.+?)\*\*\*', lambda m: f'<strong class="jinr-emph">{m.group(1)}</strong>', text)
     def _bold(m):
         inner = m.group(1)
         cls = "jinr-emph" if _UL_TRIGGER.search(inner) else ""
         return f'<strong class="{cls}">{inner}</strong>' if cls else f'<strong>{inner}</strong>'
     text = re.sub(r'\*\*(.+?)\*\*', _bold, text)
-    # *italic*
     text = re.sub(r'(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)', r'<em>\1</em>', text)
     return text
 
 
 def render_article_body(md: str) -> tuple[str, str]:
-    """Markdown本文をHTMLに変換し (h1タイトル, body_html) を返す"""
     lines = md.split('\n')
     h1_title = ""
     out: list[str] = []
@@ -115,37 +115,32 @@ def render_article_body(md: str) -> tuple[str, str]:
         line = lines[i]
         stripped = line.strip()
 
-        # H1 タイトル抽出
         if stripped.startswith('# ') and not h1_title:
             h1_title = stripped[2:].strip()
-            i += 1
-            continue
+            i += 1; continue
 
-        # オオタニ所長 ふきだし
         m = re.match(r'\*\*オオタニ所長[：:]\*\*\s*[「\s]*(.*?)[」]?\s*$', line)
         if m:
             flush_list(); flush_check()
             out.append(
-                f'<div class="jinr-fukidashi jinr-fukidashi-left">'
-                f'  <div class="jinr-chara"><img src="../assets/images/character-ootani.png" alt="オオタニ所長"><span>オオタニ所長</span></div>'
-                f'  <div class="jinr-bubble">{md_inline(m.group(1))}</div>'
-                f'</div>'
+                '<div class="jinr-fukidashi jinr-fukidashi-left">'
+                '<div class="jinr-chara"><img src="../assets/images/character-ootani.png" alt="オオタニ所長"><span>オオタニ所長</span></div>'
+                f'<div class="jinr-bubble">{md_inline(m.group(1))}</div>'
+                '</div>'
             )
             i += 1; continue
 
-        # タナカ ふきだし
         m = re.match(r'\*\*タナカ[：:]\*\*\s*[「\s]*(.*?)[」]?\s*$', line)
         if m:
             flush_list(); flush_check()
             out.append(
-                f'<div class="jinr-fukidashi jinr-fukidashi-right">'
-                f'  <div class="jinr-bubble">{md_inline(m.group(1))}</div>'
-                f'  <div class="jinr-chara"><img src="../assets/images/character-tanaka.png" alt="タナカ"><span>新人タナカ</span></div>'
-                f'</div>'
+                '<div class="jinr-fukidashi jinr-fukidashi-right">'
+                f'<div class="jinr-bubble">{md_inline(m.group(1))}</div>'
+                '<div class="jinr-chara"><img src="../assets/images/character-tanaka.png" alt="タナカ"><span>新人タナカ</span></div>'
+                '</div>'
             )
             i += 1; continue
 
-        # 見出し
         if stripped.startswith('## '):
             flush_list(); flush_check()
             out.append(f'<h2 class="jinr-h2">{md_inline(stripped[3:])}</h2>')
@@ -155,13 +150,11 @@ def render_article_body(md: str) -> tuple[str, str]:
             out.append(f'<h3 class="jinr-h3">{md_inline(stripped[4:])}</h3>')
             i += 1; continue
 
-        # 区切り線
         if stripped == '---':
             flush_list(); flush_check()
             out.append('<hr class="jinr-sep">')
             i += 1; continue
 
-        # テーブル
         if stripped.startswith('|'):
             flush_list(); flush_check()
             tbl = []
@@ -171,21 +164,19 @@ def render_article_body(md: str) -> tuple[str, str]:
                 i += 1
             if len(tbl) >= 2:
                 headers = tbl[0]
-                # tbl[1] is separator row
                 body = [r for r in tbl[2:] if any(c.strip() for c in r)]
                 out.append('<table class="jinr-table"><thead><tr>')
                 for h in headers:
-                    out.append(f'  <th>{md_inline(h)}</th>')
+                    out.append(f'<th>{md_inline(h)}</th>')
                 out.append('</tr></thead><tbody>')
                 for row in body:
                     out.append('<tr>')
                     for cell in row:
-                        out.append(f'  <td>{md_inline(cell)}</td>')
+                        out.append(f'<td>{md_inline(cell)}</td>')
                     out.append('</tr>')
                 out.append('</tbody></table>')
             continue
 
-        # 引用
         if stripped.startswith('> '):
             flush_list(); flush_check()
             buf = []
@@ -195,7 +186,6 @@ def render_article_body(md: str) -> tuple[str, str]:
             out.append(f'<blockquote class="jinr-quote">{md_inline(" ".join(buf))}</blockquote>')
             continue
 
-        # コードブロック
         if stripped.startswith('```'):
             flush_list(); flush_check()
             i += 1
@@ -204,13 +194,10 @@ def render_article_body(md: str) -> tuple[str, str]:
                 buf.append(lines[i])
                 i += 1
             i += 1
-            code = '\n'.join(buf)
-            # HTMLエスケープ
-            code = code.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+            code = '\n'.join(buf).replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
             out.append(f'<pre class="jinr-code"><code>{code}</code></pre>')
             continue
 
-        # チェックリスト
         if re.match(r'^- \[ \]', stripped) or re.match(r'^✅', stripped) or re.match(r'^❌', stripped):
             flush_list()
             in_check = True
@@ -218,7 +205,6 @@ def render_article_body(md: str) -> tuple[str, str]:
             check_buf.append(item)
             i += 1; continue
 
-        # リスト
         if re.match(r'^[-*]\s+', stripped):
             flush_check()
             in_list = True
@@ -226,16 +212,10 @@ def render_article_body(md: str) -> tuple[str, str]:
             list_buf.append(item)
             i += 1; continue
 
-        # コメントスキップ
-        if stripped.startswith('<!--'):
-            i += 1; continue
-
-        # 空行
-        if not stripped:
+        if stripped.startswith('<!--') or not stripped:
             flush_list(); flush_check()
             i += 1; continue
 
-        # 通常段落
         flush_list(); flush_check()
         out.append(f'<p>{md_inline(stripped)}</p>')
         i += 1
@@ -245,127 +225,314 @@ def render_article_body(md: str) -> tuple[str, str]:
 
 
 # ============================================================
-# テンプレート
+# テンプレート部品
 # ============================================================
 
 NOINDEX_META = '<meta name="robots" content="noindex,nofollow">'
 
-HEAD_TEMPLATE = """<!DOCTYPE html>
+GOOGLE_FONTS = '''<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;800&display=swap" rel="stylesheet">'''
+
+
+def head(title: str, description: str, css_path: str) -> str:
+    return f"""<!DOCTYPE html>
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-{noindex}
+{NOINDEX_META}
 <meta name="description" content="{description}">
 <title>{title}</title>
 <link rel="stylesheet" href="{css_path}">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+{GOOGLE_FONTS}
 </head>
 <body>
 """
 
-HEADER_TEMPLATE = """<header class="site-header">
-  <div class="header-inner">
-    <a href="{home}" class="site-title">
-      <span class="title-main">生産技術ガジェット研究所</span>
-      <span class="title-sub">PREVIEW</span>
-    </a>
-    <nav class="site-nav"><a href="{home}">記事一覧</a></nav>
-  </div>
-  <div class="preview-banner">
-    🚧 これは Cloudflare Pages 上のプレビューサイトです（noindex設定済・検索結果には表示されません）
+
+def header_html(home: str, active: str = "home") -> str:
+    nav_items = [
+        ("home", home, "🏠 ホーム"),
+        ("gadget", "#", "🛒 ガジェット"),
+        ("gijutsu", "#", "⚙️ 生産技術"),
+        ("shigoto", "#", "📋 仕事術"),
+        ("profile", "#", "👤 プロフィール"),
+        ("contact", "#", "✉️ お問い合わせ"),
+    ]
+    nav_html = ""
+    for key, href, label in nav_items:
+        cls = " class=\"active\"" if key == active else ""
+        nav_html += f'<a href="{href}"{cls}>{label}</a>'
+
+    return f"""<header class="site-header">
+  <div class="header-container">
+    <div class="brand">
+      <div class="brand-logo">⚙</div>
+      <div class="brand-text">
+        <h1>{SITE_TITLE}</h1>
+        <p>{SITE_TAGLINE}</p>
+      </div>
+    </div>
+    <nav class="primary-nav">{nav_html}</nav>
+    <button class="search-btn" aria-label="検索">🔍</button>
   </div>
 </header>
+<div class="preview-banner">🚧 これは Cloudflare Pages 上のプレビュー版です（noindex設定済・検索結果には表示されません）</div>
 """
 
-FOOTER_TEMPLATE = """<footer class="site-footer">
-  <p>&copy; 2026 生産技術ガジェット研究所｜本サイトはプレビュー版です</p>
-  <p class="footer-note">本番サイト: <a href="https://www.ootanisatan.com">www.ootanisatan.com</a></p>
+
+def footer_html() -> str:
+    return f"""<footer class="site-footer">
+  <p>&copy; 2026 {SITE_TITLE}｜本サイトはプレビュー版です</p>
+  <p>本番サイト: <a href="https://www.ootanisatan.com">www.ootanisatan.com</a></p>
 </footer>
 </body>
 </html>
 """
 
 
-def build_index_page(articles: list[dict]) -> str:
-    cards = []
-    for a in articles:
-        thumb_html = ""
-        if a.get("thumb"):
-            thumb_html = f'<div class="card-thumb" style="background-image:url(\'assets/images/{a["thumb"]}\')"></div>'
-        cards.append(f"""
-<article class="article-card">
-  <a href="{a['slug']}/" class="card-link">
-    {thumb_html}
-    <div class="card-body">
-      <span class="card-cat">{a['category']}</span>
-      <h2 class="card-title">{a['title']}</h2>
-      <p class="card-excerpt">{a['excerpt']}</p>
-      <div class="card-meta">
-        <time>{a['date']}</time>
+# ============================================================
+# ホームページ専用セクション
+# ============================================================
+
+def hero_section() -> str:
+    return f"""<section class="hero">
+  <div class="hero-container">
+    <div class="hero-text">
+      <h2 class="hero-title">
+        <span class="hl">ガジェット</span>と<span class="hl">生産技術</span>の力で、<br>
+        現場の「ムダ」をなくし、仕事と生活をアップデート。
+      </h2>
+      <p class="hero-desc">
+        スマートウォッチや便利なツールからPLC・センサ・FA・効率ノウハウまで。<br>
+        エンジニアの毎日を効率化する実践的な情報を発信します。
+      </p>
+      <div class="hero-cta">
+        <a href="#latest" class="btn btn-primary">📤 最新の記事を読む</a>
+        <a href="#categories" class="btn btn-secondary">📁 カテゴリから探す</a>
       </div>
     </div>
-  </a>
-</article>
-""")
+    <div class="hero-character">
+      <div class="hero-bubble">生産技術を、もっとスマートに、もっと楽しく。</div>
+      <img src="assets/images/character-ootani.png" alt="所長キャラクター">
+    </div>
+  </div>
+</section>"""
 
-    head = HEAD_TEMPLATE.format(
-        noindex=NOINDEX_META,
-        description=SITE_TAGLINE,
-        title=f"{SITE_TITLE}｜{SITE_TAGLINE}",
-        css_path="assets/style.css",
-    )
-    header = HEADER_TEMPLATE.format(home="./")
-    body = f"""
-<main class="site-main">
-  <section class="hero">
-    <h1 class="hero-title">{SITE_TITLE}</h1>
-    <p class="hero-tagline">{SITE_TAGLINE}</p>
-  </section>
-  <section class="article-grid">
+
+def categories_section() -> str:
+    cats = [
+        ("⌚", "ガジェット研究室", "スマートウォッチ・PC周辺機器・便利グッズのレビューと活用術", "cat-blue", ""),
+        ("⚙️", "生産技術研究室", "PLC・センサ・安全・改善・生産技術のノウハウと事例", "cat-blue", ""),
+        ("⏱", "時短ツール研究室", "AIツール・アプリ・効率化ツールで時短につながる活用法を紹介", "cat-blue", ""),
+        ("🏠", "暮らしハック研究室", "日常の効率化・健康・節約など暮らしに役立つ実践的なヒント", "cat-orange", "has-orange"),
+    ]
+    cards = []
+    for icon, title, desc, icon_cls, card_cls in cats:
+        cards.append(f"""<a href="#" class="cat-card {card_cls}">
+      <div class="cat-icon {icon_cls}">{icon}</div>
+      <h3>{title}</h3>
+      <p>{desc}</p>
+      <div class="cat-card-arrow">→</div>
+    </a>""")
+    return f"""<section class="cat-section" id="categories">
+  <div class="cat-grid">
     {''.join(cards)}
-  </section>
-</main>
-"""
-    return head + header + body + FOOTER_TEMPLATE
+  </div>
+</section>"""
+
+
+def featured_article_card(article: dict) -> str:
+    if article.get("is_placeholder"):
+        return f"""<div class="featured-card" style="opacity:0.5;cursor:default;pointer-events:none;">
+      <div class="featured-thumb" style="background:#f3f4f6;display:flex;align-items:center;justify-content:center;color:#9ca3af;font-size:2rem;">📝</div>
+      <div class="featured-body">
+        <div class="featured-title">{article['title_short']}</div>
+        <div class="featured-meta">🕐 {article['date']}</div>
+      </div>
+    </div>"""
+
+    thumb_style = ""
+    if article.get("thumb"):
+        thumb_style = f"background-image:url('assets/images/{article['thumb']}')"
+
+    cat_cls = article.get("category_class", "")
+    return f"""<a href="{article['slug']}/" class="featured-card">
+      <div class="featured-thumb" style="{thumb_style}">
+        <span class="featured-tag {cat_cls}">{article['category']}</span>
+      </div>
+      <div class="featured-body">
+        <div class="featured-title">{article['title_short']}</div>
+        <div class="featured-meta">🕐 {article['date']}</div>
+      </div>
+    </a>"""
+
+
+def latest_item_html(article: dict) -> str:
+    if article.get("is_placeholder"):
+        return f"""<div class="latest-item" style="opacity:0.5;">
+      <div class="latest-thumb" style="background:#f3f4f6;display:flex;align-items:center;justify-content:center;color:#9ca3af;font-size:1.5rem;">📝</div>
+      <div class="latest-title">{article['title_short']}</div>
+      <span class="latest-tag {article.get('category_class','')}">{article['category']}</span>
+      <span class="latest-date">{article['date']}</span>
+    </div>"""
+
+    thumb_style = ""
+    if article.get("thumb"):
+        thumb_style = f"background-image:url('assets/images/{article['thumb']}')"
+    return f"""<a href="{article['slug']}/" class="latest-item">
+      <div class="latest-thumb" style="{thumb_style}"></div>
+      <div class="latest-title">{article['title_short']}</div>
+      <span class="latest-tag {article.get('category_class','')}">{article['category']}</span>
+      <span class="latest-date">{article['date'].replace('-', '.')}</span>
+    </a>"""
+
+
+def featured_section() -> str:
+    cards = [featured_article_card(a) for a in ARTICLES]
+    while len(cards) < 3:
+        cards.append(featured_article_card(PLACEHOLDER))
+    cards = cards[:3]
+
+    latest_items = [latest_item_html(a) for a in ARTICLES]
+    while len(latest_items) < 3:
+        latest_items.append(latest_item_html(PLACEHOLDER))
+    latest_items = latest_items[:5]
+
+    return f"""<div class="main-column">
+  <h2 class="section-heading" id="featured">注目の記事</h2>
+  <div class="featured-grid">
+    {''.join(cards)}
+  </div>
+  <h2 class="section-heading" id="latest">最新の記事</h2>
+  <div class="latest-list">
+    {''.join(latest_items)}
+    <div class="latest-more">記事一覧をみる →</div>
+  </div>
+</div>"""
+
+
+def sidebar_section() -> str:
+    rank_items = []
+    medals = ["🥇", "🥈", "🥉"]
+    rank_articles = ARTICLES + [PLACEHOLDER]
+    for i, a in enumerate(rank_articles[:3]):
+        thumb_style = ""
+        if a.get("thumb"):
+            thumb_style = f"background-image:url('assets/images/{a['thumb']}')"
+        elif a.get("is_placeholder"):
+            thumb_style = "background:#f3f4f6;display:flex;align-items:center;justify-content:center;color:#9ca3af;font-size:1.2rem;"
+
+        rank_items.append(f"""<li class="rank-list-item">
+        <span class="rank-icon">{medals[i]}</span>
+        <div class="rank-thumb" style="{thumb_style}">{('📝' if a.get('is_placeholder') else '')}</div>
+        <div class="rank-title">{a['title_short']}</div>
+      </li>""")
+
+    return f"""<aside class="sidebar">
+
+  <div class="search-widget">
+    <input type="text" placeholder="検索キーワードを入力" disabled>
+    <button>🔍</button>
+  </div>
+
+  <div class="widget profile-widget">
+    <h3 class="widget-title">運営者プロフィール</h3>
+    <div class="profile-body">
+      <img class="profile-avatar" src="assets/images/character-ootani.png" alt="所長">
+      <div>
+        <p class="profile-text">生産技術エンジニア。<br>工場の安全・効率化に取り組むエンジニア。ガジェットと生産技術で、日々の仕事を強化する情報を発信しています。</p>
+        <a class="profile-link" href="#">プロフィールをみる →</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="widget popular-widget">
+    <h3 class="widget-title">人気記事ランキング</h3>
+    <ol class="ranking-list">
+      {''.join(rank_items)}
+    </ol>
+  </div>
+
+  <div class="learn-widget">
+    <div class="learn-text">なにか知りたいこと？<br>一緒に学んでいきましょう！</div>
+    <img src="assets/images/character-tanaka.png" alt="新人タナカ">
+  </div>
+
+</aside>"""
+
+
+def features_section() -> str:
+    feats = [
+        ("📋", "実体験ベースのレビュー", "実際に使って検証した情報だけを基準にレビューします。"),
+        ("⚙️", "生産技術の知見を共有", "現場での改善提案・自動化のノウハウをわかりやすく解説。"),
+        ("🤖", "FA・PLC・自動化に強い", "制御・センサ安全・ネットワークまで幅広くカバー。"),
+        ("💡", "明日から使える実践ノウハウ", "すぐに現場で試せる、実践的な内容をお届けします。"),
+    ]
+    items = []
+    for icon, title, desc in feats:
+        items.append(f"""<div class="feature-item">
+      <div class="feature-icon">{icon}</div>
+      <h3>{title}</h3>
+      <p>{desc}</p>
+    </div>""")
+    return f"""<section class="features-section">
+  <div class="features-grid">
+    {''.join(items)}
+  </div>
+</section>"""
+
+
+# ============================================================
+# ページ生成
+# ============================================================
+
+def build_index_page() -> str:
+    title = f"{SITE_TITLE}｜{SITE_TAGLINE}"
+    parts = [
+        head(title, SITE_DESCRIPTION, "assets/style.css"),
+        header_html("./", active="home"),
+        hero_section(),
+        categories_section(),
+        '<section class="content-section">',
+        '  <div class="content-grid">',
+        featured_section(),
+        sidebar_section(),
+        '  </div>',
+        '</section>',
+        features_section(),
+        footer_html(),
+    ]
+    return '\n'.join(parts)
 
 
 def build_article_page(article: dict, h1: str, body_html: str) -> str:
-    head = HEAD_TEMPLATE.format(
-        noindex=NOINDEX_META,
-        description=article["excerpt"],
-        title=f"{article['title']}｜{SITE_TITLE}",
-        css_path="../assets/style.css",
-    )
-    header = HEADER_TEMPLATE.format(home="../")
-
+    title = f"{article['title']}｜{SITE_TITLE}"
     thumb_html = ""
     if article.get("thumb"):
         thumb_html = f'<img class="article-hero-img" src="../assets/images/{article["thumb"]}" alt="">'
 
-    page = f"""
-<main class="site-main">
-  <article class="article-page">
-    {thumb_html}
-    <header class="article-header">
-      <span class="article-cat">{article['category']}</span>
-      <h1 class="article-title">{h1 or article['title']}</h1>
-      <div class="article-meta">
-        <time>{article['date']}</time>
-      </div>
-    </header>
-    <div class="article-body">
-      {body_html}
-    </div>
-    <div class="article-footer">
-      <a href="../" class="back-link">← 記事一覧に戻る</a>
-    </div>
-  </article>
-</main>
-"""
-    return head + header + page + FOOTER_TEMPLATE
+    parts = [
+        head(title, article["excerpt"], "../assets/style.css"),
+        header_html("../", active=""),
+        '<main class="article-page">',
+        '  <article class="article-page-inner">',
+        f'    {thumb_html}',
+        '    <header class="article-header">',
+        f'      <span class="article-cat">{article["category"]}</span>',
+        f'      <h1 class="article-title">{h1 or article["title"]}</h1>',
+        f'      <div class="article-meta">🕐 {article["date"]}</div>',
+        '    </header>',
+        f'    <div class="article-body">{body_html}</div>',
+        '    <footer class="article-footer">',
+        '      <a href="../" class="back-link">← 記事一覧に戻る</a>',
+        '    </footer>',
+        '  </article>',
+        '</main>',
+        footer_html(),
+    ]
+    return '\n'.join(parts)
 
 
 # ============================================================
@@ -373,11 +540,9 @@ def build_article_page(article: dict, h1: str, body_html: str) -> str:
 # ============================================================
 
 def copy_images():
-    """記事に必要な画像と キャラクター画像を assets/images へコピー"""
     images_out = ASSETS_DIR / "images"
     images_out.mkdir(parents=True, exist_ok=True)
 
-    # キャラクター画像（オオタニ通常 / タナカ正常）
     char_map = [
         ("blog/images/characters/オオタニ所長 通常.png", "character-ootani.png"),
         ("blog/images/characters/新人タナカ 正常 .png", "character-tanaka.png"),
@@ -388,12 +553,10 @@ def copy_images():
         if s.exists():
             shutil.copy2(s, d)
 
-    # 各記事のサムネ
     for a in ARTICLES:
         thumb = a.get("thumb")
         if not thumb:
             continue
-        # processed / huawei-edited 等から検索
         for sub in ["processed", "huawei-edited", "huawei-resized", "raw"]:
             s = ROOT / "blog" / "images" / sub / thumb
             if s.exists():
@@ -410,11 +573,9 @@ def main():
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     ASSETS_DIR.mkdir(parents=True, exist_ok=True)
 
-    # 画像コピー
     copy_images()
     print("[build] Images copied")
 
-    # 各記事
     for a in ARTICLES:
         md_path = ARTICLES_DIR / a["md"]
         if not md_path.exists():
@@ -428,20 +589,14 @@ def main():
         out_path.write_text(html, encoding="utf-8")
         print(f"[build] {a['slug']}/index.html ({len(html)} chars)")
 
-    # トップページ
-    index_html = build_index_page(ARTICLES)
+    index_html = build_index_page()
     (OUT_DIR / "index.html").write_text(index_html, encoding="utf-8")
     print(f"[build] index.html ({len(index_html)} chars)")
 
-    # robots.txt
     (OUT_DIR / "robots.txt").write_text("User-agent: *\nDisallow: /\n", encoding="utf-8")
-    print("[build] robots.txt")
-
-    # _headers (Cloudflare Pages headers)
     headers = "/*\n  X-Robots-Tag: noindex, nofollow\n  Cache-Control: public, max-age=300\n"
     (OUT_DIR / "_headers").write_text(headers, encoding="utf-8")
-    print("[build] _headers")
-
+    print("[build] robots.txt + _headers")
     print("[build] DONE")
 
 
