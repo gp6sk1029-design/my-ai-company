@@ -252,33 +252,29 @@ img { max-width: 100%; height: auto; display: block; }
   color: var(--c-text);
 }
 
-/* ヒーロー */
+/* ヒーロー（バナー画像背景型） */
 .hero {
+  /* 上：左から右へグラデーション、ピーク画像のRGBに馴染むように */
   background:
-    radial-gradient(1000px 500px at 80% 50%, rgba(96,165,250,0.12) 0%, transparent 60%),
+    linear-gradient(90deg, rgba(240,249,255,1) 0%, rgba(240,249,255,0.82) 30%, rgba(240,249,255,0) 55%),
+    url('/assets/img/hero-banner.png') center right / cover no-repeat,
     linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 60%, #dbeafe 100%);
-  padding: 56px 24px 72px;
+  padding: 80px 24px 96px;
   position: relative;
   overflow: hidden;
-}
-.hero::before {
-  content: "";
-  position: absolute; inset: 0;
-  background-image:
-    radial-gradient(circle at 75% 30%, rgba(59,130,246,0.06) 1px, transparent 1px),
-    radial-gradient(circle at 85% 70%, rgba(59,130,246,0.06) 1px, transparent 1px);
-  background-size: 50px 50px;
-  pointer-events: none;
+  min-height: 480px;
+  display: flex;
+  align-items: center;
 }
 .hero-inner {
   max-width: var(--container);
   margin: 0 auto;
-  display: grid;
-  grid-template-columns: 1.4fr 1fr;
-  gap: 48px;
-  align-items: center;
+  width: 100%;
   position: relative;
   z-index: 1;
+}
+.hero-text {
+  max-width: 580px;
 }
 .hero-title {
   font-size: 2.1rem;
@@ -323,39 +319,6 @@ img { max-width: 100%; height: auto; display: block; }
   border-color: var(--c-primary);
 }
 .btn-secondary:hover { background: var(--c-bg-blue); text-decoration: none; }
-
-.hero-character {
-  position: relative;
-  text-align: center;
-}
-.hero-character img {
-  max-width: 100%;
-  width: 280px;
-  margin: 0 auto;
-  filter: drop-shadow(0 10px 20px rgba(0,0,0,0.10));
-}
-.hero-bubble {
-  position: absolute;
-  top: 24px; right: -10px;
-  background: #fff;
-  padding: 12px 18px;
-  border-radius: var(--r-md);
-  box-shadow: var(--shadow-md);
-  font-size: 0.85rem;
-  font-weight: 500;
-  color: var(--c-text);
-  max-width: 220px;
-  line-height: 1.5;
-}
-.hero-bubble::after {
-  content: "";
-  position: absolute;
-  bottom: -8px; left: 30px;
-  width: 16px; height: 16px;
-  background: #fff;
-  transform: rotate(45deg);
-  box-shadow: 4px 4px 8px -2px rgba(0,0,0,.08);
-}
 
 /* カテゴリカード4枚 */
 .cat-section {
@@ -710,10 +673,16 @@ img { max-width: 100%; height: auto; display: block; }
 
 /* レスポンシブ */
 @media (max-width: 1024px) {
-  .hero-inner { grid-template-columns: 1fr; gap: 24px; text-align: center; }
+  .hero {
+    background:
+      linear-gradient(180deg, rgba(240,249,255,0.92) 0%, rgba(240,249,255,0.65) 35%, rgba(240,249,255,0.30) 100%),
+      url('/assets/img/hero-banner.png') center top / cover no-repeat,
+      linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 60%, #dbeafe 100%);
+    min-height: 560px;
+    padding: 40px 24px 48px;
+  }
+  .hero-text { max-width: 100%; text-align: center; }
   .hero-cta { justify-content: center; }
-  .hero-bubble { position: static; margin: 0 auto 16px; max-width: 100%; }
-  .hero-character img { width: 220px; }
   .cat-grid { grid-template-columns: repeat(2, 1fr); }
   .content-grid { grid-template-columns: 1fr; }
   .featured-grid { grid-template-columns: repeat(2, 1fr); }
@@ -723,7 +692,14 @@ img { max-width: 100%; height: auto; display: block; }
   .header-inner { flex-wrap: wrap; padding: 12px 16px; gap: 12px; }
   .primary-nav { width: 100%; flex-wrap: nowrap; overflow-x: auto; gap: 0; justify-content: flex-start; }
   .primary-nav a { font-size: 0.78rem; padding: 6px 10px; flex-shrink: 0; }
-  .hero { padding: 32px 16px 56px; }
+  .hero {
+    padding: 32px 16px 200px;
+    min-height: 0;
+    background:
+      linear-gradient(180deg, rgba(240,249,255,0.95) 0%, rgba(240,249,255,0.85) 50%, rgba(240,249,255,0.20) 100%),
+      url('/assets/img/hero-banner.png') center bottom / 200% auto no-repeat,
+      linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 60%, #dbeafe 100%);
+  }
   .hero-title { font-size: 1.45rem; }
   .cat-section { margin-top: -32px; padding: 0 16px; }
   .cat-grid { grid-template-columns: 1fr; gap: 12px; }
@@ -819,7 +795,7 @@ def build_index():
   </div>
 </header>
 
-<section class="hero">
+<section class="hero" role="banner" aria-label="生産技術ガジェット研究所のメインビジュアル">
   <div class="hero-inner">
     <div class="hero-text">
       <h2 class="hero-title">
@@ -834,10 +810,6 @@ def build_index():
         <a href="#latest" class="btn btn-primary">📤 最新の記事を読む</a>
         <a href="#categories" class="btn btn-secondary">📁 カテゴリから探す</a>
       </div>
-    </div>
-    <div class="hero-character">
-      <div class="hero-bubble">生産技術を、もっとスマートに、もっと楽しく。</div>
-      <img src="/assets/img/character-ptgl.png" alt="PTGL">
     </div>
   </div>
 </section>
