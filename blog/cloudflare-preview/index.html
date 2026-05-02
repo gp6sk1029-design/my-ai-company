@@ -227,6 +227,160 @@ h1:where(.wp-block-heading).has-background,h2:where(.wp-block-heading).has-backg
 </style>
 <link rel='stylesheet' id='theme-style-footer-css' href='/assets/css/1de13e871a8b.css' type='text/css' media='all' />
 
+
+
+
+
+<style id="preview-custom-css">
+.preview-featured-section, .preview-latest-section {
+  max-width: 1100px;
+  margin: 32px auto 24px;
+  padding: 0 16px;
+  font-family: 'Noto Sans JP', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+.preview-section-heading {
+  font-size: 1.2rem;
+  font-weight: 800;
+  color: #1f2937;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.preview-section-heading::before { content: "★"; color: #f97316; }
+.preview-featured-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+}
+.preview-featured-card {
+  background: #fff;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0,0,0,.07);
+  text-decoration: none !important;
+  color: inherit;
+  transition: transform .2s, box-shadow .2s;
+  display: block;
+  position: relative;
+}
+.preview-featured-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 18px rgba(0,0,0,.12);
+}
+.preview-featured-thumb {
+  width: 100%;
+  height: 150px;
+  background-size: cover;
+  background-position: center;
+  background-color: #f3f4f6;
+  position: relative;
+}
+.preview-featured-tag {
+  position: absolute;
+  top: 8px; left: 8px;
+  color: #fff;
+  font-size: 0.7rem;
+  padding: 3px 9px;
+  border-radius: 4px;
+  font-weight: 700;
+}
+.preview-featured-body {
+  padding: 12px 14px;
+}
+.preview-featured-title {
+  font-size: 0.92rem;
+  font-weight: 700;
+  line-height: 1.5;
+  color: #1f2937 !important;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin-bottom: 8px;
+  text-decoration: none !important;
+}
+.preview-featured-date {
+  font-size: 0.75rem;
+  color: #6b7280;
+}
+.preview-featured-date::before { content: "🕐 "; }
+
+.preview-latest-list {
+  background: #fff;
+  border-radius: 12px;
+  border: 1px solid #f3f4f6;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0,0,0,.05);
+}
+.preview-latest-item {
+  display: grid;
+  grid-template-columns: 90px 1fr auto auto;
+  gap: 14px;
+  align-items: center;
+  padding: 12px 16px;
+  border-bottom: 1px solid #f3f4f6;
+  text-decoration: none !important;
+  color: inherit;
+  transition: background .15s;
+}
+.preview-latest-item:hover { background: #f9fafb; }
+.preview-latest-item:last-child { border-bottom: none; }
+.preview-latest-thumb {
+  width: 90px; height: 60px;
+  background-size: cover;
+  background-position: center;
+  background-color: #f3f4f6;
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+.preview-latest-title {
+  font-size: 0.88rem;
+  font-weight: 600;
+  line-height: 1.5;
+  color: #1f2937 !important;
+}
+.preview-latest-tag {
+  color: #fff;
+  font-size: 0.7rem;
+  padding: 3px 9px;
+  border-radius: 4px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.preview-latest-date {
+  font-size: 0.78rem;
+  color: #6b7280;
+  white-space: nowrap;
+}
+.preview-latest-more {
+  text-align: right;
+  padding: 12px 16px;
+  font-size: 0.85rem;
+  color: #2563eb;
+  font-weight: 600;
+}
+
+.preview-dummy-note {
+  background: #fef3c7;
+  border-left: 4px solid #f59e0b;
+  padding: 10px 16px;
+  margin: 16px 0;
+  font-size: 0.82rem;
+  color: #78350f;
+  border-radius: 4px;
+}
+
+@media (max-width: 1024px) {
+  .preview-featured-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 640px) {
+  .preview-featured-grid { grid-template-columns: 1fr; }
+  .preview-latest-item { grid-template-columns: 70px 1fr; gap: 10px; }
+  .preview-latest-item .preview-latest-tag, .preview-latest-item .preview-latest-date { display: none; }
+}
+</style>
+
 </head>
 
 <body class="home blog wp-theme-jinr">
@@ -313,7 +467,84 @@ h1:where(.wp-block-heading).has-background,h2:where(.wp-block-heading).has-backg
 	<div id="mainContentInner" class="t--main-width">
 		<article id="jinrArticle" class="d--article-width-740">
 			<section id="jinrPostList" class="d--postlist-hover-up">
-				<div class="o--postlist-inner d--postlist-rectangle d--postlist-rectangle-sp d--postlist-column1  selected">
+				
+
+
+
+<section class="preview-featured-section">
+  <h2 class="preview-section-heading">注目の記事</h2>
+  <div class="preview-featured-grid">
+    <a href="/garmin-venu-2s-%e3%82%924%e5%b9%b4%e5%8d%8a%e4%bd%bf%e3%81%a3%e3%81%9f%e3%83%aa%e3%82%a2%e3%83%ab%e3%83%ac%e3%83%93%e3%83%a5%e3%83%bc%ef%bd%9c27%e5%86%86-%e6%97%a5%e3%81%a7%e5%81%a5%e5%ba%b7%e7%ae%a1/" class="preview-featured-card">
+  <div class="preview-featured-thumb" style="background-image:url('/assets/img/76b6bf2745e2.jpg')">
+    <span class="preview-featured-tag" style="background:#2563eb">ガジェットレビュー</span>
+  </div>
+  <div class="preview-featured-body">
+    <div class="preview-featured-title">Garmin Venu 2S 4年使用レビュー｜1.2万円台でも高機能できるスマートウォッチ</div>
+    <div class="preview-featured-date">2026.02.04</div>
+  </div>
+</a>
+<a href="/mx-ergo-s-%e3%83%ac%e3%83%93%e3%83%a5%e3%83%bc%ef%bd%9c%e3%82%a8%e3%83%b3%e3%82%b8%e3%83%8b%e3%82%a2%e3%81%ae%e3%80%8c%e7%a8%bc%e5%83%8d%e7%8e%87%e3%80%8d%e3%82%92%e4%b8%8a%e3%81%92%e3%82%8b%e6%9c%80/" class="preview-featured-card">
+  <div class="preview-featured-thumb" style="background-image:url('/assets/img/3d120c1d15e7.jpg')">
+    <span class="preview-featured-tag" style="background:#2563eb">ガジェットレビュー</span>
+  </div>
+  <div class="preview-featured-body">
+    <div class="preview-featured-title">MX ERGO Sの新モデルが快適さを完全進化｜毎日使うマウスを最高ランクの3つの技をゲット</div>
+    <div class="preview-featured-date">2026.02.08</div>
+  </div>
+</a>
+<a href="/coming-soon/plc-tsushin-trouble/" class="preview-featured-card">
+  <div class="preview-featured-thumb" style="background-image:url('/assets/img/9944e53aba74.jpg')">
+    <span class="preview-featured-tag" style="background:#1e3a8a">生産技術</span>
+  </div>
+  <div class="preview-featured-body">
+    <div class="preview-featured-title">PLC通信トラブルの原因と対策｜現場で即実践できるチェックリスト付き</div>
+    <div class="preview-featured-date">2026.02.10</div>
+  </div>
+</a>
+  </div>
+</section>
+
+<section class="preview-latest-section">
+  <h2 class="preview-section-heading">最新の記事</h2>
+  <div class="preview-latest-list">
+    <a href="/%e3%80%90%e5%ae%9f%e6%a9%9f%e3%80%91keychron-k1-max%e3%83%ac%e3%83%93%e3%83%a5%e3%83%bc%ef%bd%9c%e8%96%84%e5%9e%8b%e3%82%ad%e3%83%bc%e3%83%9c%e3%83%bc%e3%83%89%e3%81%ae%e5%ae%8c%e6%88%90%e5%bd%a2/" class="preview-latest-item">
+  <div class="preview-latest-thumb" style="background-image:url('/assets/img/3f01adf00587.jpg')"></div>
+  <div class="preview-latest-title">【実践】Keychron K1 Maxレビュー｜薄型キーボードが完成形</div>
+  <span class="preview-latest-tag" style="background:#2563eb">ガジェットレビュー</span>
+  <span class="preview-latest-date">2026.02.05</span>
+</a>
+<a href="/coming-soon/takt-improvement/" class="preview-latest-item">
+  <div class="preview-latest-thumb" style="background-image:url('/assets/img/458641e12789.jpg')"></div>
+  <div class="preview-latest-title">生産ラインのタクト改善事例｜ボトルネック発見から改善までの手順</div>
+  <span class="preview-latest-tag" style="background:#1e3a8a">生産技術</span>
+  <span class="preview-latest-date">2026.01.28</span>
+</a>
+<a href="/coming-soon/plc-programming-koza/" class="preview-latest-item">
+  <div class="preview-latest-thumb" style="background-image:url('/assets/img/4fd3156ac473.jpg')"></div>
+  <div class="preview-latest-title">PLCプログラミング入門講座｜基礎を実例で学ぶ3日間完全まとめ</div>
+  <span class="preview-latest-tag" style="background:#1e3a8a">生産技術</span>
+  <span class="preview-latest-date">2026.01.20</span>
+</a>
+<a href="/coming-soon/desk-environment/" class="preview-latest-item">
+  <div class="preview-latest-thumb" style="background-image:url('/assets/img/543fe3bd28e0.jpg')"></div>
+  <div class="preview-latest-title">仕事がはかどるデスク環境の作り方｜ガジェットと工夫術で集中力UP</div>
+  <span class="preview-latest-tag" style="background:#f97316">暮らしハック</span>
+  <span class="preview-latest-date">2026.01.15</span>
+</a>
+<a href="/coming-soon/sleep-tracking/" class="preview-latest-item">
+  <div class="preview-latest-thumb" style="background-image:url('/assets/img/55eb8306b3aa.jpg')"></div>
+  <div class="preview-latest-title">スマートウォッチで睡眠の質を可視化｜Venu 2Sの睡眠トラッキング活用術</div>
+  <span class="preview-latest-tag" style="background:#2563eb">ガジェットレビュー</span>
+  <span class="preview-latest-date">2026.01.08</span>
+</a>
+    <div class="preview-latest-more">記事一覧をみる →</div>
+  </div>
+  <div class="preview-dummy-note">
+    ※ ⚠️ プレビュー版。"PLC通信トラブル"・"タクト改善"・"PLC講座"・"デスク環境"・"睡眠トラッキング"の5記事は<strong>まだ書かれていないダミー</strong>です（クリックすると Coming Soon ページが表示されます）。
+  </div>
+</section>
+
+<div class="o--postlist-inner d--postlist-rectangle d--postlist-rectangle-sp d--postlist-column1  selected">
 																		<article class="o--postlist-item" data-id="605">
 	<a class="c--post-link" rel="bookmark" href="/garmin-venu-2s-%e3%82%924%e5%b9%b4%e5%8d%8a%e4%bd%bf%e3%81%a3%e3%81%9f%e3%83%aa%e3%82%a2%e3%83%ab%e3%83%ac%e3%83%93%e3%83%a5%e3%83%bc%ef%bd%9c27%e5%86%86-%e6%97%a5%e3%81%a7%e5%81%a5%e5%ba%b7%e7%ae%a1/">
 		<figure class="c--post-image">
