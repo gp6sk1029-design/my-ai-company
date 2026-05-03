@@ -130,6 +130,10 @@
 - 2026/05/03: **wp_block_builder.py 全面改修**。旧版は `block_fukidashi_ootani` が registerData=1 + shortcode=2（slot 2=ドヤ顔）の不整合を生成していた。新版は registerData/shortcode を slot番号で揃え、テキスト内容から表情を自動推定する `choose_ootani_expression` / `choose_tanaka_expression` を追加。表情明示記法 `**オオタニ所長[ドヤ顔]：**` も対応。self-test合格
 - 2026/05/03: **公開4記事の吹き出し表情を文脈別に再アサイン**。Garmin Venu 2S（17件中9件修正）、MX ERGO 持ち運び（4件中2件）、MX ERGO レビュー（4件中1件）、HUAWEI GT Runner 2下書き（17件中9件）。**「オオタニ悩む」「タナカ絶望/怪しげ偏重」を解消**。ConoHa自動キャッシュクリアプラグインが post更新時に自動発火するため、本番反映即時。Garmin記事の最終配分：通常6/ドヤ顔5/驚き2/恥ずかしい2/絶望1/怪しげ1 = 文脈に沿った自然なバランス
 - 2026/05/03: 学び：**registerData と shortcode番号は揃える**こと。JIN:R は shortcode で表情を決定し registerData は無視するが、Gutenbergエディタの選択ハイライトには registerData が使われるため、両者を slot番号で揃えないと wp-admin GUIで開いた時に違うキャラが選択された状態になる
+- 2026/05/04: **本番ブログ www.ootanisatan.com のホーム画面を Cloudflareプレビュー同等デザインに刷新成功**。手法：固定ページ「ホーム」(id=756) を新規作成→FSEのCustom HTMLブロックで全7セクション（ヒーロー・カテゴリ4カード・★注目の記事・★最新の記事・サイドバー・ボトム4特徴）を構築→ JIN:R Customizer で `show_on_front=page, page_on_front=756, custom_css[jinr]=12029bytes` を Chrome拡張のJS経由で一括設定。所要約30分・全自動。プレビュー版CSS変数（#1d4ed8/#f97316/Noto Sans JP 800）完全移植
+- 2026/05/04: **JIN:R固定ページの『デフォルトUIを非表示にする』テクニック確立**。`body.page-id-756 .o--jinr-mainvisual / .o--widget-area / #postHeader / .c--entry-title / .l--sidebar { display: none !important }` で、JIN:Rが自動レンダリングするヒーロー・ホームウィジェット・ページタイトル・サイドバーを完全に消し、固定ページのHTMLだけを表示。これにより自前デザインを完全独立で展開できる
+- 2026/05/04: 学び：JIN:Rの **`spcv_category` は2スロット制限**で4カード化不可だが、Custom HTML ブロックで自前カード4枚を作れば制限なし。テーマ機能との整合より「Custom HTMLで自由設計」がROI最大。同様にメインビジュアルも JIN:R標準を捨てて自前ヒーローセクションを CSS背景画像で実装する方が柔軟
+- 2026/05/04: ヒーロー画像は ConoHa WAFが画像upを永続ブロックするため**Cloudflareプレビューの画像URLをhotlink** で暫定運用（`https://ootanisatan-preview.pages.dev/assets/img/hero-banner.png`、CORS解放済み）。後日 WAF OFF時に WP本番にアップして差替予定。スナップショット類は `blog/migration/snapshots/` に保存（home-before/home-after/customizer-backup）
 
 ### 使用ツール
 - WordPress REST API: wp_api.py

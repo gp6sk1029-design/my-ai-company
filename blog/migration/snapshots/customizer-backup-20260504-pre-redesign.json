@@ -1,0 +1,25 @@
+{
+  "snapshot_at": "2026-05-04",
+  "purpose": "本番ホーム刷新前のJIN:Rカスタマイザー設定（重要キーのみ）",
+  "key_findings": {
+    "max_spcv_categories": 2,
+    "spcv_category1_display": "off",
+    "spcv_category2_display": "off",
+    "mainvisual_stillimage": "all empty (default JIN:R hero used)",
+    "show_on_front": "posts",
+    "page_on_front": "0",
+    "page_for_posts": "0",
+    "custom_css_jinr": "(empty)"
+  },
+  "rollback_method": "wp.customize(key).set(originalValue) で各キーを戻し wp.customize.previewer.save() で公開",
+  "key_categories_to_remember": {
+    "jinr__spcv_category1_display": "off",
+    "jinr__spcv_category1_select": "1",
+    "jinr__spcv_category1_image_select": "d--image-notneed",
+    "jinr__spcv_category1_style": "d--spcv-outline",
+    "jinr__spcv_category1_color": "#008db7",
+    "jinr__spcv_category2_display": "off",
+    "jinr__spcv_category2_select": "1",
+    "jinr__spcv_category2_color": "#008db7"
+  }
+}
