@@ -120,6 +120,8 @@
 - 2026/05/03: 本番WordPressへ新キャラ画像13枚をREST API一括アップロード（12/13成功・media_id 737-748）。残り1枚「新人タナカ 通常」はConoHa WAF（ContentDispositionまたはバイト列パターンを永続ブロック）に弾かれ、JPEG変換+ASCII別名+UA偽装+40秒待機の対策全部試したが突破不可。手動アップロード手順を `blog/migration/jinr-fukidashi-update-manual.md` に明記
 - 2026/05/03: ConoHa側でWAF一時OFFにしてもらい、残り1枚（新人タナカ 通常）も自動アップロード成功（media_id=749）。**13/13完了**。WAFは作業後オーナーがONに戻す前提。**学び：ConoHa WAFは特定リクエスト指紋を永続ブロックするため、UA/別名/JPEG等のクライアント側対策では突破不可。バルクアップロード時は事前にWAF一時OFFが現実解**
 - 2026/05/03: WP REST API認証情報を `blog/config.json` に追加（wp_auth.username=ootanisatan + Application Password）。今後 wp_api.py 経由で記事公開・更新が可能。`.gitignore` 済
+- 2026/05/03: **本番JIN:R吹き出しスロット10個を全自動切替成功**。Chrome拡張（Claude in Chrome）経由で wp.customize._value から `jinr__fukidashi{1-10}_image` キーを発見→ `wp.customize(key).set(newUrl)` で10件一括設定→ `wp.customize.previewer.save()` で一括公開（changeset_status: publish）。所要約2分。Garmin記事HTMLで新画像URL 17箇所・MX ERGO記事で4箇所検出して反映確認。**手動カスタマイザークリック10回（15分作業）が完全に自動化された**
+- 2026/05/03: 学び：WordPressカスタマイザーは `wp.customize._value` 経由でJSオブジェクトとして全設定にアクセス可能。テーマ独自設定（theme_mods）もこのオブジェクトに含まれるため、**REST APIでは触れない設定もChrome拡張経由ならJSで一括変更可能**。今後の本番WP操作（ホームページレイアウト変更・SEO設定・ウィジェット配置等）も同パターンで自動化できる
 
 ### 使用ツール
 - WordPress REST API: wp_api.py
