@@ -122,6 +122,10 @@
 - 2026/05/03: WP REST API認証情報を `blog/config.json` に追加（wp_auth.username=ootanisatan + Application Password）。今後 wp_api.py 経由で記事公開・更新が可能。`.gitignore` 済
 - 2026/05/03: **本番JIN:R吹き出しスロット10個を全自動切替成功**。Chrome拡張（Claude in Chrome）経由で wp.customize._value から `jinr__fukidashi{1-10}_image` キーを発見→ `wp.customize(key).set(newUrl)` で10件一括設定→ `wp.customize.previewer.save()` で一括公開（changeset_status: publish）。所要約2分。Garmin記事HTMLで新画像URL 17箇所・MX ERGO記事で4箇所検出して反映確認。**手動カスタマイザークリック10回（15分作業）が完全に自動化された**
 - 2026/05/03: 学び：WordPressカスタマイザーは `wp.customize._value` 経由でJSオブジェクトとして全設定にアクセス可能。テーマ独自設定（theme_mods）もこのオブジェクトに含まれるため、**REST APIでは触れない設定もChrome拡張経由ならJSで一括変更可能**。今後の本番WP操作（ホームページレイアウト変更・SEO設定・ウィジェット配置等）も同パターンで自動化できる
+- 2026/05/03: **JIN:R吹き出しスロットマッピングの根本的訂正**。旧 `jinr_fukidashi_slots.md` で「shortcode番号 = registerData + 1」と書かれていたが**誤り**。実画像URLのhexデコード＋画像内容識別で「shortcode番号 = slot番号」が正解と確定。`memory/jinr_fukidashi_slots.md` 全面書き換え済
+- 2026/05/03: **wp_block_builder.py 全面改修**。旧版は `block_fukidashi_ootani` が registerData=1 + shortcode=2（slot 2=ドヤ顔）の不整合を生成していた。新版は registerData/shortcode を slot番号で揃え、テキスト内容から表情を自動推定する `choose_ootani_expression` / `choose_tanaka_expression` を追加。表情明示記法 `**オオタニ所長[ドヤ顔]：**` も対応。self-test合格
+- 2026/05/03: **公開4記事の吹き出し表情を文脈別に再アサイン**。Garmin Venu 2S（17件中9件修正）、MX ERGO 持ち運び（4件中2件）、MX ERGO レビュー（4件中1件）、HUAWEI GT Runner 2下書き（17件中9件）。**「オオタニ悩む」「タナカ絶望/怪しげ偏重」を解消**。ConoHa自動キャッシュクリアプラグインが post更新時に自動発火するため、本番反映即時。Garmin記事の最終配分：通常6/ドヤ顔5/驚き2/恥ずかしい2/絶望1/怪しげ1 = 文脈に沿った自然なバランス
+- 2026/05/03: 学び：**registerData と shortcode番号は揃える**こと。JIN:R は shortcode で表情を決定し registerData は無視するが、Gutenbergエディタの選択ハイライトには registerData が使われるため、両者を slot番号で揃えないと wp-admin GUIで開いた時に違うキャラが選択された状態になる
 
 ### 使用ツール
 - WordPress REST API: wp_api.py
