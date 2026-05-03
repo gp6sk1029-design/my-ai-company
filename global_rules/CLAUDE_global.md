@@ -37,3 +37,45 @@
 
 - 私は非エンジニアです。専門用語はなるべく避けて、平易な日本語で説明してください。
 - 私が気づいていないリスクは、あなたから先に指摘してください。
+
+---
+
+## AI操作の基本方針：Claude in Chrome 優先（2026/04/27 改定）
+
+**今後は API経由のAI（Gemini API・ChatGPT API等）よりも、Claude in Chrome を使った直接ブラウザ操作を優先する。**
+
+### 優先順位
+
+1. **第1選択：Claude in Chrome（`mcp__Claude_in_Chrome__*` ツール）**
+   - WordPress管理画面・カスタマイザーの操作
+   - Google Drive / Sheets / Apps Script の操作
+   - メルカリ・X・Instagram・YouTube等のWebサービス操作
+   - SaaS管理画面・ダッシュボード操作
+   - スクレイピング・情報収集
+   - **「人間がブラウザでクリックできる作業」は全部Claude in Chrome 一択**
+
+2. **第2選択：MCPサーバー経由の直接API**
+   - Google Calendar MCP、Anthropic純正MCPなど信頼できるもの
+   - Claude in Chrome では効率が悪い場合のみ
+
+3. **最終手段：APIキー直接呼び出し（Gemini API等）**
+   - バックグラウンド処理（Cloudflare Workers内など、ブラウザを開けない場面）
+   - 大量バッチ処理で人間が見ていられない場合
+   - **新規実装ではまず「Claude in Chromeでできないか」を検討してから採用する**
+
+### Claude in Chrome を優先する理由
+- **コスト削減**：API利用料が発生しない
+- **統一性**：全AI操作がClaudeに集約され、学習効果が一貫する
+- **デバッグ容易**：ブラウザで何が起きているか目視できる
+- **権限管理**：既存のログインセッション・Cookie・OAuthを再利用できる
+- **柔軟性**：UIが変わってもClaude in Chromeなら追従しやすい
+
+### 既存実装の扱い
+- 動いているAPI実装は**急いで置換しない**（ROIで判断）
+- 新規実装・大幅改修のタイミングでClaude in Chrome に寄せる
+- 「Gemini API使用中」と書かれた既存メモは**現状維持で問題ない**
+
+### Claude in Chrome ができないこと（API継続が妥当）
+- バックグラウンドの定期実行（cron的処理）
+- ブラウザを起動できないサーバー環境
+- ユーザーが画面を見ていない時間帯の処理
