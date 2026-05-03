@@ -149,39 +149,109 @@ def block_table(headers: list, rows: list) -> str:
     )
 
 
-def block_fukidashi_ootani(text: str) -> str:
-    """
-    オオタニ所長ふきだし（左）
-    registerData:1 → [jinr_fukidashi2]
-    """
+# ============================================================
+# JIN:R 吹き出しスロット定義
+#
+# 重要訂正（2026-05-03）：
+# 旧版は「registerData:1 / [jinr_fukidashi2]」のように registerData と shortcode が
+# 不整合だった。実検証の結果、JIN:R は shortcode 番号 = slot 番号 で表情を決定し、
+# registerData は不一致でも無視される。両者を**slot番号で揃える**のが正解。
+#
+# slot 1 = オオタニ所長 通常
+# slot 2 = オオタニ所長 ドヤ顔
+# slot 3 = オオタニ所長 悩む
+# slot 4 = オオタニ所長 焦り
+# slot 5 = オオタニ所長 恥ずかしい
+# slot 6 = 新人タナカ 通常
+# slot 7 = 新人タナカ 驚き
+# slot 8 = 新人タナカ 絶望
+# slot 9 = 新人タナカ 怪しげ
+# slot 10 = 新人タナカ ドヤ顔
+# ============================================================
+
+def _build_ootani_block(slot: int, text: str) -> str:
+    """オオタニ所長ふきだし（左レイアウト）。slot 1-5 のみ有効。"""
+    if slot not in (1, 2, 3, 4, 5):
+        raise ValueError(f"オオタニ所長は slot 1-5 のみ。指定: {slot}")
     html = md_to_html_inline(text)
     return (
-        '<!-- wp:jinr-blocks/fukidashi {"registerData":1,"designType":"d\\u002d\\u002dfukidashi-chat",'
+        f'<!-- wp:jinr-blocks/fukidashi {{"registerData":{slot},"designType":"d\\u002d\\u002dfukidashi-chat",'
         '"charaBorderColorSelect":"simplecolor","charaBorderColor":"#eee"} -->\n'
         '<section class="wp-block-jinr-blocks-fukidashi b--jinr-block b--jinr-fukidashi">'
-        '[jinr_fukidashi2]<div class="o--fukidashi-inner"><!-- wp:paragraph -->\n'
+        f'[jinr_fukidashi{slot}]<div class="o--fukidashi-inner"><!-- wp:paragraph -->\n'
         f'<p>{html}</p>\n'
-        '<!-- /wp:paragraph --></div>[/jinr_fukidashi2]</section>\n'
+        f'<!-- /wp:paragraph --></div>[/jinr_fukidashi{slot}]</section>\n'
         '<!-- /wp:jinr-blocks/fukidashi -->'
     )
 
 
-def block_fukidashi_tanaka(text: str) -> str:
-    """
-    タナカふきだし（右）
-    registerData:8 → [jinr_fukidashi9]
-    """
+def _build_tanaka_block(slot: int, text: str) -> str:
+    """新人タナカふきだし（右レイアウト）。slot 6-10 のみ有効。"""
+    if slot not in (6, 7, 8, 9, 10):
+        raise ValueError(f"新人タナカは slot 6-10 のみ。指定: {slot}")
     html = md_to_html_inline(text)
     return (
-        '<!-- wp:jinr-blocks/fukidashi {"registerData":8,"designType":"d\\u002d\\u002dfukidashi-chat",'
+        f'<!-- wp:jinr-blocks/fukidashi {{"registerData":{slot},"designType":"d\\u002d\\u002dfukidashi-chat",'
         '"charaName":"新人タナカ","charaBorderColorSelect":"simplecolor","charaBorderColor":"#eee",'
         '"bgColor":"#fff","layout":"d\\u002d\\u002dfukidashi-right"} -->\n'
         '<section class="wp-block-jinr-blocks-fukidashi b--jinr-block b--jinr-fukidashi">'
-        '[jinr_fukidashi9]<div class="o--fukidashi-inner"><!-- wp:paragraph -->\n'
+        f'[jinr_fukidashi{slot}]<div class="o--fukidashi-inner"><!-- wp:paragraph -->\n'
         f'<p>{html}</p>\n'
-        '<!-- /wp:paragraph --></div>[/jinr_fukidashi9]</section>\n'
+        f'<!-- /wp:paragraph --></div>[/jinr_fukidashi{slot}]</section>\n'
         '<!-- /wp:jinr-blocks/fukidashi -->'
     )
+
+
+# 既存API互換用の薄いラッパー（デフォルトで「通常」を返す）
+def block_fukidashi_ootani(text: str, slot: int = 1) -> str:
+    """オオタニ所長ふきだし（デフォルト：通常 slot=1）"""
+    return _build_ootani_block(slot, text)
+
+
+def block_fukidashi_tanaka(text: str, slot: int = 6) -> str:
+    """新人タナカふきだし（デフォルト：通常 slot=6）"""
+    return _build_tanaka_block(slot, text)
+
+
+# 表情指定用の便利関数
+def block_fukidashi_ootani_normal(text):       return _build_ootani_block(1, text)
+def block_fukidashi_ootani_doya(text):         return _build_ootani_block(2, text)
+def block_fukidashi_ootani_nayamu(text):       return _build_ootani_block(3, text)
+def block_fukidashi_ootani_aseri(text):        return _build_ootani_block(4, text)
+def block_fukidashi_ootani_hazukashii(text):   return _build_ootani_block(5, text)
+
+def block_fukidashi_tanaka_normal(text):       return _build_tanaka_block(6, text)
+def block_fukidashi_tanaka_odoroki(text):      return _build_tanaka_block(7, text)
+def block_fukidashi_tanaka_zetsubou(text):     return _build_tanaka_block(8, text)
+def block_fukidashi_tanaka_ayashige(text):     return _build_tanaka_block(9, text)
+def block_fukidashi_tanaka_doya(text):         return _build_tanaka_block(10, text)
+
+
+def choose_ootani_expression(text: str) -> int:
+    """テキスト内容からオオタニ所長の最適表情slotを推定（1-5）"""
+    if any(k in text for k in ['断言', '一目瞭然', '最大の差', '実績のある', '安い買い物', '証明してくれた', '間違いない', 'これに尽きる']):
+        return 2  # ドヤ顔
+    if any(k in text for k in ['正直に言います', 'すまん', '反省', '申し訳', '言い訳']):
+        return 5  # 恥ずかしい
+    if any(k in text for k in ['ヤバい', 'まずい', '焦', 'パニック']):
+        return 4  # 焦り
+    if any(k in text for k in ['悩', 'どうしよう', '迷う', '困った']):
+        return 3  # 悩む
+    return 1  # 通常（デフォルト）
+
+
+def choose_tanaka_expression(text: str) -> int:
+    """テキスト内容から新人タナカの最適表情slotを推定（6-10）"""
+    # 驚きを最優先（「えっ！本当ですか」など、怪しげより自然な反応）
+    if any(k in text for k in ['！？', '!?', 'えっ', 'えー', 'うわ', 'まじ', 'マジ', 'びっくり']):
+        return 7  # 驚き
+    if any(k in text for k in ['ですよね', 'やっぱり', 'すごい', '天才', 'さすが']):
+        return 10  # ドヤ顔
+    if any(k in text for k in ['絶望', '泣', '無理', '深刻']):
+        return 8  # 絶望
+    if any(k in text for k in ['信用されません', '怪しい', '隠してる', '本当に？']):
+        return 9  # 怪しげ
+    return 6  # 通常（デフォルト）
 
 
 # ============================================================
@@ -200,16 +270,32 @@ def markdown_to_blocks(md_text: str) -> str:
     while i < len(lines):
         line = lines[i]
 
-        # --- オオタニ所長ふきだし ---
+        # --- オオタニ所長ふきだし（表情を内容から自動推定） ---
         m = re.match(r'\*\*オオタニ所長[：:]\*\*[「\s]*(.*?)[」]?\s*$', line)
         if m:
-            blocks.append(block_fukidashi_ootani(m.group(1)))
+            text = m.group(1)
+            slot = choose_ootani_expression(text)
+            blocks.append(_build_ootani_block(slot, text))
             i += 1; continue
 
-        # --- タナカふきだし ---
+        # --- タナカふきだし（表情を内容から自動推定） ---
         m = re.match(r'\*\*タナカ[：:]\*\*[「\s]*(.*?)[」]?\s*$', line)
         if m:
-            blocks.append(block_fukidashi_tanaka(m.group(1)))
+            text = m.group(1)
+            slot = choose_tanaka_expression(text)
+            blocks.append(_build_tanaka_block(slot, text))
+            i += 1; continue
+
+        # --- 表情明示記法: **オオタニ所長[ドヤ顔]：** や **タナカ[驚き]：** ---
+        m = re.match(r'\*\*オオタニ所長\[(通常|ドヤ顔|悩む|焦り|恥ずかしい)\][：:]\*\*[「\s]*(.*?)[」]?\s*$', line)
+        if m:
+            slot_map = {'通常':1,'ドヤ顔':2,'悩む':3,'焦り':4,'恥ずかしい':5}
+            blocks.append(_build_ootani_block(slot_map[m.group(1)], m.group(2)))
+            i += 1; continue
+        m = re.match(r'\*\*タナカ\[(通常|驚き|絶望|怪しげ|ドヤ顔)\][：:]\*\*[「\s]*(.*?)[」]?\s*$', line)
+        if m:
+            slot_map = {'通常':6,'驚き':7,'絶望':8,'怪しげ':9,'ドヤ顔':10}
+            blocks.append(_build_tanaka_block(slot_map[m.group(1)], m.group(2)))
             i += 1; continue
 
         # --- H2見出し ---
