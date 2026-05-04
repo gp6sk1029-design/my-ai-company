@@ -224,3 +224,14 @@
   - 解決：スライダー親要素をdisplay: flex から display: grid に変換 + minmax(220px, 1fr) で auto-fill
   - 注意：ネスト・グリッド回避必要（`.d--postslider-scrollbar`はdisplay:block、その子の`.b--jinr-postlist.d--postlist-slider`だけdisplay:grid）
 - 教訓：「変更されてない」と言われたら、まず**正確に同じURL/同じセクション**をDOM調査する。私は category/ と /gadget-lab/ を混同していた（前者はカテゴリーアーカイブ、後者は固定ページのランディング）。
+
+- 2026/05/05 (続4): スマホ最適化＋直感操作対応。媒体クエリ `@media (max-width: 768px)` と `@media (max-width: 480px)` で：
+  - ヘッダー：PCナビ非表示・44×44pxハンバーガー・コンパクト56pxヘッダー
+  - ヒーロー：縦積み・キャラ画像中央寄せ・CTAボタンフル幅
+  - カテゴリ4枚→2×2グリッド・タップしやすい110px最低高
+  - 記事カード：1列スタック・サムネ16:9・タイトル3行
+  - サイドバー：コンテンツ下に移動・全幅展開
+  - フォント：iOS拡大防止16px・タップ44px最小
+  - スムーズスクロール・admin-bar:46pxオフセット・横スクロール禁止
+- Customizer検証：`button.preview-mobile` JSクリックで320×480モバイルプレビューに切替可能。iframe内DOMから`getComputedStyle`で確認できる。
+- Customizer保存はsetting変更後に `wp.customize.previewer.save()` を呼ぶが「already_saving」エラー時はリロード必須。
