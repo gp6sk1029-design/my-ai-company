@@ -200,3 +200,7 @@
   #headerLogoImage { max-height: 48px !important; height: 48px !important; }
   ```
   教訓：DOM `getBoundingClientRect().top=0` が出たら admin-bar(32px)との重複を疑う。CSSの `!important` で上書きすればJIN:Rの内部CSSにも勝てる。
+
+- 2026/05/05: 全体フォント拡大対応。 JIN:R theme_mod 設定変更：jinr__font_size=d--font-pc-xl-size, jinr__font_size_sp=d--font-sp-l-size, jinr__glonavi_font_size=18 + 全ボタンtext_size 16-18。追加CSS で本文17px、ヘッダーメニュー18px(bold600)、見出しh1=32/h2=28/h3=22、サイドバー見出し19px(bold800・青下線)、カードタイトル18px。
+- サイドバー見出しの正しいセレクタは `#sideBarWidget h2.wp-block-heading.jinr-heading.d--bold`（`.l--sidebar` ではない）。CSSが効かない時はDOMで実際のid/classを確認するのが速い。
+- 検索ボタン文字が縦割れする現象はFlex子要素のmin-widthが0になる時に起きる。`white-space: nowrap !important; min-width: 64px !important;` で解決。
