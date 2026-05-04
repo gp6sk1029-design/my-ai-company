@@ -219,3 +219,8 @@
   - グリッド最小幅：280px→320px（読みやすさ優先）
   - 効果：4記事カードで「タイトル見出し画像」も「記事タイトル」も両方読める設計に
 - 設計学び：「全体が見える」を実現するには ① object-fit: cover + object-position: center top（被写体は通常上部）② line-clamp 3行 ③ アスペクト比固定で全カード高さ揃える、の3点セット
+
+- 2026/05/05 (続3): /gadget-lab/ 等のランディングページに反映されていなかった原因。 JIN:R `b--jinr-postlist.d--postlist-slider`（横スクロールスライダー）でカード幅183pxに固定されていた。
+  - 解決：スライダー親要素をdisplay: flex から display: grid に変換 + minmax(220px, 1fr) で auto-fill
+  - 注意：ネスト・グリッド回避必要（`.d--postslider-scrollbar`はdisplay:block、その子の`.b--jinr-postlist.d--postlist-slider`だけdisplay:grid）
+- 教訓：「変更されてない」と言われたら、まず**正確に同じURL/同じセクション**をDOM調査する。私は category/ と /gadget-lab/ を混同していた（前者はカテゴリーアーカイブ、後者は固定ページのランディング）。
