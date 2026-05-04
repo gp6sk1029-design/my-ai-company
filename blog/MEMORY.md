@@ -204,3 +204,11 @@
 - 2026/05/05: 全体フォント拡大対応。 JIN:R theme_mod 設定変更：jinr__font_size=d--font-pc-xl-size, jinr__font_size_sp=d--font-sp-l-size, jinr__glonavi_font_size=18 + 全ボタンtext_size 16-18。追加CSS で本文17px、ヘッダーメニュー18px(bold600)、見出しh1=32/h2=28/h3=22、サイドバー見出し19px(bold800・青下線)、カードタイトル18px。
 - サイドバー見出しの正しいセレクタは `#sideBarWidget h2.wp-block-heading.jinr-heading.d--bold`（`.l--sidebar` ではない）。CSSが効かない時はDOMで実際のid/classを確認するのが速い。
 - 検索ボタン文字が縦割れする現象はFlex子要素のmin-widthが0になる時に起きる。`white-space: nowrap !important; min-width: 64px !important;` で解決。
+
+- 2026/05/05 (続): カテゴリーページの記事カード最適化。元は横並び（サムネ130×72＋テキスト231×72）のミニカードで情報密度低・視認性低。最適化方針：「拡大」ではなく「情報設計」へ転換。
+  - レイアウト: grid (auto-fill, minmax(280px, 1fr)) で複数列対応
+  - 構造: 縦カード（サムネ100%×180px → 16pxパディング → タイトル(2行line-clamp) → メタ情報行）
+  - メタ整列: 日付(13px gray) + カテゴリpill(blue 12px rounded-999px) を border-top区切りで底部固定
+  - hover: translateY(-3px) + box-shadow + サムネズーム1.05x
+- 学び：JIN:R デフォルトCSS で `.c--post-meta { position: absolute }` になっていたためタイトルと重なっていた。`position: static !important` で解除必須。
+- 学び：CSS優先度を上げる時は `.o--postlist-item.o--postlist-item` のように同クラスを2回連ねる（特異性を倍化）。`!important`連発より読みやすい。
