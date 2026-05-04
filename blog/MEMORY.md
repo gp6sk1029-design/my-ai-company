@@ -190,3 +190,13 @@
   - WP REST APIアップ → media_id=776
   - Customizer: jinr__header_logo_url=ptgl-transparent.png, size=260, padding=20
   - 結果：透過PNG・ヘッダー余白なく綺麗に表示
+
+- 2026/05/04 (続2): ロゴ「見切れ」根本原因解決。原因はwp-admin bar(高さ32px・position:fixed・z-index:99999)とJIN:R `commonHeader`(position:absolute・top:0・z-index:300)の重なり。ログイン中ユーザーだけ上部32pxが隠れていた。修正CSS：
+  ```css
+  body.admin-bar #commonHeader { top: 32px !important; }
+  @media (max-width:782px) { body.admin-bar #commonHeader { top: 46px !important; } }
+  #commonHeader, #commonHeaderInner { min-height: 64px !important; }
+  #headerLogo, #headerLogoLink { display: flex; align-items: center; height: 64px; }
+  #headerLogoImage { max-height: 48px !important; height: 48px !important; }
+  ```
+  教訓：DOM `getBoundingClientRect().top=0` が出たら admin-bar(32px)との重複を疑う。CSSの `!important` で上書きすればJIN:Rの内部CSSにも勝てる。
