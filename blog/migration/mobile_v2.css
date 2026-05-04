@@ -1,0 +1,355 @@
+/* PTGL_MOBILE_V2_START */
+/* ===== モバイル専用UI 大改修 v2 - 見本デザイン準拠 ===== */
+@media (max-width: 768px) {
+
+  /* ====== Reset & 基本 ====== */
+  html { scroll-behavior: smooth !important; scroll-padding-top: 64px !important; }
+  body { overflow-x: hidden !important; padding-bottom: 72px !important; /* 下部固定ナビ分 */ }
+  body.admin-bar { padding-bottom: 72px !important; }
+  body.admin-bar #commonHeader { top: 46px !important; }
+
+  /* ====== ヘッダー ====== */
+  #commonHeader { min-height: 56px !important; box-shadow: 0 1px 2px rgba(0,0,0,0.04) !important; }
+  #commonHeader .t--main-width { padding: 0 16px !important; }
+  #commonHeader .o--nav-box,
+  #commonHeader .d--header-menu-style2 { display: none !important; }
+  #commonHeader .c--menu-trigger {
+    display: flex !important; align-items: center !important; justify-content: center !important;
+    width: 44px !important; height: 44px !important;
+    background: transparent !important; border: none !important; cursor: pointer !important;
+  }
+  #commonHeader .c--menu-trigger .a--menu-bar {
+    background-color: #1f2937 !important; height: 2.5px !important; width: 24px !important;
+  }
+  #headerLogoImage { max-height: 42px !important; height: 42px !important; width: auto !important; }
+
+  /* ====== メインコンテンツ余白 ====== */
+  #mainContentInner.t--main-width { padding: 0 !important; }
+  #postContent, .l--main-inner { padding: 0 !important; }
+  .ot-home-wrap { padding: 0 !important; }
+
+  /* ====== ヒーローセクション ====== */
+  .ot-hero {
+    background: linear-gradient(180deg, #eff6ff 0%, #dbeafe 100%) !important;
+    border-radius: 20px !important;
+    margin: 16px 12px !important;
+    padding: 24px 20px !important;
+    display: grid !important;
+    grid-template-columns: 1fr auto !important;
+    gap: 12px !important;
+    align-items: start !important;
+    overflow: hidden !important;
+  }
+  .ot-hero-inner { grid-column: 1 / -1 !important; text-align: left !important; padding: 0 !important; }
+  .ot-hero h1, .ot-hero h2, .ot-hero-title {
+    font-size: 26px !important;
+    font-weight: 800 !important;
+    line-height: 1.45 !important;
+    color: #1f2937 !important;
+    margin: 0 0 16px !important;
+  }
+  .ot-hero-title strong, .ot-hero h1 strong, .ot-hero h2 strong { color: #1d4ed8 !important; }
+  .ot-hero p, .ot-hero-desc {
+    font-size: 14px !important; line-height: 1.85 !important;
+    color: #4b5563 !important; margin: 0 0 20px !important;
+  }
+  /* ヒーローのキャラクター画像 */
+  .ot-hero img, .ot-hero-character, .ot-hero picture img {
+    max-width: 200px !important; height: auto !important;
+    margin-left: auto !important; display: block !important;
+  }
+  /* ボタン */
+  .ot-hero-cta, .ot-hero-buttons {
+    display: grid !important; grid-template-columns: 1fr 1fr !important;
+    gap: 10px !important; margin-top: 20px !important; grid-column: 1 / -1 !important;
+  }
+  .ot-hero a.btn-primary, .ot-hero .ot-hero-buttons a:first-child,
+  .ot-hero .wp-block-button:first-child .wp-block-button__link {
+    background: #1d4ed8 !important; color: #ffffff !important;
+    padding: 14px 16px !important; border-radius: 10px !important;
+    font-size: 14px !important; font-weight: 700 !important;
+    text-align: center !important; text-decoration: none !important;
+    box-shadow: 0 2px 8px rgba(29,78,216,0.25) !important;
+    display: flex !important; align-items: center !important; justify-content: center !important; gap: 6px !important;
+    border: 2px solid #1d4ed8 !important;
+  }
+  .ot-hero a.btn-secondary, .ot-hero .ot-hero-buttons a:last-child,
+  .ot-hero .wp-block-button:last-child .wp-block-button__link {
+    background: #ffffff !important; color: #1d4ed8 !important;
+    padding: 14px 16px !important; border-radius: 10px !important;
+    font-size: 14px !important; font-weight: 700 !important;
+    text-align: center !important; text-decoration: none !important;
+    border: 2px solid #1d4ed8 !important;
+    display: flex !important; align-items: center !important; justify-content: center !important; gap: 6px !important;
+  }
+
+  /* ====== カテゴリカード（2x2 + 矢印） ====== */
+  .ot-cat-section { padding: 0 12px !important; margin: 16px 0 !important; }
+  .ot-cat-grid {
+    display: grid !important; grid-template-columns: 1fr 1fr !important;
+    gap: 10px !important; padding: 0 !important;
+  }
+  .ot-cat-card {
+    background: #ffffff !important;
+    border: 1px solid #e5e7eb !important;
+    border-radius: 14px !important;
+    padding: 16px !important;
+    min-height: 70px !important;
+    display: flex !important; align-items: center !important; gap: 10px !important;
+    text-decoration: none !important;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04) !important;
+    position: relative !important;
+    flex-direction: row !important;
+  }
+  .ot-cat-card::after {
+    content: "›" !important;
+    position: absolute !important; right: 14px !important; top: 50%; transform: translateY(-50%) !important;
+    font-size: 22px !important; font-weight: 700 !important;
+    color: #1d4ed8 !important; line-height: 1 !important;
+  }
+  .ot-cat-card:last-child::after { color: #f97316 !important; }
+  .ot-cat-card .ot-cat-icon, .ot-cat-card .cat-icon {
+    width: 40px !important; height: 40px !important;
+    background: #1d4ed8 !important; border-radius: 50% !important;
+    display: flex !important; align-items: center !important; justify-content: center !important;
+    color: #ffffff !important; flex: 0 0 40px !important;
+  }
+  .ot-cat-card:last-child .ot-cat-icon, .ot-cat-card:last-child .cat-icon { background: #f97316 !important; }
+  .ot-cat-card h3 {
+    font-size: 13px !important; font-weight: 700 !important;
+    margin: 0 !important; color: #1f2937 !important; line-height: 1.3 !important;
+    flex: 1 !important; padding-right: 18px !important;
+  }
+  .ot-cat-card p { display: none !important; }
+
+  /* ====== 検索ボックス（大型） ====== */
+  .ot-search-section, .l--main .wp-block-search {
+    margin: 20px 12px !important; padding: 0 !important;
+  }
+  .wp-block-search__inside-wrapper {
+    border-radius: 10px !important;
+    overflow: hidden !important;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06) !important;
+    border: 1px solid #e5e7eb !important;
+  }
+  .wp-block-search__input {
+    border: none !important; padding: 14px 16px !important;
+    font-size: 16px !important; min-height: 50px !important;
+  }
+  .wp-block-search__button {
+    background: #1d4ed8 !important; color: #ffffff !important;
+    min-width: 56px !important; min-height: 50px !important;
+    padding: 0 16px !important; border-radius: 0 !important;
+    font-size: 16px !important;
+  }
+
+  /* ====== セクション見出し（★付き＋すべて見る） ====== */
+  .ot-content-section { padding: 0 12px !important; margin: 24px 0 !important; }
+  .ot-content-section h2,
+  .ot-home-wrap h2 {
+    display: flex !important; align-items: center !important; justify-content: space-between !important;
+    font-size: 18px !important; font-weight: 800 !important;
+    color: #1f2937 !important; margin: 0 0 12px !important;
+    padding: 0 !important;
+  }
+  /* ★アイコン */
+  .ot-content-section h2::before,
+  .ot-home-wrap h2:not(:first-child)::before {
+    content: "★" !important; color: #f97316 !important;
+    margin-right: 8px !important; font-size: 18px !important;
+  }
+  /* すべて見るリンク */
+  .ot-content-section h2 a, .ot-section-link {
+    font-size: 12px !important; font-weight: 600 !important;
+    color: #1d4ed8 !important; text-decoration: none !important;
+    margin-left: auto !important;
+  }
+
+  /* ====== 注目記事・最新記事カード（横並びカード） ====== */
+  /* ホーム内のカスタム配置 */
+  .ot-featured-grid, .ot-latest-list {
+    display: flex !important; flex-direction: column !important;
+    gap: 10px !important; padding: 0 !important;
+  }
+  .ot-featured-card, .ot-latest-item, .ot-latest-list > a {
+    display: flex !important; flex-direction: row !important;
+    background: #ffffff !important;
+    border: 1px solid #e5e7eb !important; border-radius: 12px !important;
+    overflow: hidden !important; text-decoration: none !important;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04) !important;
+    padding: 0 !important; gap: 0 !important; min-height: 88px !important;
+  }
+  .ot-featured-thumb, .ot-latest-thumb,
+  .ot-latest-list > a img, .ot-featured-card img {
+    width: 110px !important; height: 88px !important; min-height: 88px !important;
+    flex: 0 0 110px !important;
+    background-size: cover !important; background-position: center top !important;
+    object-fit: cover !important; object-position: center top !important;
+    border-radius: 0 !important; margin: 0 !important;
+    aspect-ratio: auto !important;
+  }
+  .ot-featured-tag, .ot-latest-cat, .ot-latest-tag {
+    position: absolute !important; top: 6px !important; left: 6px !important;
+    background: rgba(29,78,216,0.92) !important; color: #ffffff !important;
+    font-size: 10px !important; font-weight: 700 !important;
+    padding: 2px 8px !important; border-radius: 4px !important;
+  }
+  .ot-featured-body, .ot-latest-body {
+    padding: 10px 12px !important; flex: 1 1 auto !important; min-width: 0 !important;
+    display: flex !important; flex-direction: column !important;
+    justify-content: space-between !important; gap: 6px !important;
+  }
+  .ot-featured-title, .ot-latest-title {
+    font-size: 14px !important; font-weight: 700 !important;
+    color: #1f2937 !important; line-height: 1.5 !important;
+    display: -webkit-box !important;
+    -webkit-line-clamp: 2 !important; -webkit-box-orient: vertical !important;
+    overflow: hidden !important; margin: 0 !important;
+  }
+  .ot-featured-date, .ot-latest-date {
+    font-size: 12px !important; color: #6b7280 !important; margin: 0 !important;
+    display: flex !important; align-items: center !important; gap: 4px !important;
+  }
+
+  /* 通常の o--postlist-item も同じスタイルに */
+  .o--postlist-inner.d--postlist-column2,
+  .o--postlist-inner.d--postlist-rectangle,
+  .b--jinr-postlist.d--postlist-slider {
+    grid-template-columns: 1fr !important; gap: 10px !important;
+    padding: 0 12px !important;
+  }
+  .o--postlist-item.o--postlist-item {
+    flex-direction: row !important;
+    min-height: 88px !important;
+  }
+  .o--postlist-item.o--postlist-item > .c--post-link {
+    flex-direction: row !important; gap: 0 !important;
+  }
+  .o--postlist-item.o--postlist-item .c--post-image {
+    width: 110px !important; flex: 0 0 110px !important;
+    height: 88px !important; min-height: 88px !important;
+    aspect-ratio: auto !important;
+  }
+  .o--postlist-item.o--postlist-item .c--post-contents {
+    padding: 10px 12px !important; min-height: 88px !important;
+    gap: 6px !important;
+  }
+  .o--postlist-item.o--postlist-item .a--post-title {
+    font-size: 14px !important; -webkit-line-clamp: 2 !important;
+  }
+  .o--postlist-item.o--postlist-item .c--post-meta {
+    padding-top: 6px !important; border-top: none !important;
+  }
+  .o--postlist-item.o--postlist-item .a--post-date { font-size: 12px !important; }
+  .o--postlist-item.o--postlist-item .a--post-category {
+    font-size: 10px !important; padding: 3px 8px !important;
+  }
+
+  /* ====== 運営者プロフィールカード ====== */
+  .ot-profile-card, .widget_jinr_profile, #sideBarWidget .widget:has(.profile),
+  .l--main .o--profile-card {
+    margin: 16px 12px !important;
+    background: #ffffff !important;
+    border: 1px solid #e5e7eb !important;
+    border-radius: 14px !important;
+    padding: 16px !important;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04) !important;
+  }
+
+  /* ====== サイドバーをコンテンツ下に ====== */
+  .l--two-column, [class*="two-column"] { display: block !important; }
+  .o--widget-area, #sideBarWidget {
+    width: 100% !important; max-width: 100% !important;
+    margin: 24px 0 !important; padding: 0 12px !important;
+  }
+  #sideBarWidget h2 {
+    font-size: 16px !important; padding-bottom: 8px !important;
+    margin-bottom: 12px !important; border-bottom: 2px solid #1d4ed8 !important;
+    color: #1d4ed8 !important;
+  }
+
+  /* ====== 4特徴セクション（ボトム） ====== */
+  .ot-features-section { padding: 0 12px !important; margin: 24px 0 !important; }
+  .ot-features-grid {
+    grid-template-columns: 1fr 1fr !important; gap: 10px !important;
+  }
+  .ot-feature-item {
+    background: #ffffff !important;
+    border: 1px solid #e5e7eb !important; border-radius: 12px !important;
+    padding: 14px 10px !important;
+    text-align: center !important;
+  }
+  .ot-feature-item h3 { font-size: 12px !important; }
+  .ot-feature-item p { font-size: 10px !important; }
+
+  /* ====== ハンバーガーメニュー（オープン時） ====== */
+  .o--hamburger-menu-container {
+    width: 100% !important; max-width: 320px !important;
+  }
+  .o--hamburger-menu-container .menu-item a {
+    font-size: 16px !important; padding: 14px 20px !important;
+    min-height: 52px !important; display: flex !important; align-items: center !important;
+  }
+
+  /* ====== タップフィードバック ====== */
+  a:active, button:active { opacity: 0.85 !important; transform: scale(0.98) !important; }
+
+  /* ====== iOSズーム防止 ====== */
+  input[type='text'], input[type='search'], textarea, select {
+    font-size: 16px !important;
+  }
+
+  /* ====== JIN:R スマホ専用ボトムナビ（既存システム）の見栄え改善 ====== */
+  /* JIN:Rの既存sp_menuを下部固定ナビとして活用 */
+  .o--sp-menu, .d--sp-menu, [class*="sp_menu"], [class*="sp-menu-area"] {
+    position: fixed !important;
+    bottom: 0 !important; left: 0 !important; right: 0 !important;
+    z-index: 999 !important;
+    background: #ffffff !important;
+    border-top: 1px solid #e5e7eb !important;
+    box-shadow: 0 -2px 8px rgba(0,0,0,0.06) !important;
+    display: grid !important;
+    grid-template-columns: repeat(4, 1fr) !important;
+    padding: 6px 0 calc(6px + env(safe-area-inset-bottom)) !important;
+    margin: 0 !important;
+  }
+  .o--sp-menu a, .d--sp-menu a, [class*="sp_menu"] a, [class*="sp-menu-area"] a {
+    display: flex !important; flex-direction: column !important;
+    align-items: center !important; justify-content: center !important;
+    gap: 2px !important; padding: 6px 4px !important;
+    text-decoration: none !important;
+    color: #6b7280 !important;
+    font-size: 11px !important; font-weight: 600 !important;
+    min-height: 56px !important;
+  }
+  .o--sp-menu a:hover, .o--sp-menu a.active,
+  .d--sp-menu a:hover, .d--sp-menu a.active {
+    color: #1d4ed8 !important;
+  }
+  .o--sp-menu a i, .o--sp-menu a svg,
+  .d--sp-menu a i, .d--sp-menu a svg {
+    font-size: 22px !important; width: 24px !important; height: 24px !important;
+  }
+
+  /* JIN:R既存のフッターメニューのレイアウト調整 */
+  .o--sp-fixed-menu, .o--sp-menu-fixed {
+    position: fixed !important; bottom: 0 !important; left: 0 !important; right: 0 !important;
+    z-index: 999 !important;
+  }
+
+  /* ====== フッター ====== */
+  #footer .t--main-width { padding: 16px !important; }
+  #footer ul { flex-direction: column !important; gap: 8px !important; align-items: center !important; }
+}
+
+/* ===== 超スマホ (480px以下) 微調整 ===== */
+@media (max-width: 480px) {
+  .ot-hero h1, .ot-hero h2, .ot-hero-title { font-size: 22px !important; }
+  .ot-hero img, .ot-hero-character { max-width: 160px !important; }
+  .ot-cat-card h3 { font-size: 12px !important; }
+  .ot-cat-card { padding: 12px !important; }
+  .ot-cat-card .ot-cat-icon, .ot-cat-card .cat-icon {
+    width: 32px !important; height: 32px !important; flex: 0 0 32px !important;
+  }
+}
+/* PTGL_MOBILE_V2_END */

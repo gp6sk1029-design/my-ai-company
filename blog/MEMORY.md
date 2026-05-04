@@ -235,3 +235,12 @@
   - スムーズスクロール・admin-bar:46pxオフセット・横スクロール禁止
 - Customizer検証：`button.preview-mobile` JSクリックで320×480モバイルプレビューに切替可能。iframe内DOMから`getComputedStyle`で確認できる。
 - Customizer保存はsetting変更後に `wp.customize.previewer.save()` を呼ぶが「already_saving」エラー時はリロード必須。
+
+- 2026/05/05 (続5): スマホUI見本デザイン準拠への大改修。
+  - PTGL_MOBILE_V2 + PTGL_BOTTOM_NAV CSS（合計43KB→公開済）：ヘッダー44pxハンバーガー、ヒーローグラデ＋大型タイトル＋2ボタン、カテゴリ2x2＋矢印`›`、検索バー大型化、★付き見出し、注目/最新カードを横並び（サムネ110×88+タイトル+メタ）、ボトムナビSP固定。
+  - **JIN:Rのsp_menuがCustomizer設定だけでは表示されないことが判明** → 代替策として WP REST API `/wp-json/wp/v2/widgets` で `<nav class="ptgl-mobile-nav">` HTMLウィジェット (block-22) ＋専用CSS (block-23) を **sidebar** に追加 → 全ページ表示成功。
+  - **重要**：footer-widget は JIN:R では home固定ページに描画されない。sidebar は全ページ描画される。
+  - **WAF制約**：DELETE は ConoHa SiteGuard で 403。POST/PUTは可能（ただしPUTもCSSの`<style>`+ position:fixed組み合わせで時々403）。
+  - **Customizer保存の遅延**：33KB+のCSS変更時、`previewer.save()` は90秒〜2分かかる。タイムアウトしても実際は保存される場合多い → curl で確認するのが確実。
+- アイコン：fontawesome `fas fa-home` 等の指定だけではJIN:Rは描画しない。SVG直書きが最も確実。
+- 教訓：「WP REST API + Custom HTMLウィジェット + sidebar」の組み合わせは、Customizer不調時の最強の代替手段。
