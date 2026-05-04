@@ -212,3 +212,10 @@
   - hover: translateY(-3px) + box-shadow + サムネズーム1.05x
 - 学び：JIN:R デフォルトCSS で `.c--post-meta { position: absolute }` になっていたためタイトルと重なっていた。`position: static !important` で解除必須。
 - 学び：CSS優先度を上げる時は `.o--postlist-item.o--postlist-item` のように同クラスを2回連ねる（特異性を倍化）。`!important`連発より読みやすい。
+
+- 2026/05/05 (続2): カード全体可視化対応。「全体が見えないと記事が分からない」フィードバックに対応：
+  - サムネ：`aspect-ratio: 16/9`（固定180px→可変）+ `object-position: center top`（記事冒頭に画像オーバーレイテキストがあるブログ向け最適）
+  - タイトル：line-clamp 2→3行（情報量UP）
+  - グリッド最小幅：280px→320px（読みやすさ優先）
+  - 効果：4記事カードで「タイトル見出し画像」も「記事タイトル」も両方読める設計に
+- 設計学び：「全体が見える」を実現するには ① object-fit: cover + object-position: center top（被写体は通常上部）② line-clamp 3行 ③ アスペクト比固定で全カード高さ揃える、の3点セット
