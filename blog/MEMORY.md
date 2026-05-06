@@ -244,3 +244,12 @@
   - **Customizer保存の遅延**：33KB+のCSS変更時、`previewer.save()` は90秒〜2分かかる。タイムアウトしても実際は保存される場合多い → curl で確認するのが確実。
 - アイコン：fontawesome `fas fa-home` 等の指定だけではJIN:Rは描画しない。SVG直書きが最も確実。
 - 教訓：「WP REST API + Custom HTMLウィジェット + sidebar」の組み合わせは、Customizer不調時の最強の代替手段。
+
+- 2026/05/07: ヒーロータイトル PC/SP 切替 ＋ ホーム固定ページのボトムナビ表示問題解決。
+  - PC: 「ガジェットと生産技術の力で、「ムダ」をなくし、仕事と生活をアップデート。」（"現場の" 削除）
+  - SP: 「ガジェットと生産技術で、ムダをなくす。」（さらに短縮）
+  - HTML：`<span class="hero-title-pc">PC文</span><span class="hero-title-sp">SP文</span>` で両方併記、CSSで切替
+  - **重要バグ修正**：home固定ページ(ID 756)では既存CSS `body.page-id-756 .l--sidebar { display: none }` でサイドバー全体が非表示→中の block-22(nav HTML), block-23(古いCSS) も非表示になっていた
+  - 修正：block-24 CSSウィジェットを追加し `display: block !important; visibility: hidden !important; position: absolute; left: -9999px` でサイドバーを画面外に飛ばす（display:block維持）→ 子の `.ptgl-mobile-nav` には `visibility: visible !important; position: fixed` でviewport底に固定
+  - WP REST API のWP標準  `/wp-json/wp/v2/pages/{id}` でページ更新可能（POSTでもUPDATE扱い）。`?context=edit` 必須でraw contentを取得
+  - WAF制約：DELETE と PUT は ConoHa SiteGuard で 403。POST のみ許可。
