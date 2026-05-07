@@ -253,3 +253,10 @@
   - 修正：block-24 CSSウィジェットを追加し `display: block !important; visibility: hidden !important; position: absolute; left: -9999px` でサイドバーを画面外に飛ばす（display:block維持）→ 子の `.ptgl-mobile-nav` には `visibility: visible !important; position: fixed` でviewport底に固定
   - WP REST API のWP標準  `/wp-json/wp/v2/pages/{id}` でページ更新可能（POSTでもUPDATE扱い）。`?context=edit` 必須でraw contentを取得
   - WAF制約：DELETE と PUT は ConoHa SiteGuard で 403。POST のみ許可。
+
+- 2026/05/08: ボトムナビ「埋もれ問題」解消。原因はホーム固定ページ(ID 756)で `body.page-id-756 .l--sidebar { display: none }` が祖先サイドバー全体を消し、子の `position:fixed` ナビも巻き込まれて非表示or通常フローで描画されていた。
+  - 解決策：navをサイドバー経由ではなく **ホーム固定ページの post_content に直接 inline 埋め込み**（`#ptglMobileNavInpage`）
+  - 別CSSウィジェット（block-27）を ID selector `#ptglMobileNavInpage` で書いて最高特異性 → クラスセレクタ + !important 競合を回避
+  - 重要：CSS class同士の `!important` 競合では cascade order に依存して脆い。**ID selector + !important** が最強で確実
+  - サイドバー版navは `body.page-id-756 #ptglMobileNav { display: none }` で重複防止
+- WAFは `<script>` を含む widget を 403 で拒否。CSS-onlyで設計するのが鉄則。
