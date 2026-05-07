@@ -212,35 +212,24 @@ def detect_session_role(modified_files: list[Path], user_messages: list[str]) ->
 
 
 def generate_role_prompt(role: str, handover_filename: str) -> str:
-    """新セッション貼り付け用の役割定義プロンプトを生成。"""
+    """新セッション貼り付け用の役割定義プロンプトを生成。
+
+    CLAUDE.md / SKILL.md / MEMORY.md に既にある内容は省く（最小プロンプト）。
+    含めるのは：役割名・スコープ・読むべき固有ファイルのみ。
+    """
     info = SESSION_ROLES[role]
-    files_list = "\n".join(f"   - {f}" for f in info["files"])
+    files_list = "\n".join(f"- {f}" for f in info["files"])
 
-    return f"""あなたはこれから「{info['name']}」として動作してください。
+    return f"""あなたは「{info['name']}」として動作してください。
 
-【担当範囲】
-{info['scope']}
+担当: {info['scope']}
+スコープ外: {info['out_of_scope']}
 
-【スコープ外（やらない）】
-{info['out_of_scope']}
-
-【セッション開始時の必須読み込み】
-   - CLAUDE.md（プロジェクト全体ルール）
+このセッション固有の参照ファイル：
 {files_list}
-   - handover/{handover_filename}（前セッションからの引き継ぎ書）
+- handover/{handover_filename}（前セッションからの引き継ぎ）
 
-【作業開始前のお願い】
-1. 上記ファイルを必ず読む
-2. 引き継ぎ書「直近のユーザー指示」「達成したこと」「未完了」を確認
-3. 不明点があれば質問してから着手
-4. 振り返りレポート・MEMORY.md更新は省略しない
-
-【セッション容量管理】
-- 起動時の健康診断結果を確認
-- WARN/CRITなら作業前に2択提案（/compact または「引き継ぎ準備して」）
-- ユーザーが選択するまで本来のタスクには着手しない
-
-準備ができたら「引き継ぎ完了。{info['name']}として作業準備OK」と返答してください。
+引き継ぎ書を読んでから、「{info['name']}準備OK」と返答してください。
 """
 
 
