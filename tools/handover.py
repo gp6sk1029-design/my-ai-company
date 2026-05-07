@@ -132,7 +132,120 @@ def infer_topic(user_messages: list[str]) -> str:
     return "session"
 
 
-def generate_handover(title: str | None = None, recent: int = 10) -> Path:
+# セッション役割カタログ（CLAUDE.md と一致させること）
+SESSION_ROLES = {
+    "pdm": {
+        "name": "総合PdM（CPO）セッション",
+        "scope": "全体ルール作成・部門横断調整・整合性チェック・戦略的意思決定",
+        "files": ["CLAUDE.md", "global_rules/CLAUDE_global.md"],
+        "keywords": ["ルール", "全社", "戦略", "PdM", "CPO", "整合", "監査"],
+        "out_of_scope": "個別記事執筆・出品作業・コーディング詳細",
+    },
+    "blog": {
+        "name": "ブログ執筆セッション",
+        "scope": "記事の企画・執筆・校正・WP投稿・SNS連携",
+        "files": ["blog/SKILL.md", "blog/MEMORY.md"],
+        "keywords": ["記事", "ブログ", "WordPress", "JIN:R", "執筆", "校正", "ファクト"],
+        "out_of_scope": "EC出品・ツール開発・全社ルール変更",
+    },
+    "ec": {
+        "name": "EC物販セッション",
+        "scope": "メルカリ出品・価格調整・在庫管理・顧客対応",
+        "files": ["tools/ec/SKILL.md", "tools/ec/MEMORY.md"],
+        "keywords": ["メルカリ", "出品", "価格", "在庫", "EC", "物販", "送料"],
+        "out_of_scope": "ブログ執筆・ツール開発",
+    },
+    "tools": {
+        "name": "ツール開発セッション",
+        "scope": "PWA・自動化スクリプト・社内ツールの開発と改善",
+        "files": ["tools/SKILL.md", "tools/MEMORY.md"],
+        "keywords": ["PWA", "ツール", "スクリプト", "開発", "自動化", "Cloudflare"],
+        "out_of_scope": "記事執筆・出品作業",
+    },
+    "sns": {
+        "name": "SNS統括セッション",
+        "scope": "X/Instagram/YouTube投稿・ハブ&スポーク戦略",
+        "files": ["sns/SKILL.md", "sns/MEMORY.md"],
+        "keywords": ["SNS", "X", "Instagram", "YouTube", "投稿", "ハッシュタグ"],
+        "out_of_scope": "記事本文執筆・出品作業",
+    },
+    "infra": {
+        "name": "インフラ・全体管理セッション",
+        "scope": "hooks・global_rules・session_health・handover等の社内基盤",
+        "files": ["CLAUDE.md", ".claude/settings.json", "global_rules/CLAUDE_global.md"],
+        "keywords": ["hook", "settings", "infra", "global_rules", "session_health"],
+        "out_of_scope": "記事執筆・出品作業・SNS投稿",
+    },
+}
+
+
+def detect_session_role(modified_files: list[Path], user_messages: list[str]) -> str:
+    """直近の活動から最も適切なセッション役割を推定。"""
+    score = {key: 0 for key in SESSION_ROLES}
+
+    # ファイル変更からスコアリング
+    for f in modified_files:
+        path_str = str(f).lower()
+        if "blog/" in path_str or "/articles/" in path_str:
+            score["blog"] += 2
+        if "tools/ec/" in path_str:
+            score["ec"] += 2
+        if "tools/" in path_str and "tools/ec/" not in path_str:
+            score["tools"] += 1
+        if "sns/" in path_str:
+            score["sns"] += 2
+        if any(p in path_str for p in [".claude/", "global_rules/", "tools/handover", "tools/session_health"]):
+            score["infra"] += 1
+        if any(p in path_str for p in ["claude.md", "memory.md"]) and "blog/" not in path_str:
+            score["pdm"] += 1
+
+    # ユーザーメッセージのキーワードからスコアリング
+    text = " ".join(user_messages).lower()
+    for key, info in SESSION_ROLES.items():
+        for kw in info["keywords"]:
+            if kw.lower() in text:
+                score[key] += 1
+
+    # 最高スコアの役割を返す。同点ならpdm優先
+    best = max(score.items(), key=lambda x: (x[1], x[0] == "pdm"))
+    return best[0] if best[1] > 0 else "pdm"
+
+
+def generate_role_prompt(role: str, handover_filename: str) -> str:
+    """新セッション貼り付け用の役割定義プロンプトを生成。"""
+    info = SESSION_ROLES[role]
+    files_list = "\n".join(f"   - {f}" for f in info["files"])
+
+    return f"""あなたはこれから「{info['name']}」として動作してください。
+
+【担当範囲】
+{info['scope']}
+
+【スコープ外（やらない）】
+{info['out_of_scope']}
+
+【セッション開始時の必須読み込み】
+   - CLAUDE.md（プロジェクト全体ルール）
+{files_list}
+   - handover/{handover_filename}（前セッションからの引き継ぎ書）
+
+【作業開始前のお願い】
+1. 上記ファイルを必ず読む
+2. 引き継ぎ書「直近のユーザー指示」「達成したこと」「未完了」を確認
+3. 不明点があれば質問してから着手
+4. 振り返りレポート・MEMORY.md更新は省略しない
+
+【セッション容量管理】
+- 起動時の健康診断結果を確認
+- WARN/CRITなら作業前に2択提案（/compact または「引き継ぎ準備して」）
+- ユーザーが選択するまで本来のタスクには着手しない
+
+準備ができたら「引き継ぎ完了。{info['name']}として作業準備OK」と返答してください。
+"""
+
+
+def generate_handover(title: str | None = None, recent: int = 10,
+                       role: str | None = None) -> Path:
     """引き継ぎ書を生成し、保存先パスを返す。"""
     HANDOVER_DIR.mkdir(exist_ok=True)
 
@@ -150,18 +263,39 @@ def generate_handover(title: str | None = None, recent: int = 10) -> Path:
     if not title:
         title = infer_topic(user_messages)
 
+    # セッション役割推定（指定なければ自動）
+    if role is None or role not in SESSION_ROLES:
+        role = detect_session_role(modified_files, user_messages)
+    role_info = SESSION_ROLES[role]
+
     timestamp = datetime.now().strftime("%Y-%m-%d-%H%M")
     filename = f"{timestamp}-{title}.md"
     output_path = HANDOVER_DIR / filename
+
+    # 役割定義プロンプト生成
+    role_prompt = generate_role_prompt(role, filename)
 
     # markdown生成
     lines = [
         f"# 引き継ぎ書 - {timestamp}",
         "",
         f"- **トピック**: {title}",
+        f"- **推定役割**: {role_info['name']}（`{role}`）",
         f"- **セッションID**: `{jsonl.stem}`",
         f"- **健康状態**: {evaluation['overall']}",
         f"- **規模**: {metrics['size_mb']}MB / 画像{metrics['image_count']}枚 / ユーザー入力{metrics['user_turns']}回",
+        "",
+        "---",
+        "",
+        "## 🎭 新セッション貼り付け用プロンプト（役割定義）",
+        "",
+        "**新セッションを開いて、最初に以下を貼り付けてください：**",
+        "",
+        "```",
+        role_prompt.strip(),
+        "```",
+        "",
+        "> 役割が違う場合は `python3 tools/handover.py --role <pdm|blog|ec|tools|sns|infra>` で再生成可能",
         "",
         "---",
         "",
@@ -207,17 +341,14 @@ def generate_handover(title: str | None = None, recent: int = 10) -> Path:
     lines.extend([
         "---",
         "",
-        "## 🚀 復帰用プロンプト（新セッションでコピペ）",
+        "## 🚀 シンプル復帰用プロンプト（役割定義不要時のみ）",
+        "",
+        "上の「役割定義プロンプト」を使うのが推奨。シンプルに復帰したい場合のみこちら：",
         "",
         "```",
-        f"前セッションの引き継ぎを行います。以下のファイルを必ず読んでから作業を再開してください。",
-        f"",
-        f"1. handover/{filename}  ← 引き継ぎ書（必読）",
-        f"2. blog/SKILL.md または ec/SKILL.md ← 部門ルール",
-        f"3. blog/MEMORY.md または ec/MEMORY.md ← 過去の学び",
-        f"",
-        f"引き継ぎ書「直近のユーザー指示」の続きから作業を再開してください。",
-        f"不明点があれば質問してから着手してください。",
+        f"前セッションの引き継ぎを行います。",
+        f"handover/{filename} を読み、",
+        f"そこに記載の役割と引き継ぎ内容に従って作業を再開してください。",
         "```",
         "",
         "---",
@@ -240,10 +371,12 @@ def main() -> int:
     parser.add_argument("--title", help="引き継ぎ書のタイトル（未指定時は自動推定）")
     parser.add_argument("--recent", type=int, default=10,
                         help="含めるユーザー入力の数（デフォルト10）")
+    parser.add_argument("--role", choices=list(SESSION_ROLES.keys()),
+                        help="セッション役割（pdm/blog/ec/tools/sns/infra）。未指定時は自動推定")
     args = parser.parse_args()
 
     try:
-        path = generate_handover(title=args.title, recent=args.recent)
+        path = generate_handover(title=args.title, recent=args.recent, role=args.role)
     except Exception as e:
         print(f"❌ 引き継ぎ書生成失敗: {e}", file=sys.stderr)
         return 1
@@ -253,8 +386,8 @@ def main() -> int:
     print()
     print(f"💡 次のセッションで以下を実行：")
     print(f"   1. 新しいセッション（チャット）を開く")
-    print(f"   2. 引き継ぎ書（{path.name}）の「復帰用プロンプト」をコピペ")
-    print(f"   3. 作業再開")
+    print(f"   2. 引き継ぎ書（{path.name}）の「🎭 役割定義プロンプト」をコピペ")
+    print(f"   3. Claudeが「準備OK」と返してから本来のタスクを依頼")
     return 0
 
 
