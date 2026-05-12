@@ -68,6 +68,25 @@
 
 **自動検出トリガー**（**xxx** 内にこれらがあると水色下線化）: `0-9` `０-９` `¥ 円 ％ % 日 分 時間 週 月 年 kg g mm cm km nit bpm ms 回 MB GB`
 
+**アンダーライン仕様**：色 `#56CCF2` / 太さ `3px`（2026/05/11に2px→3pxへ強化、視認性向上）
+
+### 🔴【絶対遵守】Markdown 装飾は wp_block_builder 経由必須
+
+固定ページ・投稿の content を直接 HTML で WP API に POST するときも、**`***xxx***` `**xxx**` `*xxx*` の Markdown 記法は使わない**。生のアスタリスクが画面に表示される事故が起きる。
+
+#### 必須運用
+- **記事執筆**：Markdown ファイル → `markdown_to_blocks()` で変換 → POST（既存フロー、安全）
+- **固定ページ作成・更新**：Markdown を含めるなら必ず `markdown_to_blocks()` を経由するか、`md_to_html_inline()` で前処理
+- **HTML 直書き時**：`<strong><span style="text-decoration:underline;text-decoration-color:#56CCF2;text-decoration-thickness:3px;">xxx</span></strong>` を使用
+
+#### 公開前必須チェック（自動化推奨）
+```python
+# 公開前にコンテンツに `*` が残っていないか検証
+import re
+assert not re.search(r'\*\*\*[^*]+\*\*\*', content), 'Markdown残骸: ***xxx*** が未変換'
+assert not re.search(r'\*\*[^*<>]+\*\*', content), 'Markdown残骸: **xxx** が未変換'
+```
+
 ### 画像リサイズ必須ルール
 ```bash
 # 新しい画像を扱う前に必ず実行
@@ -232,7 +251,7 @@ Application Password の生成：WP管理画面 → ユーザー → プロフ�
 年間削減金額 ÷ 価格（または月額×12） = 回収期間
 ```
 
-- 読者の時給は「2,000円」を標準として計算
+- 読者の時給は **「950円」（全国で最も低い都道府県の最低賃金水準・2025年時点）** を標準として計算。理由：最も生活が苦しい時給帯の人でも元が取れることを保証し、「誰が買っても損しない」を実証するため。時給がこれより高い人はボーナス回収となる
 - 数字は必ず3つセットで語る：価格・削減時間・年間換算金額
 - 比較対象を明示する：「これを使わない場合、年間〇時間をムダにしている」
 
@@ -247,9 +266,9 @@ Application Password の生成：WP管理画面 → ユーザー → プロフ�
 
 1. **1日あたりコスト** = 購入価格 ÷ 想定使用日数
    - 表記例：`45,000円 ÷ 1,600日 = 28円/日`
-2. **節約価値の根拠** = 節約時間 × 時給(2,000円/h標準)
+2. **節約価値の根拠** = 節約時間 × 時給(950円/h標準・最低賃金基準)
    - 「なぜその節約時間か」の根拠を必ず1段落で説明
-   - 表記例：`10分/日 × 33円/分 = 333円/日`
+   - 表記例：`10分/日 × 15.83円/分（時給950円換算）= 158円/日`
 3. **損益分岐点** = 投資金額 ÷ 1日節約価値
    - 表記例：`45,000円 ÷ 333円/日 = 135日 ≒ 4.5ヶ月`
 4. **長期累計価値**（任意） = 節約価値/日 × 使用日数
@@ -269,7 +288,8 @@ Application Password の生成：WP管理画面 → ユーザー → プロフ�
 - [ ] 節約時間/効率向上率の**根拠説明**があるか
 - [ ] 損益分岐点の日数/月数が明示されているか
 - [ ] 全数値が「式 = 結果」のtable形式で示されているか
-- [ ] 時給は2,000円を標準として計算しているか
+- [ ] 時給は950円（全国最低賃金水準）を標準として計算しているか
+- [ ] **本文に `***` `**` `*` の Markdown 残骸が残っていないか**（必ず getComputedStyle またはcurl/regex で確認）
 
 ---
 
@@ -469,3 +489,33 @@ Application Password の生成：WP管理画面 → ユーザー → プロフ�
 - `blog/scripts/run_pipeline.py` — パイプライン実行
 - `blog/scripts/wp_api.py` — WordPress REST API
 - `blog/scripts/wp_block_builder.py` — WordPress ブロックビルダー
+
+---
+
+## 18. 🔴【絶対遵守】UI機能追加・修正時の鉄則（2026/05/09 制定）
+
+### モーダル・トグル等のインタラクション機能：CSSパターンの選択
+- ❌ **`:target` 擬似クラスは使わない**（iOS Safari の既知バグで対象要素が `display:none` だとハッシュ更新されない／初回ペイントで反映遅延）
+- ✅ **チェックボックスハック必須**：`<input type="checkbox" id="x" hidden>` + `<label for="x">` + `#x:checked ~ .target { display: flex }`
+  - HTML標準動作なので全モバイルブラウザ100%動作
+  - checkbox / トリガーlabel / 対象要素は **同一親の siblings として配置**
+
+### CSS追加先のルール（出所を分散させない）
+- ✅ **CSS は Customizer の `custom_css[jinr]` theme_mod に集約**（ConoHa WAFも通る）
+- ❌ **sidebar widget に `<style>` を入れない**（POST が403で弾かれる + 出所が分散して「片方更新忘れ」事故が起きる）
+- HTMLは widget または post_content に置き、CSSは絶対に theme_mod に集約
+
+### 機能追加・修正後の必須検証工程（省略禁止）
+1. **HTML到達確認**：`curl -A "Mozilla/5.0 (iPhone)" "<URL>" | grep <識別子>` でモバイルUAでも配信されているか確認
+2. **CSS到達確認**：上記 curl 出力に新CSSルールが含まれるか
+3. **`document.styleSheets` 全列挙**：同じセレクタが**複数のシートに存在しないか**を必ずチェック（古い widget の旧CSSが残って後勝ちで上書き、というバグを防ぐ）
+4. **`getComputedStyle` で初期状態と動作後状態の両方を計測**：matches(':target')/'(:checked)' が true でも getComputedStyle が反映されていない場合は specificity 競合を疑う
+5. **モバイルUA + モバイル幅でも動作確認**：PC幅で動いた = モバイルで動く ではない（iOS固有バグが頻発）
+
+### 「動いた」と報告する前のチェックリスト
+- [ ] 実機モバイル（or モバイルUA + モバイル幅）でgetComputedStyleが期待値と一致
+- [ ] 同セレクタの重複ルールがないか document.styleSheets で確認
+- [ ] HTML/CSS の出所が同じ Customizer または同じ widget に集約されているか
+- [ ] curl で実際の配信HTMLに新CSSが含まれているか
+
+**禁止：「PC幅で動いた」を「動いた」と報告すること**。スマホで動かなければ未完成。

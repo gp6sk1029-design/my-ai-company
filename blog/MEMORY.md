@@ -53,6 +53,7 @@
 |---|---|---|---|---|---|---|
 | 1 | garmin-venu2s-review.md | Garmin Venu 2S を4年半使ったリアルレビュー | - | - | 2026/03/29 | ローカルのみ |
 | 2 | huawei-gt-runner2-review.md | 【10km実走データ】HUAWEI GT Runner 2 | 703 | - | 2026/04/21 | 下書き |
+| 3 | keychron-k1max-jis-setup-guide.md | Keychron K1 Max 設定編｜1台で4配列を切替する完全ガイド｜年21万円の時短 | 836 | https://www.ootanisatan.com/?p=836 | 2026/05/11 | **公開**（カテゴリ：ガジェット研究室+時短ツール研究室／アイキャッチmedia_id=837） |
 
 > **台帳メンテナンスルール**
 > - 新規公開時に1行追加（必須）
@@ -261,6 +262,25 @@
   - サイドバー版navは `body.page-id-756 #ptglMobileNav { display: none }` で重複防止
 - WAFは `<script>` を含む widget を 403 で拒否。CSS-onlyで設計するのが鉄則。
 
+- 2026/05/11：**ホーム「最新の記事」サムネ全空白問題を解決**。原因は Customizer CSS の `.ot-latest-thumb` に `background: #f3f4f6 !important`（ショートハンド）があり、inline style の `background-image: url(...)` を全部リセットしていた。`background-color: #f3f4f6 !important` に変更で解決。教訓：**CSS の `background: ...!important` ショートハンドは inline style の background-image も上書きする**。`background-color` 単体に分離して指定するのが鉄則
+- 2026/05/11：**プロフィール画像差し替え**。JIN:R Customizer の `jinr__profile_image_url` キーが旧画像（2026/02アップの低解像度 8885b3...jpg）を保持していた。これを media_id 737（オオタニ所長 通常・800×800・2026/05/03 アップ）に差し替え。教訓：**JIN:R独自設定は theme_mod に格納されるため、WP REST API では見えない**。Customizerで `wp.customize._value` を全キー走査するのが確実な発見手段
+- 2026/05/11：**見出しサイズの異常**を発見・修正。記事 836 で H3=13px、H2=15.5px と本文(17px)より小さい状態だった。JIN:R Customizer 追加CSSに `PTGL_HEADING_FIX` ブロック（1339bytes）を追加し、H1=32 / H2=28 / H3=22 / H4=18 / 本文=17 の正常階層に。色は #1d4ed8（青）、H3には3px下線。モバイル(768px以下)は H2=22 / H3=19。教訓：**JIN:Rテーマのデフォルト見出し設定は本文より小さくなる場合がある**。新記事公開前に必ずH2/H3 サイズを `getComputedStyle` で確認すること
+- 2026/05/09：ボトムナビ検索ボタンの**実動作不良を完全修正**（3段階の試行錯誤の末）。
+  - 試行1：JIN:R Customizer に display 切替型 CSS を追加 → PC では動いたがモバイルでは動かず
+  - 試行2：opacity/visibility + transition 型に書換 → やはり初回 `:target` 適用が rendering quirk で失敗
+  - **真因（試行3で発覚）**：sidebar widget `block-28` に **古い display 型 overlay CSS（1664 bytes）** が残っていて、Customizer CSS を後勝ちで上書きしていた。前セッションで HTML（block-22）+ CSS（block-28）の2 widget で実装していたが、片方だけ修正していたため整合性崩壊
+  - 解決：block-28 を空paragraph に置換（POST `<style>` 不含なら WAF通過）+ Customizer CSS を再シンプル化（transition 削除・display 切替型）
+  - 教訓1：**同一機能のHTML/CSSを複数の widget に分けて置くと、片方の更新だけで「動かなくなった」事故が起きる**。今後は HTMLは inline content / CSSは Customizer の theme_mod に集約する。widget は使わない
+  - 教訓2：**CSS `:target` + `transition` の組み合わせは Chrome/Safari の初回ペイントで rendering quirk を起こす**ことがある（4秒待っても visibility:hidden のまま、location.hash 再設定で復活）。シンプルな display 切替型の方が確実
+  - 教訓3：**WAFがウィジェットPOSTを403拒否するのは `<style>` タグが含まれるとき**。`<style>` を除けば POST 通る。CSS は Customizer の `custom_css[jinr]` theme_mod に集約するのが正解
+  - 教訓4：**iOS Safari の `<a href="#x">` + CSS `:target` パターンは、対象要素が `display:none` の場合にURLハッシュが更新されない既知バグがある**。モバイル対応のCSS-only モーダルは `:target` ではなく **チェックボックスハック（`<input type="checkbox" id="x" hidden>` + `<label for="x">` + `:checked ~`）** を使う。これは HTML標準動作で全ブラウザ100%動作。実装は block-22 widget HTML + page 756 inline + Customizer CSS の3箇所
+  - 最終構造：checkbox / nav (with `<label for>` トリガー) / overlay (with `<label for>` 閉じるボタン) を **同一親の siblings として配置**。`#ptglSearchToggle:checked ~ .ptgl-search-overlay { display: flex }` で表示制御
+- 2026/05/08：ボトムナビ「プロフィール」(`/profile/`) が 404 だったため、page ID 29 の slug を `プロフィール` → `profile` に変更して機能化。ナビhrefは変えず、ページslugだけで対応する方が最小変更で済む（教訓：URL変更が必要なときは "リンク側" よりまず "コンテンツ側のslug" を考える）
+- 2026/05/08：ボトムナビの検索ボタン HTML（block-22）を実装。CSS `:target` 擬似クラスを使ったオーバーレイ検索フォーム（JS不使用・WAF耐性）。※ただし対応CSSが抜けており実動作せず → 翌日 05/09 に修正
+  - 仕組み：検索ボタン `href="#ptglSearchOverlay"` → CSS `:target` で半透明モーダル表示 → `<form action="/" method="get" name="s">` で WP標準検索結果ページへGET遷移
+  - 変更：block-22(sidebar nav 全ページ) のhref＋overlay HTML、block-28(新規CSS widget)、ホーム固定ページ756 inline nav も同期
+  - 教訓：①既存CSS widget(block-23)に追記しようとして WAF 403。`<style>`+`position:fixed` 組み合わせを既存に追加するとブロックされやすい → **新規widget追加で回避** ②新規widget POST時は初期 `wp_inactive_widgets` に入るので必ず後追いで `{'sidebar':'sidebar'}` POST して移動が必要
+  - 横展開可能：CSS-only :target モーダルは検索以外（メニュー・お知らせ等）にも応用可
 - 2026/05/08（重要）：オーナーから「ROI計算根拠が抜けている」指摘。Garmin Venu 2S(605)/MX ERGO 持ち運び(552)/MX ERGO レビュー(526)/Keychron K1 Max(450) の4記事すべてにROI計算根拠を追加・修正。
 - 追加した内容：
   - **計算式table**（購入価格÷使用日数=日次コスト、節約時間×時給=節約価値、投資÷節約価値=損益分岐日数）

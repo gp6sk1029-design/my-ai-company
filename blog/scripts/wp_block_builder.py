@@ -22,12 +22,12 @@ def md_to_html_inline(text: str) -> str:
     ② **xxx** に数値・単位・日付を含む    → 自動で水色アンダーライン付与
     ③ **xxx** その他                      → 普通の <strong>
 
-    水色アンダーライン仕様: #56CCF2 / 2px（記事605のスタイル踏襲）
+    水色アンダーライン仕様: #56CCF2 / 3px（2026/05/11に2px→3pxへ強化）
     """
     def _wrap_underline(inner: str) -> str:
         return (
             '<strong><span style="text-decoration:underline;'
-            'text-decoration-color:#56CCF2;text-decoration-thickness:2px;">'
+            'text-decoration-color:#56CCF2;text-decoration-thickness:3px;">'
             + inner + '</span></strong>'
         )
 
