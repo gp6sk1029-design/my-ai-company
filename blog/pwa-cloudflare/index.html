@@ -116,6 +116,52 @@
       <span class="circle-label">選択</span>
       <input type="file" id="input-files" accept="image/*,video/*,application/pdf" multiple hidden>
     </label>
+    <button type="button" class="circle-item" id="btn-paste-clipboard">
+      <div class="circle circle-cyan"><span class="circle-icon">📋</span></div>
+      <span class="circle-label">クリップボードから貼付</span>
+    </button>
+  </div>
+
+  <!-- 詳細手順（クリックで展開） -->
+  <details class="how-to-paste">
+    <summary>📖 スクショの貼付方法（クリックで開く）</summary>
+    <div class="how-to-body">
+      <h3>🖥️ Mac の場合</h3>
+      <ol>
+        <li><kbd>⌘</kbd>+<kbd>Shift</kbd>+<kbd>4</kbd> でスクショ撮影<br>
+            <small>※ さらに <kbd>Control</kbd> を押しながら撮ると <b>クリップボードに直接コピー</b>されます<br>
+            → <kbd>⌘</kbd>+<kbd>Shift</kbd>+<kbd>Control</kbd>+<kbd>4</kbd> がおすすめ</small></li>
+        <li>このPWA画面の <strong>「📋 クリップボードから貼付」ボタン</strong> をタップ<br>
+            <small>または、画面のどこか（テキスト入力欄以外）をクリックしてから <kbd>⌘</kbd>+<kbd>V</kbd></small></li>
+        <li>初回はブラウザから「クリップボード読取を許可」を求められます → <b>許可</b> を選択</li>
+        <li>「スクショ◯枚を貼付」のトーストが出れば成功 ✅</li>
+      </ol>
+      <h3>💻 Windows の場合</h3>
+      <ol>
+        <li><kbd>Win</kbd>+<kbd>Shift</kbd>+<kbd>S</kbd> でスクショ撮影 → 自動でクリップボードに入る</li>
+        <li>このPWA画面の <strong>「📋 クリップボードから貼付」ボタン</strong> をタップ</li>
+        <li>あるいは画面の空きスペースをクリック → <kbd>Ctrl</kbd>+<kbd>V</kbd></li>
+      </ol>
+      <h3>📱 スマホの場合</h3>
+      <ol>
+        <li>「📷 写真を撮る」ボタンが基本（カメラ起動）</li>
+        <li>スクショは「🖼️ 選択」ボタン → 写真アプリから選ぶ</li>
+      </ol>
+      <h3>🖱 ファイルのドラッグ&ドロップ（PC）</h3>
+      <ol>
+        <li>FinderやエクスプローラからPNG/JPGファイルを <strong>このPWA画面にドラッグ</strong></li>
+        <li>青いオーバーレイが出たら離す → 自動で一時保存に追加</li>
+      </ol>
+      <p class="how-to-tip">⚠️ <b>うまくいかない場合</b>：ブラウザの権限ダイアログを見落としていないか／URLバー横のカメラ・クリップボードアイコンで「許可」されているかをご確認ください</p>
+    </div>
+  </details>
+
+  <!-- ドロップ中のオーバーレイ -->
+  <div class="drop-overlay" aria-hidden="true">
+    <div class="drop-overlay-inner">
+      <div class="drop-overlay-icon">⬇️</div>
+      <div class="drop-overlay-text">ここにドロップで追加</div>
+    </div>
   </div>
 
   <!-- 一時保存 -->

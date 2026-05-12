@@ -257,6 +257,113 @@
   inputVideo.addEventListener('change', handleInputChange);
   inputFiles.addEventListener('change', handleInputChange);
 
+  // ─── クリップボード貼り付け（Cmd/Ctrl+V でスクショ追加）─────────────────────
+  async function handlePastedItems(items) {
+    let added = 0;
+    for (const item of items || []) {
+      if (!item || !item.type || !item.type.startsWith('image/')) continue;
+      const blob = (typeof item.getAsFile === 'function') ? item.getAsFile() : item;
+      if (!blob) continue;
+      const ext = (blob.type.split('/')[1] || 'png').toLowerCase().replace('jpeg', 'jpg');
+      await addToQueue(blob, blob.type || 'image/png', ext);
+      added++;
+    }
+    if (added > 0) {
+      showToast(`スクショ${added}枚を貼付`, 'success');
+      navigator.vibrate && navigator.vibrate(30);
+    }
+    return added;
+  }
+
+  // ─── 「📋 クリップボードから貼付」ボタン（明示的トリガー）─────────────────
+  const btnPasteClipboard = $('btn-paste-clipboard');
+  if (btnPasteClipboard) {
+    btnPasteClipboard.addEventListener('click', async () => {
+      try {
+        if (!navigator.clipboard || !navigator.clipboard.read) {
+          showToast('このブラウザはクリップボード読取に未対応', 'error');
+          return;
+        }
+        const clipItems = await navigator.clipboard.read();
+        let added = 0;
+        for (const ci of clipItems) {
+          for (const type of ci.types) {
+            if (!type.startsWith('image/')) continue;
+            const blob = await ci.getType(type);
+            const ext = (type.split('/')[1] || 'png').toLowerCase().replace('jpeg', 'jpg');
+            await addToQueue(blob, type, ext);
+            added++;
+          }
+        }
+        if (added > 0) {
+          showToast(`クリップボードから${added}枚追加`, 'success');
+          navigator.vibrate && navigator.vibrate(30);
+        } else {
+          showToast('クリップボードに画像がありません', 'error');
+        }
+      } catch (err) {
+        if (err && (err.name === 'NotAllowedError' || /denied/i.test(err.message||''))) {
+          showToast('クリップボード読取が拒否されました。ブラウザ設定で許可してください', 'error');
+        } else {
+          showToast('読み込みに失敗: ' + (err.message || err), 'error');
+        }
+        console.error('clipboard.read failed:', err);
+      }
+    });
+  }
+
+  document.addEventListener('paste', async (e) => {
+    // テキスト入力欄でのペーストは妨げない（画像のみ拾う）
+    const tag = (e.target && e.target.tagName || '').toLowerCase();
+    const isTextField = tag === 'input' || tag === 'textarea' || (e.target && e.target.isContentEditable);
+    const items = (e.clipboardData && e.clipboardData.items) ? Array.from(e.clipboardData.items) : [];
+    const hasImage = items.some(it => it && it.type && it.type.startsWith('image/'));
+    if (!hasImage) return;
+    // テキスト編集中は通常の貼付動作を優先（画像があってもスキップ）
+    if (isTextField) return;
+    e.preventDefault();
+    await handlePastedItems(items);
+  });
+
+  // ─── ドラッグ&ドロップで画像ファイル取込（PC用） ─────────────────────
+  const dropZone = document.body;
+  let dragCounter = 0;
+  function isFileDrag(e) {
+    return e.dataTransfer && Array.from(e.dataTransfer.types || []).includes('Files');
+  }
+  dropZone.addEventListener('dragenter', (e) => {
+    if (!isFileDrag(e)) return;
+    e.preventDefault();
+    dragCounter++;
+    document.body.classList.add('is-dropping');
+  });
+  dropZone.addEventListener('dragover', (e) => {
+    if (!isFileDrag(e)) return;
+    e.preventDefault();
+  });
+  dropZone.addEventListener('dragleave', (e) => {
+    if (!isFileDrag(e)) return;
+    dragCounter = Math.max(0, dragCounter - 1);
+    if (dragCounter === 0) document.body.classList.remove('is-dropping');
+  });
+  dropZone.addEventListener('drop', async (e) => {
+    if (!isFileDrag(e)) return;
+    e.preventDefault();
+    dragCounter = 0;
+    document.body.classList.remove('is-dropping');
+    const files = Array.from(e.dataTransfer.files || []);
+    let added = 0;
+    for (const f of files) {
+      const ext = (f.name.split('.').pop() || 'bin').toLowerCase();
+      await addToQueue(f, f.type || 'application/octet-stream', ext);
+      added++;
+    }
+    if (added > 0) {
+      showToast(`ファイル${added}件を追加`, 'success');
+      navigator.vibrate && navigator.vibrate(30);
+    }
+  });
+
   // ─── アップロード ─────────────────────
   async function uploadAll() {
     const articleTitle = getSelectedArticleTitle();
