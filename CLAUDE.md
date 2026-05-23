@@ -250,6 +250,13 @@ python3 tools/handover.py
 python3 tools/handover.py --title "blog記事3執筆"
 ```
 
+### handover アーカイブ運用ルール（2026-05-24制定）
+- **handover/ 直下**: 直近30日以内の引き継ぎ書（現役・参照頻度高）
+- **handover/archive/YYYY-MM/**: 30日以上経過した引き継ぎ書を月別保管
+- 月初にCPOセッションが棚卸し（30日超を `git mv` で archive へ）
+- 完全削除はしない。重要な学びは該当部門の MEMORY.md に転記してから移動
+- 詳細運用は `handover/README.md` 参照
+
 ---
 
 ## 【必須】セッション開始時の読み込みルール
