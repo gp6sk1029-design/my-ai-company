@@ -46,6 +46,20 @@
     </div>
   </details>
 
+  <!-- 現在使用中の記事を常時表示＋編集 -->
+  <div class="current-article" id="current-article-bar" hidden>
+    <div class="current-article-row" id="current-article-display">
+      <span class="current-article-label">使用中の記事:</span>
+      <span class="current-article-name" id="current-article-name">未選択</span>
+      <button type="button" id="btn-rename-article" class="current-article-edit" aria-label="記事名を変更">✏️ 変更</button>
+    </div>
+    <div class="current-article-row current-article-edit-row" id="current-article-edit-form" hidden>
+      <input type="text" id="rename-article-input" class="text-field" autocomplete="off">
+      <button type="button" id="btn-save-rename" class="btn-secondary">保存</button>
+      <button type="button" id="btn-cancel-rename" class="btn-text">取消</button>
+    </div>
+  </div>
+
   <!-- 記事作成メモ（AIへの指示／任意） -->
   <details class="memo-details" id="memo-details">
     <summary>
@@ -120,6 +134,176 @@
       <div class="circle circle-cyan"><span class="circle-icon">📋</span></div>
       <span class="circle-label">クリップボードから貼付</span>
     </button>
+    <button type="button" class="circle-item" id="btn-open-chatgpt-helper">
+      <div class="circle circle-green"><span class="circle-icon">🎨</span></div>
+      <span class="circle-label">AI画像ヘルパー</span>
+    </button>
+  </div>
+
+  <!-- ChatGPT 画像生成・編集ヘルパー（details で開閉） -->
+  <details class="ai-helper" id="ai-helper">
+    <summary>
+      <span class="ai-helper-summary-label">📝 プロンプト準備</span>
+      <span class="ai-helper-summary-hint">テンプレ／変数で書く → 一時保存の画像に🤖🍌🎨で使う</span>
+    </summary>
+    <div class="ai-helper-body">
+      <p class="ai-helper-intro">
+        <strong>ここでプロンプトを準備</strong> → 下の <strong>一時保存</strong> に画像を入れて <strong>🤖 / 🍌 / 🎨</strong> ボタンを押すと、このプロンプトと画像が一緒に AI に送られます。<br>
+        <small style="opacity:.8">単体で AI を開いてもプロンプトしか渡せないため、AI 起動ボタンは廃止しました。</small>
+      </p>
+
+      <!-- 編集対象の画像プレビュー（一時保存からセット） -->
+      <div class="ai-source-image" id="ai-source-image" hidden>
+        <div class="ai-source-header">
+          <span class="ai-source-label">📎 編集対象の画像（一時保存から）</span>
+          <button type="button" id="btn-ai-clear-source" class="btn-text">クリア</button>
+        </div>
+        <div class="ai-source-preview">
+          <img id="ai-source-img" src="" alt="編集対象">
+          <div class="ai-source-info">
+            <p>この画像を編集します。<br>下のボタンで <strong>画像をクリップボードにコピー</strong> → ChatGPT/Geminiを開いて画像と一緒にプロンプトを貼付してください。</p>
+            <button type="button" id="btn-ai-copy-image" class="btn-secondary">📋 画像をクリップボードにコピー</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="ai-template-row">
+        <label for="ai-template-select" class="ai-label">テンプレート選択：</label>
+        <select id="ai-template-select" class="ai-template-select">
+          <option value="eyecatch">🖼️ ブログアイキャッチ（1200×630・青系）</option>
+          <option value="concept">💡 概念図（フラットデザイン・白背景）</option>
+          <option value="flow">🔀 フロー図（縦長・矢印強調）</option>
+          <option value="roi">📐 ROI 計算式の流れ図</option>
+          <option value="compare">⚖️ 比較表ビジュアル</option>
+          <option value="ngsummary">⚠️ NG集サマリ（4アイコン）</option>
+          <option value="bgremove">🪄 背景除去・背景クリーンアップ</option>
+          <option value="colorfix">🎨 配色統一・ブランドカラー適用</option>
+          <option value="addtext">✏️ 画像にテキスト追加</option>
+          <option value="custom">📝 カスタム（自分で書く）</option>
+        </select>
+      </div>
+
+      <div class="ai-vars-grid">
+        <label class="ai-var-row">
+          <span>記事タイトル</span>
+          <input type="text" id="ai-var-title" placeholder="例：MX ERGO S 設定編">
+        </label>
+        <label class="ai-var-row">
+          <span>メイン訴求</span>
+          <input type="text" id="ai-var-main" placeholder="例：年6万円の時短">
+        </label>
+        <label class="ai-var-row">
+          <span>サブ訴求</span>
+          <input type="text" id="ai-var-sub" placeholder="例：Logi Options+ で1個を5職務分の専用機に化かす">
+        </label>
+        <label class="ai-var-row">
+          <span>配色／雰囲気</span>
+          <input type="text" id="ai-var-mood" placeholder="例：青系（#1d4ed8）+ アクセントオレンジ #f97316">
+        </label>
+      </div>
+
+      <div class="ai-prompt-area">
+        <label for="ai-prompt" class="ai-label">生成プロンプト（自由編集可）：</label>
+        <textarea id="ai-prompt" rows="10" placeholder="テンプレを選ぶと自動生成されます"></textarea>
+      </div>
+
+      <div class="ai-actions">
+        <button type="button" id="btn-ai-copy" class="btn-secondary">📋 プロンプトをコピー</button>
+        <span style="align-self:center; font-size:0.85em; opacity:.75; padding:0 8px;">
+          ↑ コピー後、<strong>一時保存の画像</strong>を 🤖🍌🎨 で開くとプロンプト同梱で AI 起動
+        </span>
+      </div>
+
+      <div class="ai-engine-hint">
+        <strong>使い分けの目安：</strong>
+        <ul>
+          <li><strong>ChatGPT（gpt-image-1）</strong>：英語フォント・写実的・複雑な構図に強い</li>
+          <li><strong>Gemini ナノバナナ2</strong>：<u>日本語テキスト含む画像</u>・既存写真の編集・背景除去に強い</li>
+        </ul>
+        <p class="ai-engine-extension-hint" style="margin-top:8px; padding:8px 10px; background:#fff8e6; border-left:3px solid #f59e0b; border-radius:4px; font-size:0.85em;">
+          ⚠️ <strong>Gemini を使う場合：</strong>Gemini はURLプロンプトのプリフィルに非対応のため、Chrome拡張機能
+          <a href="https://chromewebstore.google.com/detail/send-to-gemini/gklmoobnblcdiglifjmdilofgndghmml" target="_blank" rel="noopener"><strong>Send to Gemini</strong></a>
+          をインストールしてください。
+          このPWAは <code>?prompt=...&amp;autosubmit=false</code> で開くため、プリフィルされた状態で停止し、画像貼付の時間が確保できます。
+        </p>
+      </div>
+
+      <p class="ai-helper-tip">
+        💡 画像が生成されたら、<strong>右クリック→画像をコピー</strong> または <strong>画像を保存</strong>。<br>
+        その後、このPWA画面に戻って <kbd>Ctrl/⌘+V</kbd> または 保存ファイルをドラッグ&ドロップで取り込み。
+      </p>
+
+      <!-- AI接続先設定（プロジェクト/Gem URL を保存） -->
+      <details class="ai-conn-settings" id="ai-conn-settings">
+        <summary>
+          ⚙️ AI 接続先設定
+          <span class="ai-conn-summary-status" id="ai-conn-status">未設定</span>
+        </summary>
+        <div class="ai-conn-body">
+          <p class="ai-conn-intro">
+            毎回同じ ChatGPT プロジェクト（例：<strong>ブログ画像編集</strong>）または Gemini Gem に繋ぎます。
+          </p>
+
+          <!-- ChatGPT セクション -->
+          <div class="ai-conn-block">
+            <div class="ai-conn-block-title">🤖 ChatGPT プロジェクト</div>
+            <div class="ai-conn-input-row">
+              <input type="url" id="ai-conn-chatgpt" placeholder="https://chatgpt.com/... のURL" autocomplete="off">
+              <button type="button" id="btn-conn-paste-gpt" class="btn-conn-paste" title="クリップボードから貼付">📋</button>
+            </div>
+            <div class="ai-conn-quick">
+              <button type="button" id="btn-conn-open-chatgpt-find" class="btn-conn-find">🔍 ChatGPTを開いてURLを探す</button>
+            </div>
+          </div>
+
+          <!-- Gemini セクション -->
+          <div class="ai-conn-block">
+            <div class="ai-conn-block-title">🍌 Gemini Gem</div>
+            <div class="ai-conn-input-row">
+              <input type="url" id="ai-conn-gemini" placeholder="https://gemini.google.com/... のURL" autocomplete="off">
+              <button type="button" id="btn-conn-paste-gem" class="btn-conn-paste" title="クリップボードから貼付">📋</button>
+            </div>
+            <div class="ai-conn-quick">
+              <button type="button" id="btn-conn-open-gemini-find" class="btn-conn-find">🔍 Geminiを開いてURLを探す</button>
+            </div>
+          </div>
+
+          <div class="ai-conn-actions">
+            <button type="button" id="btn-conn-save" class="btn-primary">💾 保存</button>
+            <button type="button" id="btn-conn-reset" class="btn-text">デフォルトに戻す</button>
+          </div>
+
+          <p class="ai-conn-howto">
+            <strong>最速の接続手順：</strong><br>
+            ① 上の「🔍 ChatGPTを開いてURLを探す」をクリック<br>
+            ② 開いた ChatGPT で「ブログ画像編集」プロジェクトを開く<br>
+            ③ アドレスバーのURLをコピー<br>
+            ④ PWA に戻って入力欄横の <strong>📋 ボタン1個</strong> でクリップボードから自動貼付<br>
+            ⑤「💾 保存」
+          </p>
+        </div>
+      </details>
+
+      <!-- 接続先表示バー（保存済みの場合のみ表示） -->
+      <div class="ai-conn-bar" id="ai-conn-bar" hidden>
+        <span class="ai-conn-bar-status">✅ 接続中</span>
+        <span class="ai-conn-bar-engines" id="ai-conn-bar-engines"></span>
+      </div>
+    </div>
+  </details>
+
+  <!-- 専用の貼付ターゲット領域（最も確実に動く経路） -->
+  <div class="paste-target-wrap">
+    <div
+      id="paste-target"
+      class="paste-target"
+      contenteditable="true"
+      role="textbox"
+      aria-label="ここに画像を貼り付け"
+      spellcheck="false"
+    >
+      <span class="paste-target-placeholder">⬇ ここをタップしてから Ctrl/⌘+V でスクショを貼付</span>
+    </div>
   </div>
 
   <!-- 詳細手順（クリックで展開） -->

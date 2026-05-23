@@ -54,6 +54,7 @@
 | 1 | garmin-venu2s-review.md | Garmin Venu 2S を4年半使ったリアルレビュー | - | - | 2026/03/29 | ローカルのみ |
 | 2 | huawei-gt-runner2-review.md | 【10km実走データ】HUAWEI GT Runner 2 | 703 | - | 2026/04/21 | 下書き |
 | 3 | keychron-k1max-jis-setup-guide.md | Keychron K1 Max 設定編｜1台で4配列を切替する完全ガイド｜年21万円の時短 | 836 | https://www.ootanisatan.com/?p=836 | 2026/05/11 | **公開**（カテゴリ：ガジェット研究室+時短ツール研究室／アイキャッチmedia_id=837） |
+| 4 | mx-ergo-s-settings-guide.md | MX ERGO S 設定編｜Logi Options+ で年6万円の時短を生むカスタマイズ術 | 873 | https://www.ootanisatan.com/mx-ergo-s-settings-guide/ | 2026/05/17 | **公開**（カテゴリ：ガジェット研究室+時短ツール研究室／アイキャッチmedia_id=877 ChatGPT生成版／実機スクショ7枚埋込／時給950円基準ROI） |
 
 > **台帳メンテナンスルール**
 > - 新規公開時に1行追加（必須）
@@ -262,6 +263,34 @@
   - サイドバー版navは `body.page-id-756 #ptglMobileNav { display: none }` で重複防止
 - WAFは `<script>` を含む widget を 403 で拒否。CSS-onlyで設計するのが鉄則。
 
+- 2026/05/18：**記事873で確立したカイゼン案を全公開記事へ展開**。
+  ① **🏆 急いでいる人へ型CTA** を全主要記事（605/552/526/450/836）の冒頭に追加。記事性質別に内容を最適化（レビュー記事は設定編誘導／持ち運び系は紛失リスク訴求／Garminは健康データ統合）。
+  ② **時給950円（全国最低賃金）基準** に統一。836は時給3,000円ベースの計算に「最低賃金でも年6.7万円・初年度2.7倍回収」を併記。526は時給1,500円→950円で全面再計算（節約価値222円/日・損益分岐81日・約2.7ヶ月で回収）。
+  ③ **TOC ホバー演出** は Customizer CSS (PTGL_TOC_HOVER) で全記事自動適用。H2は数字スケールアップ＋オレンジ「→」スライドイン、H3は左端オレンジバー出現。スクロール時の active section ハイライト・スムーズスクロール含む。
+  ④ **H見出し scroll-margin-top:84px** で見出しジャンプ時のヘッダー被り回避。
+  ⑤ 全記事Markdown残骸=0件・H2構造整合性を最終確認。
+  教訓：**「急いでいる人へ」CTAは記事タイプ別にコピーを変えるべき**。レビュー記事は「設定編へ誘導」型／設定編は「最強1設定」型／商品紹介は「リスクゼロ化」型。テンプレ化しすぎると訴求弱まる。
+
+- 2026/05/17：**記事873 MX ERGO S 設定編を公開**。Logi Options+ の Actions Ring × Per-app プロファイル × ジェスチャー の3軸を中心に、時給950円計算で95日損益分岐・3年純利益+12.4万円のROIを提示。記事めしPWAで集めた実機スクショ8枚（うち7枚を本文埋め込み）と Pillow 自動生成アイキャッチで構成。記事526末尾に「設定編はこちら」内部リンク追加で伏線回収完了。
+
+  **教訓1：wp_block_builder.py は `![alt](url)` Markdown画像を処理しない**。回避策：①画像を `@@IMG_{wp_id}_{base64alt}@@` マーカーに置換 → ②markdown_to_blocks() で変換 → ③マーカーを `block_image()` で WP image ブロックに復元 → ④`<p>` で包まれたら剥がす。最終 regex で `**xxx**`/`***xxx***` 残骸を強制 strong 化。
+
+  **教訓2：記事めしPWA の PROMPT.md が「フォルダ流用時に前記事のメモが残置」する不具合**。今回は「MX ERGO S 最適設定」フォルダに「Brown9 洗浄液」のメモが残っていた。回避策：PROMPT.md がフォルダ名と乖離している場合は無視し、画像内容を主軸に採用。PWA側は「新規記事として使う」時点で PROMPT.md をクリア・上書きする実装に改修すべき。
+
+  **教訓3：ConoHa WAF が JPG 連続アップロードで 403 を返すことがある**。回避策：PNG変換＋微クロップ＋別名で再試行。8枚中1枚（#4）が PNG変換版で通過。
+- 2026/05/12：**記事めしPWAに「スクショ貼付」機能を追加**。`📋 クリップボードから貼付` ボタン（`navigator.clipboard.read()`）／`document.paste` イベント／ドラッグ&ドロップの3経路、OS別の詳細手順を UI 内に details で展開表示。
+
+**重大な教訓：Cloudflare Pages の Git 連携が実は動いていなかった**。`git push` してもサーバ側は古いコードを配信し続けていた（Git連携設定なし or 切れていた）。確実な反映には **`wrangler pages deploy . --project-name=blog-capture --commit-dirty=true --branch=main --commit-message="ASCII text"`** を実行する必要あり。
+
+注意：`--commit-message` を省略すると wrangler が git の最新コミットメッセージを使うが、**日本語が含まれると UTF-8 エラー（code: 8000111）** で失敗する。必ず **ASCIIメッセージを明示** すること。
+
+今後のPWA変更時のフロー：
+```bash
+cd blog/pwa-cloudflare
+wrangler pages deploy . --project-name=blog-capture --commit-dirty=true --branch=main --commit-message="ASCII summary"
+# 即時反映を curl で確認
+curl -s https://blog-capture.pages.dev/?t=$RANDOM | grep -c "新機能のキーワード"
+```
 - 2026/05/11：**ホーム「最新の記事」サムネ全空白問題を解決**。原因は Customizer CSS の `.ot-latest-thumb` に `background: #f3f4f6 !important`（ショートハンド）があり、inline style の `background-image: url(...)` を全部リセットしていた。`background-color: #f3f4f6 !important` に変更で解決。教訓：**CSS の `background: ...!important` ショートハンドは inline style の background-image も上書きする**。`background-color` 単体に分離して指定するのが鉄則
 - 2026/05/11：**プロフィール画像差し替え**。JIN:R Customizer の `jinr__profile_image_url` キーが旧画像（2026/02アップの低解像度 8885b3...jpg）を保持していた。これを media_id 737（オオタニ所長 通常・800×800・2026/05/03 アップ）に差し替え。教訓：**JIN:R独自設定は theme_mod に格納されるため、WP REST API では見えない**。Customizerで `wp.customize._value` を全キー走査するのが確実な発見手段
 - 2026/05/11：**見出しサイズの異常**を発見・修正。記事 836 で H3=13px、H2=15.5px と本文(17px)より小さい状態だった。JIN:R Customizer 追加CSSに `PTGL_HEADING_FIX` ブロック（1339bytes）を追加し、H1=32 / H2=28 / H3=22 / H4=18 / 本文=17 の正常階層に。色は #1d4ed8（青）、H3には3px下線。モバイル(768px以下)は H2=22 / H3=19。教訓：**JIN:Rテーマのデフォルト見出し設定は本文より小さくなる場合がある**。新記事公開前に必ずH2/H3 サイズを `getComputedStyle` で確認すること
