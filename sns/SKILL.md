@@ -174,4 +174,6 @@ Phase 3以降は各APIから自動取得（要エンジニア相談）。
 - `sns/channels/youtube/SKILL.md` — YouTube特化ルール
 - `sns/scripts/README.md` — 自動化基盤の実装計画
 - `~/.claude/plans/cozy-wondering-alpaca.md` — 全体ロードマップ
-- `blog/SKILL.md` — ブログ部門ルール（記事公開後にここからSNSへ連動）
+- `blog/SKILL.md` — ブログ部門の目次（記事公開後にここからSNSへ連動）
+- `blog/skills/research-publish.md` §12 — ブログ→SNS連携の起点ルール
+- `blog/skills/technical.md`「画像の会話蓄積を防ぐ運用ルール」 — 画像Read制限の詳細

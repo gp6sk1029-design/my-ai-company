@@ -113,7 +113,7 @@ AI：#ChatGPT #Claude #AI活用 #生成AI
 ### 5.3 ⚠️ 画像Read制限の遵守
 ブログ部門と同じく、SNS原稿生成時もClaudeに画像を直接Readさせない。
 - 画像分析が必要な場合はsubagent（Explore）に委譲
-- 詳細：`blog/SKILL.md`「画像の会話蓄積を防ぐ運用ルール」参照
+- 詳細：`blog/skills/technical.md`「画像の会話蓄積を防ぐ運用ルール」参照
 
 ---
 
