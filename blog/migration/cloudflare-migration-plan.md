@@ -418,11 +418,13 @@ my-ai-company/
 
 移設完了後、以下のファイルを更新：
 
-- [ ] `blog/SKILL.md` §0 PROMPT.md優先ルール — 変更不要
-- [ ] `blog/SKILL.md` §11 WordPress投稿ルール — 「ローカルWP前提」を追記
+- [ ] `blog/skills/technical.md` §0 PROMPT.md優先ルール — 変更不要
+- [ ] `blog/skills/research-publish.md` §11 WordPress投稿ルール — 「ローカルWP前提」を追記
 - [ ] `blog/MEMORY.md` — 移設記録・新運用ルールを記載
 - [ ] `CLAUDE.md` — 「ブログ部門の編集フロー」をローカルWPベースに更新
 - [ ] `sns/SKILL.md` — 変更不要（公開URL不変のため）
+
+> 📌 2026-05-24: blog/SKILL.md が4ファイル構成（SKILL.md + skills/writing.md + skills/research-publish.md + skills/technical.md）に分離されたため、参照パスを新構造に更新済み。
 
 ---
 
@@ -445,7 +447,10 @@ my-ai-company/
 
 ### 12.1 既存ドキュメント
 - `CLAUDE.md` — 全体ルール（v3.0）
-- `blog/SKILL.md` — ブログ部門ルール
+- `blog/SKILL.md` — ブログ部門の目次（クイックリファレンス・分離トリガー）
+- `blog/skills/writing.md` — §1-6, §14-16 執筆ルール
+- `blog/skills/research-publish.md` — §7-13 リサーチ・SEO・校正・公開（§11 WordPress投稿）
+- `blog/skills/technical.md` — §0 + §17 + §18 技術運用（§0 PROMPT.md・JIN:R・wp_block_builder）
 - `blog/MEMORY.md` — 学習蓄積
 - `~/.claude/CLAUDE.md`（オーナー個人ルール） — Cloudflare構成ルール
 
