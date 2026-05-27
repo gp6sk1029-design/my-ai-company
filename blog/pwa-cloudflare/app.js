@@ -124,8 +124,34 @@
   let recordStartTs = 0;
   let recordTimerId = null;
 
+  // カメラ ON/OFF 状態（localStorage 永続化、デフォルト ON）
+  const CAM_ENABLED_KEY = 'kiji-meshi:camera-enabled';
+  function isCameraEnabled() {
+    const v = localStorage.getItem(CAM_ENABLED_KEY);
+    return v === null ? true : v === '1';
+  }
+  function setCameraEnabled(on) {
+    localStorage.setItem(CAM_ENABLED_KEY, on ? '1' : '0');
+  }
+  function applyCameraPowerUI() {
+    const on = isCameraEnabled();
+    const mask = document.getElementById('camera-off-mask');
+    const power = document.getElementById('camera-power');
+    if (mask) mask.hidden = on;
+    if (power) {
+      power.classList.toggle('off', !on);
+      power.title = on ? 'カメラ停止（OFF）' : 'カメラ起動（ON）';
+    }
+  }
+
   async function startCamera() {
     stopCamera();
+    // OFF 状態なら起動しない（待機）
+    if (!isCameraEnabled()) {
+      applyCameraPowerUI();
+      setStatus('📷 カメラ OFF（タップで起動）');
+      return;
+    }
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       setStatus('⚠️ このブラウザはカメラ非対応。「選択」タブを使ってください');
       return;
@@ -138,6 +164,7 @@
       currentStream = await navigator.mediaDevices.getUserMedia(constraints);
       cameraPreview.srcObject = currentStream;
       setStatus('📷 カメラ起動中');
+      applyCameraPowerUI();
     } catch (e) {
       let msg = e.message || String(e);
       if (e.name === 'NotAllowedError') msg = 'カメラ権限を許可してください（URLバーの🔒から）';
@@ -249,13 +276,24 @@
         '<button class="ai-edit-btn" type="button" title="ChatGPTで編集" data-action="ai-gpt">🤖</button>' +
         '<button class="ai-edit-btn ai-edit-gemini" type="button" title="Geminiで編集" data-action="ai-gem">🍌</button>' +
         '<button class="ai-edit-btn ai-edit-canva" type="button" title="Canvaで仕上げ" data-action="ai-canva">🎨</button>';
+      const curRoleKey = (item.role || (item.isEyecatch ? 'eyecatch' : 'none'));
+      const roleDef = getRoleDef(curRoleKey);
+      const roleBtnHtml = (isVideo || isPdf) ? '' :
+        '<button class="role-btn' + (curRoleKey !== 'none' ? ' active' : '') + '" type="button" ' +
+        'style="' + (curRoleKey !== 'none' ? `background:${roleDef.color};color:#fff;border-color:${roleDef.color};` : '') + '" ' +
+        'title="' + (curRoleKey === 'none' ? 'タップして用途を割当' : `${roleDef.label}（タップで次の用途へ）`) + '" ' +
+        'data-action="cycle-role">' + roleDef.emoji + '</button>';
       const editingBadge = (item.editingWith ? '<div class="editing-badge">編集中…</div>' : '');
+      const replaceBadge = (item.replaceDriveFileId ? '<div class="replace-badge" title="転送時に既存ファイルを上書き">↻ 上書き</div>' : '');
+      const roleBadge = (curRoleKey !== 'none'
+        ? `<div class="role-badge" style="background:${roleDef.color}" title="${roleDef.label}">${roleDef.emoji} ${roleDef.label}</div>`
+        : '');
       div.insertAdjacentHTML('beforeend',
         '<span class="type-badge">' + (isVideo ? 'VID' : isPdf ? 'PDF' : 'IMG') + '</span>' +
-        editBtnHtml +
+        editBtnHtml + roleBtnHtml +
         '<button class="delete-btn" type="button">✕</button>' +
         (item.status === 'uploading' ? '<div class="status-overlay">転送中…</div>' : '') +
-        editingBadge
+        editingBadge + replaceBadge + roleBadge
       );
       div.querySelector('.delete-btn').addEventListener('click', async (e) => {
         e.stopPropagation();
@@ -266,12 +304,67 @@
       const gptBtn = div.querySelector('[data-action="ai-gpt"]');
       const gemBtn = div.querySelector('[data-action="ai-gem"]');
       const canvaBtn = div.querySelector('[data-action="ai-canva"]');
+      const roleBtn = div.querySelector('[data-action="cycle-role"]');
       if (gptBtn) gptBtn.addEventListener('click', async (e) => { e.stopPropagation(); await oneClickEdit(item, 'chatgpt'); });
       if (gemBtn) gemBtn.addEventListener('click', async (e) => { e.stopPropagation(); await oneClickEdit(item, 'gemini'); });
       if (canvaBtn) canvaBtn.addEventListener('click', async (e) => { e.stopPropagation(); await oneClickEdit(item, 'canva'); });
+      if (roleBtn) roleBtn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        await cycleRole(item.id);
+      });
       queueList.appendChild(div);
     }
   }
+  // ─── 画像役割（用途別タグ）──────────────────
+  // 1記事につきユニーク（アイキャッチ）／複数可（他）でルールが異なる
+  const ROLE_DEFS = [
+    { key: 'none',      emoji: '☆',  label: '役割なし',           prefix: '',          unique: false, color: '#9ca3af' },
+    { key: 'eyecatch',  emoji: '⭐', label: 'アイキャッチ',       prefix: 'eyecatch_', unique: true,  color: '#f59e0b' },
+    { key: 'hero',      emoji: '🎯', label: 'ヒーローバナー',     prefix: 'hero_',     unique: true,  color: '#ef4444' },
+    { key: 'section',   emoji: '📑', label: 'セクション画像',     prefix: 'section_',  unique: false, color: '#3b82f6' },
+    { key: 'product',   emoji: '📸', label: '商品/実機写真',      prefix: 'product_',  unique: false, color: '#10b981' },
+    { key: 'diagram',   emoji: '📐', label: '図解/フロー図',       prefix: 'diagram_',  unique: false, color: '#8b5cf6' },
+    { key: 'compare',   emoji: '⚖️', label: '比較/Before-After',  prefix: 'compare_',  unique: false, color: '#ec4899' },
+    { key: 'ngsummary', emoji: '⚠️', label: 'NG集サマリ',         prefix: 'ngsummary_', unique: true, color: '#dc2626' },
+  ];
+  function getRoleDef(key) {
+    return ROLE_DEFS.find(r => r.key === key) || ROLE_DEFS[0];
+  }
+  // 旧 isEyecatch との後方互換
+  function normalizeItemRole(item) {
+    if (item.role) return item.role;
+    if (item.isEyecatch) return 'eyecatch';
+    return 'none';
+  }
+  async function cycleRole(targetId) {
+    const all = await queueAll();
+    const target = all.find(x => x.id === targetId);
+    if (!target) return;
+    const cur = normalizeItemRole(target);
+    const idx = ROLE_DEFS.findIndex(r => r.key === cur);
+    const next = ROLE_DEFS[(idx + 1) % ROLE_DEFS.length];
+    // ユニーク役割なら他を解除
+    if (next.unique) {
+      for (const it of all) {
+        if (it.id !== targetId && normalizeItemRole(it) === next.key) {
+          it.role = 'none';
+          it.isEyecatch = false;
+          await queuePut(it);
+        }
+      }
+    }
+    target.role = next.key;
+    // 互換: eyecatch のみ isEyecatch も維持
+    target.isEyecatch = (next.key === 'eyecatch');
+    await queuePut(target);
+    await renderQueue();
+    if (next.key === 'none') {
+      showToast('役割をクリアしました', 'success');
+    } else {
+      showToast(`${next.emoji} ${next.label}に指定 → 転送時 \`${next.prefix}xxx\` で保存`, 'success');
+    }
+  }
+
   function prettySize(b) {
     if (b < 1024) return b + 'B';
     if (b < 1024 * 1024) return (b / 1024).toFixed(1) + 'KB';
@@ -314,9 +407,14 @@
       return engine === 'gemini' ? getGeminiUrl() : getChatGPTUrl();
     }
     // プロンプトあり
-    const MAX = 1500;
+    // ChatGPTサーバーは長いURLで HTTP 431 を返す。安全圏は raw 日本語 300文字以内（≈ URL 2700バイト）
+    // ※ 完全版プロンプトはクリップボード経由で渡す（btnOpenAIのonclick内で navigator.clipboard.writeText）
+    const MAX = 300;
     let p = prompt;
-    if (p.length > MAX) p = p.slice(0, MAX) + '\n…（プロンプト省略）';
+    if (p.length > MAX) {
+      // URL用は冒頭サマリだけ。詳細はクリップボードからペーストする旨を末尾に
+      p = p.slice(0, MAX) + '\n…（詳細はPWAの📋プロンプトボタン経由でペーストしてください）';
+    }
     if (engine === 'gemini') {
       const saved = (localStorage.getItem(CONN_KEY_GEM) || '').trim();
       const base = saved || 'https://gemini.google.com/app';
@@ -328,11 +426,9 @@
       // 推奨：右上「デザインを作成」→ カスタムサイズ「1200×630」を入力 → ⌘Vで画像貼付
       return 'https://www.canva.com/';
     }
-    // ChatGPT: 保存されたプロジェクトURL を基底にする（未設定なら chatgpt.com ルート）
-    const saved = (localStorage.getItem(CONN_KEY_GPT) || '').trim();
-    const base = saved || 'https://chatgpt.com/';
-    const sep = base.includes('?') ? '&' : '?';
-    return base + sep + 'q=' + encodeURIComponent(p);
+    // ChatGPT: プロンプトがある場合は chatgpt.com ルートを強制（プロジェクトURLは ?q= を無視するため）
+    // → プロンプト自動入力を最優先。プロジェクト文脈を使いたい場合はChatGPT側で手動切替
+    return 'https://chatgpt.com/?q=' + encodeURIComponent(p);
   }
 
   // Engine ラベル取得（バナー表示用）
@@ -781,16 +877,21 @@
                 '<li>または保存ファイルをこのPWA画面に <strong>ドラッグ＆ドロップ</strong></li>' +
                 '</ol>')) +
       '</div>' +
+      // 直前再コピー（重要操作）を強調表示
+      '<div class="banner-prep-paste">' +
+        '<div class="prep-paste-title">📋 AIで <kbd>⌘V</kbd> する <strong>直前に</strong> 押してください</div>' +
+        '<div class="prep-paste-buttons">' +
+          '<button type="button" id="banner-copy-image" class="prep-btn prep-btn-image" title="クリップボードを画像に上書き">🖼 画像を再コピー</button>' +
+          '<button type="button" id="banner-copy-prompt" class="prep-btn prep-btn-prompt" title="クリップボードをプロンプトに上書き">📝 プロンプトをコピー</button>' +
+        '</div>' +
+        '<small class="prep-paste-hint">途中で別のスクショを取ると上書きされます。AIに貼付直前にこのボタンを押してください。</small>' +
+      '</div>' +
       '<div class="editing-banner-actions">' +
         (isMobileDevice() && navigator.share
           ? `<button type="button" id="banner-share" class="banner-open-ai" title="画像＋プロンプトを共有">📤 ${engineLabel}アプリへ共有</button>`
           : `<button type="button" id="banner-open-ai" class="banner-open-ai" title="${engineLabel} を開き直す">🚀 ${engineLabel} を開く</button>`) +
         '<button type="button" id="banner-receive-file" title="設定フォルダから最新画像を自動取込（未設定なら標準ファイル選択）">📥 完成画像を取込</button>' +
         '<button type="button" id="banner-set-folder" title="取込元フォルダ（Google Drive ダウンロード等）を設定">📁 取込元設定</button>' +
-        '<button type="button" id="banner-copy-image" title="画像をクリップボードへ">📋 画像をコピー</button>' +
-        (pendingReplace.needsPromptPaste
-          ? '<button type="button" id="banner-copy-prompt" class="banner-copy-prompt-strong" title="クリップボードを「プロンプト」に切替 → AI で⌘V">📋 プロンプトに切替（必須）</button>'
-          : '<button type="button" id="banner-copy-prompt" title="プロンプトをクリップボードへ（保険）">📋 プロンプト</button>') +
         '<button type="button" id="banner-cancel">置換キャンセル</button>' +
       '</div>' +
       '<div id="banner-folder-status" class="banner-folder-status"></div>' +
@@ -802,16 +903,33 @@
             '<label for="banner-tpl">テンプレート：</label>' +
             '<select id="banner-tpl">' +
               '<option value="__keep__">— 変更しない（現在のプロンプト）—</option>' +
-              '<option value="eyecatch">🖼️ ブログアイキャッチ（1200×630）</option>' +
-              '<option value="concept">💡 概念図（フラット・白背景）</option>' +
-              '<option value="flow">🔀 フロー図</option>' +
-              '<option value="roi">📐 ROI 流れ図</option>' +
-              '<option value="compare">⚖️ 比較表</option>' +
-              '<option value="ngsummary">⚠️ NG集サマリ</option>' +
-              '<option value="bgremove">🪄 背景除去</option>' +
-              '<option value="colorfix">🎨 配色統一</option>' +
-              '<option value="addtext">✏️ 画像にテキスト追加</option>' +
-              '<option value="custom">📝 カスタム（自由入力）</option>' +
+              '<optgroup label="── 記事冒頭 ──">' +
+                '<option value="eyecatch">🖼️ ブログアイキャッチ</option>' +
+                '<option value="big_number">💯 数値インパクト</option>' +
+              '</optgroup>' +
+              '<optgroup label="── 製品紹介 ──">' +
+                '<option value="specs_card">📋 スペック表カード</option>' +
+                '<option value="icon_grid">🔲 機能アイコン6個</option>' +
+                '<option value="pros_cons">⚖️ メリット/デメリット</option>' +
+              '</optgroup>' +
+              '<optgroup label="── 図解・概念 ──">' +
+                '<option value="concept">💡 概念図</option>' +
+                '<option value="flow">🔀 フロー図</option>' +
+                '<option value="roi">📐 ROI 流れ図</option>' +
+                '<option value="decision_tree">🌿 使い分けフロー</option>' +
+              '</optgroup>' +
+              '<optgroup label="── まとめ・比較 ──">' +
+                '<option value="compare">📊 比較表</option>' +
+                '<option value="ranking">🥇 ランキング</option>' +
+                '<option value="target_buyer">🎯 こんな人におすすめ</option>' +
+                '<option value="ngsummary">⚠️ NG集サマリ</option>' +
+              '</optgroup>' +
+              '<optgroup label="── 画像加工 ──">' +
+                '<option value="bgremove">🪄 背景除去</option>' +
+                '<option value="colorfix">🎨 配色統一</option>' +
+                '<option value="addtext">✏️ テキスト追加</option>' +
+                '<option value="custom">📝 カスタム</option>' +
+              '</optgroup>' +
             '</select>' +
           '</div>' +
           '<div class="banner-pb-vars">' +
@@ -823,6 +941,10 @@
               '<input type="text" id="banner-var-sub"   placeholder="例：Logi Options+ で1個を5職務分の専用機に化かす"></label>' +
             '<label class="banner-pb-var"><span>配色／雰囲気</span>' +
               '<input type="text" id="banner-var-mood"  placeholder="例：青系（#1d4ed8）＋アクセントオレンジ #f97316"></label>' +
+          '</div>' +
+          '<div class="banner-research-row">' +
+            '<button type="button" id="banner-research-btn" class="btn-secondary btn-small" title="リサーチ用プロンプトをクリップボードへ">🔍 リサーチプロンプトをコピー</button>' +
+            '<small style="opacity:.75">AIに貼って回答取得 → 上の欄に転記</small>' +
           '</div>' +
           '<textarea id="banner-prompt-edit" rows="8" class="banner-prompt-edit"></textarea>' +
           '<small style="opacity:.75">本文を直接編集してもOK。変更は自動で次回の「🚀 開く」に反映されます。</small>' +
@@ -871,8 +993,14 @@
       taPrompt.value = pendingReplace.prompt || '';
 
       function regen() {
-        const key = tplSel.value;
-        if (key === '__keep__') return; // 何もしない
+        let key = tplSel.value;
+        // 変数入力時に「__keep__」のままなら自動で eyecatch に切替（変数が無視されないように）
+        if (key === '__keep__') {
+          key = 'eyecatch';
+          tplSel.value = key;
+        }
+        // テンプレに合わせて入力欄のラベル・プレースホルダーを更新
+        if (typeof applyTemplateFields === 'function') applyTemplateFields(key, 'banner');
         const tpl = (typeof AI_TEMPLATES !== 'undefined') ? AI_TEMPLATES[key] : null;
         if (!tpl) return;
         const vars = {
@@ -884,13 +1012,23 @@
         taPrompt.value = tpl(vars);
         pendingReplace.prompt = taPrompt.value;
       }
-      tplSel.addEventListener('change', regen);
+      // バナー表示直後にもラベル更新（__keep__ の時は eyecatch をデフォルト相当として）
+      if (tplSel.value && tplSel.value !== '__keep__') applyTemplateFields(tplSel.value, 'banner');
+      tplSel.addEventListener('change', () => {
+        // セレクト変更時もラベルを更新（再生成しない場合でも）
+        const k = tplSel.value === '__keep__' ? 'eyecatch' : tplSel.value;
+        applyTemplateFields(k, 'banner');
+        regen();
+      });
       [inpT, inpM, inpS, inpO].forEach(el => el && el.addEventListener('input', () => {
-        if (tplSel.value !== '__keep__' && tplSel.value !== 'custom') regen();
+        if (tplSel.value !== 'custom') regen(); // __keep__ も含めて変数入力時は再生成
       }));
       taPrompt.addEventListener('input', () => {
         pendingReplace.prompt = taPrompt.value;
       });
+      // 🔍 リサーチプロンプト生成（バナー内）
+      const researchBtn = document.getElementById('banner-research-btn');
+      if (researchBtn) researchBtn.onclick = () => copyResearchPromptForCurrent('banner');
     })();
 
     document.getElementById('banner-cancel').onclick = cancelPendingReplace;
@@ -953,9 +1091,10 @@
       btnOpenAI.onclick = () => {
         if (!pendingReplace) return;
         const engine = pendingReplace.aiEngine || 'chatgpt';
-        // URLは毎回再構築（保存Gem URL変更やプロンプト編集に追従）
+
+        // ① ★最重要: window.open は最初に「同期で」呼ぶ。await 後に呼ぶと popup blocker に弾かれる
         const url = buildAIUrl(engine, pendingReplace.prompt || '');
-        pendingReplace.aiUrl = url; // キャッシュも更新
+        pendingReplace.aiUrl = url;
 
         // 既存窓があれば閉じて開き直す（古いプロンプトURLが残るのを防ぐ）
         const existing = pendingReplace.aiWindow;
@@ -963,10 +1102,40 @@
           try { existing.close(); } catch (_) {}
         }
         const w = window.open(url, '_blank', 'width=1000,height=900,scrollbars=yes,resizable=yes');
+
+        // ② 画像クリップボードへの再コピーは非同期で後追い（window.open が同期で済んでいれば popup blocker 通過）
+        let imageReady = false;
+        (async () => {
+          try {
+            if (pendingReplace.originalItem && navigator.clipboard && window.ClipboardItem) {
+              const pngBlob = await blobToPngBlob(pendingReplace.originalItem.blob);
+              const promptText = pendingReplace.prompt || '';
+              try {
+                await navigator.clipboard.write([new ClipboardItem({
+                  'image/png': pngBlob,
+                  'text/plain': new Blob([promptText], { type: 'text/plain' }),
+                })]);
+              } catch (mixErr) {
+                await navigator.clipboard.write([new ClipboardItem({ 'image/png': pngBlob })]);
+              }
+              imageReady = true;
+              clipboardMode = 'image';
+              updateStepChips && updateStepChips();
+            }
+          } catch (e) { console.warn('clipboard refresh failed:', e); }
+        })();
+
         if (w) {
           pendingReplace.aiWindow = w;
           try { w.focus(); } catch(_) {}
-          showToast('🚀 AI 画面を最新プロンプトで開きました', 'success');
+          if (imageReady) {
+            showToast(
+              '🚀 AI画面を開きました。<kbd>⌘V</kbd>で画像貼付。プロンプトが入力欄に出ない場合は<strong>📋 プロンプト</strong>ボタン→AIで再度<kbd>⌘V</kbd>',
+              'success'
+            );
+          } else {
+            showToast('🚀 AI画面を開きました。プロンプトはURL埋込済み', 'success');
+          }
         }
       };
     }
@@ -1110,148 +1279,667 @@
   const btnAiCopy = $('btn-ai-copy');
   const btnAiOpen = $('btn-ai-open');
 
+  // ─── テンプレごとの入力欄ラベル＆プレースホルダー定義 ─────────
+  // テンプレを切り替えると4つの変数欄が「そのテンプレに最適な質問」に変化
+  const TEMPLATE_FIELDS = {
+    eyecatch: {
+      title: ['記事タイトル', '例：MX ERGO S 設定編'],
+      main:  ['メイン訴求',   '例：年6万円の時短'],
+      sub:   ['サブ訴求',     '例：Logi Options+ で1個を5職務分の専用機に化かす'],
+      mood:  ['配色／雰囲気', '例：青系（#1d4ed8）＋オレンジ #f97316'],
+    },
+    big_number: {
+      title: ['文脈テキスト', '例：時短で'],
+      main:  ['巨大な数字',   '例：64,500'],
+      sub:   ['単位・後置詞', '例：円/年'],
+      mood:  ['配色',         '例：青グラデ＋オレンジ強調'],
+    },
+    specs_card: {
+      title: ['製品名',       '例：SwitchBot ロックLite'],
+      main:  ['価格（強調値）', '例：12,978円'],
+      sub:   ['製品の特徴的形状', '例：白い小型・サムターン装着'],
+      mood:  ['配色',         '例：白背景＋青タイトル'],
+    },
+    icon_grid: {
+      title: ['グリッドタイトル', '例：6つの機能'],
+      main:  ['6機能（/区切り）', '例：指紋認証 / Suica対応 / スマホ操作 / オートロック / 遠隔操作 / 音声制御'],
+      sub:   ['補足コピー',   '例：主な機能一覧'],
+      mood:  ['配色',         '例：白背景＋青オレンジアイコン'],
+    },
+    pros_cons: {
+      title: ['全体タイトル', '例：メリット・デメリット'],
+      main:  ['メリット項目（/区切り）', '例：賃貸OK / 工事不要 / 15分で取付 / 指紋認証0.3秒'],
+      sub:   ['デメリット項目（/区切り）', '例：電池交換半年毎 / 物理鍵併用 / 締め出し注意'],
+      mood:  ['配色',         '例：左緑系/右赤系'],
+    },
+    ranking: {
+      title: ['ランキングタイトル', '例：おすすめスマートロックTOP3'],
+      main:  ['1〜3位の製品名', '例：1位=ロックLite / 2位=ロックPro / 3位=Qrio Lock'],
+      sub:   ['補足',         '例：2026年5月時点・編集部独自評価'],
+      mood:  ['配色',         '例：1位金/2位銀/3位銅'],
+    },
+    target_buyer: {
+      title: ['タイトル',     '例：こんな人におすすめ'],
+      main:  ['おすすめな人（/区切り）', '例：賃貸暮らし / 在宅ワーカー / 子育て世代 / 鍵をなくしやすい人'],
+      sub:   ['不要な人（/区切り）', '例：一戸建てで強固な鍵 / 短期賃貸 / 機械音NGの人'],
+      mood:  ['配色',         '例：左緑系/右薄グレー'],
+    },
+    concept: {
+      title: ['概念図タイトル', '例：Actions Ring の仕組み'],
+      main:  ['主役要素名',   '例：Actions Ring（円形メニュー）'],
+      sub:   ['衛星要素（,区切り）', '例：AI連携, アプリ起動, ショートカット'],
+      mood:  ['配色',         '例：白背景＋青枠'],
+    },
+    flow: {
+      title: ['フロー図タイトル', '例：取付5ステップ'],
+      main:  ['ステップ内容（/区切り）', '例：①採寸 / ②両面テープ貼付 / ③本体固定 / ④アプリ初期化 / ⑤指紋登録'],
+      sub:   ['補足',         '例：所要時間15分・工具不要'],
+      mood:  ['配色',         '例：青系＋オレンジ矢印'],
+    },
+    roi: {
+      title: ['ROIタイトル',  '例：ROI 計算の流れ'],
+      main:  ['主役数値',     '例：3年純利益 +10万円'],
+      sub:   ['注釈',         '例：時給950円・最低賃金基準'],
+      mood:  ['配色',         '例：青系＋オレンジハイライト'],
+    },
+    decision_tree: {
+      title: ['タイトル',     '例：あなたにピッタリの選び方'],
+      main:  ['最初の質問',   '例：賃貸住まいですか?'],
+      sub:   ['結論（Yes/Noの行先）', '例：Yes=ロックLite / No=ロックPro'],
+      mood:  ['配色',         '例：青菱形＋オレンジ結論'],
+    },
+    compare: {
+      title: ['比較タイトル', '例：スマートロック3製品比較'],
+      main:  ['比較対象3つ',  '例：ロックLite / ロックPro / Qrio Lock'],
+      sub:   ['補足',         '例：価格は2026年5月時点'],
+      mood:  ['配色',         '例：白背景＋勝者オレンジ強調'],
+    },
+    ngsummary: {
+      title: ['NGタイトル',   '例：やってはいけない設定 4つ'],
+      main:  ['4つのNG項目（/区切り）', '例：左クリック再割当 / DPI高すぎ / 競合設定ON / Smart Actions過多'],
+      sub:   ['補足',         '例：（省略可）'],
+      mood:  ['配色',         '例：白背景＋赤アクセント'],
+    },
+    bgremove: {
+      title: ['（使用しない）', '透過PNG化のためタイトル不要'],
+      main:  ['被写体',       '例：白いスマートロック本体'],
+      sub:   ['補足',         '例：透明部分は半透明で残す'],
+      mood:  ['（使用しない）', '加工処理のため配色指定不要'],
+    },
+    colorfix: {
+      title: ['（使用しない）', '配色統一のためタイトル不要'],
+      main:  ['用途',         '例：ブログ記事用'],
+      sub:   ['補足',         '例：人物の肌色は維持'],
+      mood:  ['ブランドパレット', '例：青 #1d4ed8 / オレンジ #f97316 / 白＆グレー'],
+    },
+    addtext: {
+      title: ['メインテキスト', '例：賃貸でも15分'],
+      main:  ['サブテキスト', '例：鍵から解放'],
+      sub:   ['補足テキスト', '例：時給950円で計算'],
+      mood:  ['配置・色',     '例：左下・白文字・半透明黒帯背景'],
+    },
+    custom: {
+      title: ['タイトル（自由）', '自由記述'],
+      main:  ['訴求（自由）',     '自由記述'],
+      sub:   ['サブ（自由）',     '自由記述'],
+      mood:  ['配色（自由）',     '自由記述'],
+    },
+  };
+
+  // ─── テンプレ別「リサーチ補助プロンプト」 ─────────
+  // リサーチ必須項目を埋めるための AI 用質問プロンプトをテンプレごとに用意
+  // ユーザーが「🔍 リサーチプロンプト生成」を押すと、クリップボードへコピー → AI に貼って回答取得
+  function buildResearchPrompt(key, vars) {
+    const today = new Date().toISOString().slice(0, 10);
+
+    // === PWA状態から文脈を自動収集 ===
+    // 1) 記事名（選択中・新規どちらも対応・prefix除去）
+    let articleName = '';
+    try {
+      const n = (typeof getCurrentArticleName === 'function') ? getCurrentArticleName() : '';
+      articleName = (typeof stripArticlePrefix === 'function') ? stripArticlePrefix(n) : n;
+    } catch (_) {}
+
+    // 2) 記事タイプ（レビュー / 商品比較 / ツール紹介 等）
+    let articleTypeStr = '';
+    try {
+      const sel = document.getElementById('article-type-select');
+      articleTypeStr = (sel && sel.value || '').trim();
+    } catch (_) {}
+
+    // 3) 読者に伝えたいポイント（メモ）— 最大6件
+    let memoLines = [];
+    try {
+      if (typeof memos !== 'undefined' && Array.isArray(memos)) {
+        memoLines = memos.map(m => (m || '').trim()).filter(m => m.length > 0).slice(0, 6);
+      }
+    } catch (_) {}
+
+    // 4) 入力変数
+    const v = {
+      title: (vars.title || '').trim(),
+      main: (vars.main || '').trim(),
+      sub: (vars.sub || '').trim(),
+      mood: (vars.mood || '').trim(),
+    };
+
+    // === 文脈ブロック（全テンプレに共通で先頭付与） ===
+    const tf = TEMPLATE_FIELDS[key] || TEMPLATE_FIELDS.eyecatch;
+    const ctxLines = [];
+    ctxLines.push('━━━ 製品・記事の文脈（リサーチ対象を理解するために必読） ━━━');
+    if (articleName)   ctxLines.push(`【記事タイトル】${articleName}`);
+    if (articleTypeStr) ctxLines.push(`【記事タイプ】${articleTypeStr}`);
+    if (memoLines.length) {
+      ctxLines.push(`【読者に伝えたいポイント（優先度順・1番目が最重要）】`);
+      memoLines.forEach((m, i) => ctxLines.push(`  ${i + 1}. ${m}`));
+    }
+    if (v.title) ctxLines.push(`【入力欄「${tf.title[0]}」】${v.title}`);
+    if (v.main)  ctxLines.push(`【入力欄「${tf.main[0]}」】${v.main}`);
+    if (v.sub)   ctxLines.push(`【入力欄「${tf.sub[0]}」】${v.sub}`);
+    if (v.mood)  ctxLines.push(`【入力欄「${tf.mood[0]}」】${v.mood}`);
+    if (!articleName && !v.title && !v.main && memoLines.length === 0) {
+      ctxLines.push('⚠️ 製品名/記事タイトルが特定できません。記事めしPWAで記事を選択＆メモ入力してから再実行してください。');
+    }
+    ctxLines.push('━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    ctxLines.push('');
+    const ctx = ctxLines.join('\n');
+
+    const common = `\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n【回答ルール】\n- ${today} 時点の最新情報で（不確かなら「不明」と明記）\n- 情報源（公式URL・Amazon・口コミサイト等）を併記\n- 上記の「製品・記事の文脈」を踏まえて、その製品/テーマに特化した内容で回答\n- 結果は記事めしPWAの入力欄に直接コピペできる形式で（簡潔・実用）`;
+
+    const M = {
+      eyecatch: `上記の記事に最適な「アイキャッチ用キャッチコピー」を提案してください。\n- メイン訴求（最大15文字・強い言葉）：3案\n- サブ訴求（最大30文字・具体メリット）：各メイン案に対応する3案\n- 配色／雰囲気の提案：1案`,
+      big_number: `上記の記事の読者にインパクトを与える「巨大な数字」を1つ提案してください。\n- 数字本体（例：64,500）\n- 単位・後置詞（例：円/年）\n- 数字を導く文脈テキスト（例：時短で）\n- その数字の根拠説明（記事本文に使うため計算式付きで）`,
+      specs_card: `上記の製品のスペック表データを6項目で教えてください：\n1. 価格（強調値）\n2. 重量 or サイズ\n3. 電源 or バッテリー\n4. 主要機能\n5. 対応OS/環境\n6. 取付方法 or 設置方法`,
+      icon_grid: `上記の製品の主要機能を6つ、簡潔な機能名で並べてください：\n例：指紋認証 / Suica対応 / スマホ操作 / オートロック / 遠隔操作 / 音声制御`,
+      pros_cons: `上記の製品を実機レビュー目線で：\n- 主なメリット 4つ（各15文字以内）\n- 主なデメリット 3つ（各15文字以内）\n誇張なく、実際の口コミから抽出した内容で。`,
+      ranking: `上記の記事カテゴリの人気・おすすめランキング上位3製品を教えてください。\n各製品：\n- 順位\n- 製品名\n- 価格\n- 1行特徴（30文字以内）`,
+      target_buyer: `上記の製品の購入者ペルソナを分析してください：\n- ✅ おすすめな人 4タイプ（属性ベースで例：賃貸暮らし、在宅ワーカー、子育て世代 等）\n- ❌ 不要な人 2-3タイプ`,
+      concept: `上記の製品/概念を概念図で説明したい。\n- 中心となる「主役要素」\n- 関連する「衛星要素」3〜5個（短い名詞で）`,
+      flow: `上記の製品の使用/設定を5ステップのフローで。\n①〜⑤ で簡潔に。所要時間も付記。`,
+      roi: `上記の製品のROI（投資対効果）を時給950円（最低賃金）基準で計算してください。\n- 価格（円）\n- 1日節約時間（分）と内訳\n- 1日節約価値（円/日）\n- 損益分岐日数（日）\n- 3年純利益（円）\n計算式の各ステップを明示。`,
+      decision_tree: `上記の製品を選ぶ時の最初の判断軸を1つ提案してください。\n- 質問1（Yes/Noで答えられる）：例「賃貸住まいですか?」\n- Yes の場合の結論：オススメ製品名\n- No の場合の結論：別の製品名`,
+      compare: `上記の製品と競合製品 計3つを比較してください。\n- 製品名 × 3\n- 価格 / 主要機能 / 重量 等 5項目の比較表`,
+      ngsummary: `上記の製品/設定で「やってはいけない設定/使い方」を4つ：\n各NG：\n- 簡潔な見出し（10文字以内）\n- 1行の理由説明`,
+      addtext: `上記の記事サムネ画像に重ねるキャッチコピー：\n- メインテキスト（最大10文字・強い言葉）\n- サブテキスト（最大20文字）\n- 補足（任意）`,
+      bgremove: `上記の画像の主役被写体を識別して、背景除去のための簡潔な被写体描写を1文で：\n例：「白い小型スマートロック本体（サムターン装着済み）」`,
+      colorfix: `上記の画像の用途と維持すべき色の制約を整理：\n- 用途（ブログ記事用/SNS等）\n- 維持すべき色（人物の肌色 等）\n- ブランドパレットへの寄せ方`,
+      custom: `上記のテーマで、ブログ記事に使う画像のアイデアを3つ提案。\n各案：構図・色・テキスト・ねらい`,
+    };
+    return ctx + (M[key] || M.custom) + common;
+  }
+
+  // 「🔍 リサーチプロンプトをコピー」ボタンの動作
+  async function copyResearchPromptForCurrent(scope) {
+    const prefix = scope === 'banner' ? 'banner-' : 'ai-';
+    const tplSelEl = document.getElementById(prefix + (scope === 'banner' ? 'tpl' : 'template-select'));
+    let key = tplSelEl ? tplSelEl.value : 'eyecatch';
+    if (key === '__keep__') key = 'eyecatch';
+    const vars = {
+      title: (document.getElementById(prefix + 'var-title') || {}).value || '',
+      main:  (document.getElementById(prefix + 'var-main')  || {}).value || '',
+      sub:   (document.getElementById(prefix + 'var-sub')   || {}).value || '',
+      mood:  (document.getElementById(prefix + 'var-mood')  || {}).value || '',
+    };
+    const prompt = buildResearchPrompt(key, vars);
+    try {
+      await navigator.clipboard.writeText(prompt);
+      showToast('🔍 リサーチプロンプトをコピー。ChatGPT/Gemini/Claude に貼って回答を取得してください', 'success');
+    } catch (e) {
+      // フォールバック：プロンプトをダイアログ表示
+      window.prompt('以下をAIに貼ってリサーチしてください', prompt);
+    }
+  }
+
+  // テンプレ切替時に入力欄のラベル＆プレースホルダーを書き換える
+  // scope: 'helper' = 上部AIヘルパー / 'banner' = バナー内プロンプト編集
+  function applyTemplateFields(key, scope) {
+    const def = TEMPLATE_FIELDS[key] || TEMPLATE_FIELDS.eyecatch;
+    const prefix = scope === 'banner' ? 'banner-var-' : 'ai-var-';
+    ['title', 'main', 'sub', 'mood'].forEach((k) => {
+      const inp = document.getElementById(prefix + k);
+      if (!inp) return;
+      const lbl = inp.parentElement && inp.parentElement.querySelector('span');
+      if (lbl) lbl.textContent = def[k][0];
+      inp.placeholder = def[k][1];
+    });
+  }
+
+  // ─── 共通ガード文（全テンプレに自動付与）──────────
+  // ChatGPT(gpt-image-2) / Gemini Nano Banana 2 両対応の高品質画像生成プロンプト
+  const COMMON_GUARDS = `
+【対応エンジン】このプロンプトは ChatGPT(gpt-image-2) と Gemini Nano Banana 2 の両方で最高品質の出力が得られるように設計されています。
+
+【絶対遵守ルール（最重要）】
+- 日本語テキストは絶対に正しく描画する。指定された文字を1字も省略・置換・架空化しない
+- 文字の欠損・分離・順序入れ替わり・架空のひらがな化・読めない崩し字は厳禁
+- フォント：Noto Sans JP / Hiragino Kaku Gothic ProN / Yu Gothic Bold / Source Han Sans 相当のクリーンなゴシック体
+- 全ての日本語文字を1文字単位で確認してから描画。指定外の文字は1字も追加しない
+- 人物が含まれる場合：手の指は5本・歪まない・正常な解剖学
+- ピクセル単位でくっきり、JPEG圧縮ノイズなし、4K相当の解像感
+- 余白を必ず確保（テキストが画面端に密着しない・最低5%マージン）
+- 商標ロゴの完全再現は避ける（一般化したアイコン表現で）
+
+【絶対避ける】
+- 「文字化け」「架空のひらがな」「漢字を勝手に追加」「英字に置換」
+- 散らかったレイアウト・要素の重なり・読みづらい配色
+- 過剰な装飾・ベタなクリップアート・90年代風影
+
+【参考品質基準】
+Pinterest 保存数上位 / プロデザイナーの LP 冒頭ヒーロー / Apple公式LP / Google Material Design 3 / Stripe / Linear の品質を目指す`;
+
   const AI_TEMPLATES = {
-    eyecatch: ({title, main, sub, mood}) => `ブログ記事のアイキャッチ画像を1枚作成してください。
+    eyecatch: ({title, main, sub, mood}) => `# ブログアイキャッチ画像（最高品質）
 
-【サイズ・比率】
-横1200×縦630px（アスペクト比40:21 横長）
+【出力仕様】
+- サイズ：1200×630px（アスペクト比 40:21 横長）
+- 用途：日本語テックブログのアイキャッチ・SNSプレビュー対応
+- 出力形式：PNG / フルブリード（端まで色が広がる）
 
-【雰囲気】
-${mood || 'ガジェット×ビジネス、洗練されたプロフェッショナルな雰囲気'}
+【構図グリッド】
+- 黄金分割：左 5/8 にテキストエリア、右 3/8 にビジュアル要素配置
+- 左寄せレイアウト（読み視線の起点を左上に）
+
+【テキスト階層】
+1. 主見出し（大・48-72pt・白・極太）：「${title || 'メインタイトル'}」
+   - 1〜2行で改行、行間1.2倍、字間-2%
+2. アクセントタグ（中・18-24pt・オレンジ #f97316 ピル型背景）：「${main || 'メイン訴求'}」
+   - 主見出しの上に小さく配置
+3. サブコピー（小・20-28pt・薄白 #e5e7eb）：「${sub || 'サブ訴求'}」
+   - 主見出しの下、グレーで控えめに
+
+【配色（ブランド固定）】
+${mood || '左から右へ深い青 #1d4ed8 → 明るい青 #3b82f6 のリニアグラデ背景 / アクセントオレンジ #f97316 / テキスト白＆薄白 / 装飾の細線は #93c5fd'}
+
+【右側ビジュアル要素】
+- 関連する象徴的アイコン（製品シルエット、ロックアイコン、グラフ等）を線画＋ベタ塗りで配置
+- アイコンは画面高さの 40〜55%、軽い影付きで浮き感
+- 周囲に薄い光彩（ホワイトのソフトグロウ）
+
+【絶対避ける】
+- 文字の崩れ・分離・架空文字（特に「賃貸場まずに」のような誤生成）
+- 派手すぎる装飾、Web 1.0風の影、ベタなクリップアート
+- 過剰な絵文字（プロ感が損なわれる）
+${COMMON_GUARDS}`,
+
+    concept: ({title, main, sub, mood}) => `# コンセプト図解（フラット・ベクター品質）
+
+【出力仕様】1200×630px / PNG / 白背景フルブリード
+【用途】ブログ記事中の概念説明・H2セクション直下
+
+【構図】
+- 上部 1/8：タイトル帯
+- 中央 5/8：主役オブジェクトを中心に、衛星要素3〜5個を放射状配置（ハブ＆スポーク型）
+- 下部 2/8：補足ラベル
+
+【テキスト階層】
+1. タイトル（28-36pt・青 #1d4ed8 極太・中央寄せ）：「${title || '概念図タイトル'}」
+2. 主役ラベル（20-24pt・黒 #111827 太字）：「${main || '主役要素名'}」
+3. 関連要素ラベル（14-18pt・グレー #4b5563）：${sub || '衛星要素1, 2, 3'}
+
+【ビジュアル】
+- 主役は中央の円形 or 六角形フレーム（直径280px・青枠4px）
+- 衛星要素 3〜5個、太さ4pxの矢印で主役へ接続（先端は▶アイコン）
+- 各要素は薄シャドウ（4px blur, 10% opacity）で浮き感
 
 【配色】
-${mood || 'メイン：深い青 #1d4ed8 〜 明るい青 #3b82f6 のグラデ背景／アクセント：オレンジ #f97316／テキストは白とオレンジ'}
+${mood || '白 #ffffff 背景 / 主役枠 青 #1d4ed8 / 衛星 青 #3b82f6 / アクセント オレンジ #f97316 / テキスト #111827・#4b5563'}
 
-【含めるテキスト（画像内に表記）】
-- メインタイトル（大・太字・白色）：「${title || 'ブログ記事タイトル'}」
-- サブタイトル（中・オレンジ色・強調）：「${main || 'メイン訴求'}」
-- 補足：「${sub || 'サブ訴求テキスト'}」
-- 右上に小さく「学ぶ・作る・生産技術」のタグ
-- 日本語フォントは読みやすいゴシック体（Noto Sans JP 風）
+【スタイル】Material Design / Notion 図解 / Apple Keynote 一級品の品質。線幅完全統一。
+${COMMON_GUARDS}`,
 
-【テキスト配置】
-中央右寄り上部にメインタイトル、その下にサブタイトル、最下部に補足。読みやすさ最優先。
+    flow: ({title, main, sub, mood}) => `# フロー図（5ステップ・矢印強調）
 
-記事中にcropせずそのまま使える1枚として、誠実に作成してください。`,
+【出力仕様】1200×630px / PNG / 白背景
 
-    concept: ({title, main, sub, mood}) => `ブログ記事用のコンセプト図解を1枚作成してください。
+【構図】
+- 上部にタイトル帯
+- 中央に5ステップを横並び（各ステップ幅200px、間に太矢印60px）
+- 下部に補足キャプション帯
 
-【サイズ】横1200×縦630px
-【スタイル】白背景・フラットデザイン・ブログイラスト風・読みやすさ最優先
+【ステップ構造】各ステップは丸角矩形（角丸12px・薄シャドウ）
+- 上：ステップ番号（白文字を青円 #1d4ed8 で囲む・直径44px）
+- 中：ステップ名（黒太字16-20pt）
+- 下：1行説明（グレー12pt）
+- ステップ内容：${main || '①開始 ②準備 ③実行 ④検証 ⑤完了'}
+- ステップ間：太矢印（オレンジ #f97316・幅8px・先端三角）
 
-【含めるコンテンツ】
-- 上部にタイトル（青 #1d4ed8 太字）：「${title || '概念図タイトル'}」
-- 中央に主役オブジェクト（${main || '主要素'} のイラスト）
-- 関連要素を矢印で接続：${sub || '関連要素を矢印で接続'}
-- 各要素には短いラベル（日本語ゴシック・読みやすさ最優先）
+【テキスト】
+- タイトル（28-36pt・青 #1d4ed8 極太）：「${title || 'プロセスフロー'}」
+- 補足キャプション（14pt・グレー）：${sub || '所要時間・前提条件など'}
 
 【配色】
-${mood || '白背景 / タイトル青 #1d4ed8 / 強調オレンジ #f97316 / テキスト黒 #1f2937'}
+${mood || '白背景 / ステップ枠 薄青 #dbeafe 背景＋濃青 #1d4ed8 枠 / 矢印 オレンジ #f97316 / テキスト #111827'}
 
-記事中にそのまま使える品質で誠実に作成してください。`,
+【スタイル】Notion / Figma の標準フロー図品質。線太さ完全統一、矢印の角度・長さ統一。
+${COMMON_GUARDS}`,
 
-    flow: ({title, main, sub, mood}) => `ブログ記事用のフロー図（縦長）を1枚作成してください。
+    roi: ({title, main, sub, mood}) => `# ROI投資対効果フロー図（インフォグラフィック）
 
-【サイズ】横1200×縦630px
-【スタイル】白背景・フラットデザイン・矢印を強調
+【出力仕様】1200×630px / PNG / 薄青背景
 
-【内容】
-- タイトル（青 #1d4ed8 太字）：「${title || 'フロー図タイトル'}」
-- ステップを縦に並べる：${main || '各ステップの内容'}
-- 各ステップ間を太い矢印（オレンジ #f97316）で接続
-- 補足キャプション：${sub || '補足説明'}
+【構図】
+- 上部にタイトル＋サブタイトル
+- 中央に4つの矩形ボックスを横並び、太矢印で接続
+- 下部に注釈帯
 
-【配色】${mood || '青系×オレンジアクセント'}
+【4ボックス内容】
+1. 「購入価格」 → 金額表記（例：18,000円）
+2. 「1日節約価値」 → 円/日（例：190円/日）
+3. 「損益分岐日数」 → 日数（例：95日）
+4. 「3年純利益」 → 大きく金額（例：+124,500円）★最重要・オレンジ強調・他より一回り大きい
 
-記事中にそのまま使える品質で誠実に作成してください。`,
-
-    roi: ({title, main, sub, mood}) => `ROI（投資対効果）の計算式流れ図を1枚作成してください。
-
-【サイズ】横1200×縦630px
-【スタイル】白背景・インフォグラフィック風
-
-【内容】
-- タイトル（青 #1d4ed8）：「${title || 'ROI計算の流れ'}」
-- 4つの矩形ボックスを左から右に配置し矢印で接続：
-  1. 購入価格
-  2. 1日あたり節約価値
-  3. 損益分岐日数
-  4. 3年累計純利益（オレンジで強調）
-- 各ボックス内に「式 = 結果」を明記
+【テキスト】
+- タイトル（30-40pt・青 #1d4ed8 極太）：「${title || 'ROI 計算の流れ'}」
+- 各ボックス：見出し（14pt・グレー）／式 or 値（24-32pt・黒太字 or 白）
 - 主役数値：${main || '主要数値'}
-- 注釈：${sub || '時給950円基準 など'}
+- 注釈（11pt・グレー・最下部）：${sub || '時給950円・最低賃金基準'}
 
-【配色】${mood || '青系背景＋オレンジ結果ハイライト'}
+【配色】
+${mood || '背景 薄青 #eff6ff / ボックス1-3 白＋青枠 #1d4ed8 / ボックス4 オレンジ #f97316 ベタ＋白文字 / 矢印 グレー #6b7280→ オレンジ'}
 
-記事中にそのまま使える品質で誠実に作成してください。`,
+【スタイル】McKinsey 風コンサル資料 / インフォグラフィック上位1%の質感。
+${COMMON_GUARDS}`,
 
-    compare: ({title, main, sub, mood}) => `比較表ビジュアルを1枚作成してください。
+    compare: ({title, main, sub, mood}) => `# 比較表ビジュアル（3列カード・勝者強調）
 
-【サイズ】横1200×縦630px
-【スタイル】白背景・3列の比較カード型
+【出力仕様】1200×630px / PNG / 白背景
 
-【内容】
-- タイトル（青 #1d4ed8）：「${title || '比較タイトル'}」
-- 3つのカード横並び：${main || '比較対象3つの名前'}
-- 各カードに：項目1・項目2・項目3 を縦に並べ、優位な項目をオレンジでハイライト
-- 補足：${sub || '比較の補足'}
+【構図】
+- 上部 1/8：タイトル
+- 中央 6/8：3カラム比較カード（各カード幅 320px、間隔 40px）
+- 下部 1/8：補足
 
-【配色】${mood || '白背景＋青枠＋勝者はオレンジ強調'}
+【3カードの構造】各カードは縦長丸角矩形（角丸16px）
+- ヘッダー：製品名／選択肢名（${main || '製品A, 製品B, 製品C'}）
+- 4-5項目の比較行（左：項目名グレー / 右：値）
+- ★最優秀カードはオレンジ枠＋「BEST」リボン（右上）
+- 各項目：勝者はオレンジ #f97316 太字、敗者はグレー #6b7280
 
-記事中にそのまま使える品質で誠実に作成してください。`,
+【テキスト】
+- タイトル（28-36pt・青 #1d4ed8 極太）：「${title || '製品比較'}」
+- 補足（13pt・グレー・最下部）：${sub || '価格は2026年5月時点・試用条件'}
 
-    ngsummary: ({title, main, sub, mood}) => `ブログ記事用の「やってはいけない設定」NG集サマリ図を1枚作成してください。
+【配色】
+${mood || '白背景 / カード枠 グレー #e5e7eb / BESTカードのみ オレンジ枠 #f97316＋薄オレンジ背景 #fff7ed / ヘッダー 青 #1d4ed8 ベタ＋白文字'}
 
-【サイズ】横1200×縦630px
-【スタイル】白背景・4つのNGをアイコン＋短文で並べる
+【スタイル】Wirecutter / The Verge の比較表記事レベル。表の整列が完璧で目線が自然に流れる。
+${COMMON_GUARDS}`,
 
-【内容】
-- タイトル（赤 #dc2626 太字）：「${title || 'やってはいけない設定 4つ'}」
-- 4つのカードを2×2グリッドで配置：${main || 'NG項目1〜4'}
-- 各カードに ❌アイコン＋簡潔な見出し＋1行説明
-- 補足：${sub || ''}
+    ngsummary: ({title, main, sub, mood}) => `# NG集サマリ図（やってはいけない4つ・警告系）
 
-【配色】${mood || '白背景＋赤アクセント＋警告イエロー'}
+【出力仕様】1200×630px / PNG / 白背景
 
-記事中にそのまま使える品質で誠実に作成してください。`,
+【構図】
+- 上部：タイトル（警告系・赤）
+- 中央：2×2 グリッドで4つの NG カード（各カード幅 480px・高さ 220px）
+- 下部：補足
 
-    bgremove: ({title, main, sub, mood}) => `この画像の背景を除去（透過PNG化）してください。
+【4カードの構造】各カードは丸角矩形＋左上に❌赤バッジ
+- ❌バッジ（48×48px・赤 #dc2626 ベタ＋白×印）
+- 見出し（NGの内容・黒太字18pt・1行）
+- 1行説明（グレー13pt）
+- 4項目：${main || 'NG1, NG2, NG3, NG4'}
+
+【テキスト】
+- タイトル（30-40pt・赤 #dc2626 極太）：「${title || 'やってはいけない設定 4つ'}」
+- 補足（13pt・グレー）：${sub || ''}
+
+【配色】
+${mood || '背景 白 / カード 薄ピンク #fef2f2＋赤枠 #fca5a5 / ❌アイコン 赤 #dc2626 / 警告アクセント イエロー #f59e0b（一部）/ テキスト #111827・#4b5563'}
+
+【スタイル】公式マニュアルの注意ページ品質。赤を使いつつ過剰でなく、注意喚起が冷静に伝わる落ち着いたデザイン。
+${COMMON_GUARDS}`,
+
+    bgremove: ({title, main, sub, mood}) => `# 背景除去（透過PNG化）— 添付画像を処理
 
 【要件】
-- 被写体：${main || '主役オブジェクト（自動判別でOK）'}
-- 不要な背景要素は完全に削除し、透過PNGで出力
-- 被写体のエッジを滑らかに（特に毛・布地・反射の細部）
+- 被写体：${main || '主役オブジェクト（人物・製品・ロゴ等を自動判別）'}
+- 背景：完全削除して透過PNG化（アルファチャンネル有効）
+- エッジ処理：
+  - 毛髪・繊維・透明部分は自然なフェザリング（半透明グラデ）
+  - 直線エッジは1px精度でくっきり
+  - ハロー（古い背景色の残り）禁止
 - サイズ：オリジナル維持
-- 補足：${sub || ''}`,
+- カラー：被写体の色味は維持・補正なし
+${sub ? '【補足】' + sub : ''}
+${COMMON_GUARDS}`,
 
-    colorfix: ({title, main, sub, mood}) => `この画像の配色を統一してブランドカラーに合わせてください。
+    colorfix: ({title, main, sub, mood}) => `# 配色統一（ブランドカラー化）— 添付画像を処理
 
-【ブランドカラー】
-${mood || 'メイン青 #1d4ed8 / アクセントオレンジ #f97316 / 白＆ライトグレー'}
+【ブランドパレット】
+${mood || 'メイン青 #1d4ed8（深い青）/ 補助青 #3b82f6（明るい青）/ アクセントオレンジ #f97316 / 白 #ffffff / グレー #6b7280'}
 
-【要件】
-- 全体トーンをブランドカラーに寄せる
-- 被写体は維持・背景や装飾色を統一
+【処理要件】
+- 全体トーンをブランドパレットに収束（ヒストグラム調整 + LUT 適用）
+- 被写体本体の色（肌・自然な色）は維持
+- 背景・装飾要素・グラデ部分のみブランド色へ
 - 用途：${main || 'ブログ記事用'}
-- 補足：${sub || ''}`,
+- コントラスト維持、可読性最優先
+${sub ? '【補足】' + sub : ''}
+${COMMON_GUARDS}`,
 
-    addtext: ({title, main, sub, mood}) => `この画像にテキストを追加してください。
+    addtext: ({title, main, sub, mood}) => `# 画像にテキスト追加（合成）— 添付画像を処理
 
-【追加テキスト】
-- メイン：「${title || 'メインテキスト'}」（${mood || '白色・太字・読みやすい位置に'}）
-- サブ：「${main || 'サブテキスト'}」（オレンジ強調）
-- 補足：「${sub || ''}」
+【追加するテキスト】
+1. メインタイトル（48-64pt・白・極太・縁取り黒1px）：「${title || 'メインテキスト'}」
+2. サブタイトル（24-32pt・オレンジ #f97316 強調）：「${main || 'サブテキスト'}」
+3. 補足（14-18pt・薄白）：「${sub || '補足'}」
 
-【要件】
-- 日本語ゴシック体（Noto Sans JP 風）
-- 元画像の被写体を妨げない位置・サイズ
-- ブログのアイキャッチとして読みやすさ最優先`,
+【配置ルール】
+- ${mood || '画像の主要被写体を妨げない位置（通常は左上 or 左下、視線の流入点）'}
+- 文字に半透明黒帯（rgba(0,0,0,0.5)）を背景として敷き、可読性確保
+- マージン：画面端から最低40px
+
+【フォント】Noto Sans JP / Hiragino Kaku Gothic ProN / Yu Gothic Bold 相当
+${COMMON_GUARDS}`,
+
+    // ─── 追加テンプレ7種（トップガジェットブロガー調査ベース・最高品質仕様） ──
+
+    // 💯 数値インパクトカード（記事冒頭・ROI訴求ヒーロー）
+    big_number: ({title, main, sub, mood}) => `# 数値インパクトカード（最高インパクト・LP一級品）
+
+【出力仕様】1200×630px / PNG / 青グラデ背景
+
+【構図】中央集約・左右均等の上下3層
+- 上層（高さ20%）：文脈テキスト（白・中央寄せ）：「${title || '時短で'}」（24-30pt）
+- 中層（高さ55%）：超巨大数字（オレンジ #f97316・極太・288-360pt）
+   - 数字本体：「${main || '64,500'}」
+   - 単位は数字より一回り小さく（120-160pt）：「円」
+   - 必要なら期間 prefix（48-60pt 白）：「${sub || '/年'}」
+   - 数字に微かなドロップシャドウ（4px、20% black）で立体感
+- 下層（高さ25%）：キャッチコピー（白・太字・36-48pt）：「節約できる時間と金額」
+
+【配色】
+${mood || '背景：左上 #1d4ed8 → 右下 #3b82f6 のリニアグラデーション / 数字：オレンジ #f97316 / 補助テキスト：白 #ffffff、薄白 #e5e7eb'}
+
+【装飾要素】
+- 右下隅に小さく「生産技術ガジェット研究所」（11pt・40% 不透明白）
+- 数字の周囲に微かなオレンジ光彩（glow radius 40px・15% opacity）
+
+【スタイル】Stripe / Linear / Apple LP のヒーローセクション一級品。数字が主役、それ以外は徹底的に引き算。1秒で意味が伝わるシンプルさ。
+${COMMON_GUARDS}`,
+
+    // 📋 スペック表カード（製品紹介セクション）
+    specs_card: ({title, main, sub, mood}) => `# 製品スペック表カード（プロダクトページ品質）
+
+【出力仕様】1200×630px / PNG / 白背景
+
+【構図】左右2カラム
+- 左カラム（幅 480px・全高）：製品の写実的アイコン or イラスト
+   - サブジェクト：${sub || '製品の特徴的形状を表現'}
+   - 中央配置・周囲に薄い影
+- 右カラム（幅 720px・全高）：スペック表
+   - 上部に製品名（青 #1d4ed8・極太・32-40pt）：「${title || '製品名'}」
+   - 縦に6行のスペック表：
+     1. 価格 ｜ ${main || '12,978円'}
+     2. 重量 ｜ 256g
+     3. 電源 ｜ CR123A
+     4. 認証 ｜ 指紋・IC・スマホ
+     5. 取付 ｜ 両面テープ
+     6. 対応 ｜ 99.9% のドア
+   - 各行：項目名（14pt・グレー #6b7280・左寄せ） ｜ 値（18-22pt・黒太字・右寄せ）
+   - 行間：18px、罫線：1px・薄グレー #e5e7eb
+   - 1番目の「価格」は値をオレンジ #f97316 で強調
+
+【配色】
+${mood || '白 #ffffff 背景 / タイトル青 #1d4ed8 / 価格値はオレンジ #f97316 / 罫線 薄グレー #e5e7eb / 項目名 #6b7280 / 値 #111827'}
+
+【スタイル】Apple / SwitchBot 公式プロダクトページ品質。整列完璧、余白十分、可読性最優先。
+${COMMON_GUARDS}`,
+
+    // 🔲 機能アイコン6個グリッド（機能解説）
+    icon_grid: ({title, main, sub, mood}) => `# 機能アイコン6個グリッド（インフォグラフィック品質）
+
+【出力仕様】1200×630px / PNG / 白背景
+
+【構図】
+- 上部 1/8：タイトル
+- 中央 6/8：2行×3列 のカードグリッド（各カード 360×220px、間隔 24px）
+- 下部 1/8：補足
+
+【6カードの構造】各カードは丸角矩形（角丸12px・1px枠 #e5e7eb・shadow 4px 8px rgba(0,0,0,0.04)）
+- 上半分：線画アイコン（96×96px・青 #1d4ed8 or オレンジ #f97316・線太さ 3.5px 統一）
+- 下半分：機能名（16-20pt・黒太字）＋ 1行説明（12-14pt・グレー #6b7280）
+- 6機能：${main || '指紋認証 / Suica対応 / スマホ操作 / オートロック / 遠隔操作 / 音声制御'}
+
+【テキスト】
+- タイトル（28-36pt・青 #1d4ed8 極太・中央寄せ）：「${title || '6つの機能'}」
+- 補足（13pt・グレー・最下部中央）：${sub || '主な機能一覧'}
+
+【配色】
+${mood || '白 #ffffff 背景 / アイコン 青 #1d4ed8 と オレンジ #f97316 を 4:2 の比率で配色 / カード枠 #e5e7eb / テキスト #111827・#6b7280'}
+
+【スタイル】Notion アイコンセット / Tabler Icons 級の線画統一感。アイコンは pictogram スタイル、線幅・端処理・サイズすべて完全に揃える。
+${COMMON_GUARDS}`,
+
+    // ⚖️ メリット/デメリット並列（レビュー中盤）
+    pros_cons: ({title, main, sub, mood}) => `# メリット/デメリット並列カード（レビュー必須ビジュアル）
+
+【出力仕様】1200×630px / PNG / 白背景
+
+【構図】中央縦線で左右2分割
+- 上部 1/8：タイトル（中央寄せ）
+- 左半分（幅 580px・薄緑グラデ背景 #ecfdf5→#d1fae5）
+- 右半分（幅 580px・薄ピンクグラデ背景 #fef2f2→#fee2e2）
+- 中央に縦線（2px・グレー #e5e7eb・余白20px）
+
+【左半分（メリット）】
+- 見出し（28-32pt・緑 #059669 極太）：「✅ メリット」
+- 箇条書き 3〜4項目（各 18-20pt・黒）：${main || '賃貸OK / 工事不要 / 15分で取付 / 指紋認証0.3秒'}
+- 各項目の左に ✅ アイコン（緑 #059669・サイズ統一 24px）
+
+【右半分（デメリット）】
+- 見出し（28-32pt・赤 #dc2626 極太）：「⚠️ デメリット」
+- 箇条書き 2〜3項目（各 18-20pt・黒）：${sub || '電池交換 半年毎 / オートロック締め出し注意 / 物理鍵は併用必須'}
+- 各項目の左に ⚠️ アイコン（オレンジ #f59e0b・サイズ統一 24px）
+
+【テキスト】タイトル（26-32pt・黒 #111827 極太）：「${title || 'メリット・デメリット'}」
+
+【配色】
+${mood || '左：成功感の緑系 #ecfdf5/#d1fae5/#059669 / 右：注意感の赤系 #fef2f2/#fee2e2/#dc2626 / テキストはコントラスト確保'}
+
+【スタイル】Wirecutter / Cnet の Pros&Cons セクション一級品。左右の重量バランス均衡、視線が左→右に自然に流れる。
+${COMMON_GUARDS}`,
+
+    // 🥇 ランキング上位3位（まとめ記事）
+    ranking: ({title, main, sub, mood}) => `# ランキング TOP3 カード（まとめ記事ヒーロー）
+
+【出力仕様】1200×630px / PNG / 白背景
+
+【構図】3カード横並び、1位を中央に大きく
+- 上部 1/8：タイトル＋小サブ
+- 中央 7/8：3カード（1位中央・大、2位左・中、3位右・中）
+  - 1位カード：幅 380px・高さ 460px（一回り大きい）・中央・上に出す
+  - 2位カード：幅 320px・高さ 400px・左
+  - 3位カード：幅 320px・高さ 400px・右
+
+【各カードの構造】丸角矩形（角丸20px）
+- 上：順位バッジ（円形 80×80px）
+   - 1位 = 金 #fbbf24（金グラデ #fcd34d→#f59e0b）+ 🥇
+   - 2位 = 銀 #cbd5e1（銀グラデ #e2e8f0→#94a3b8）+ 🥈
+   - 3位 = 銅 #b45309（銅グラデ #d97706→#92400e）+ 🥉
+- 中：製品アイコン（線画・カラー）120×120px
+- 下：製品名（20-26pt・黒太字）＋ 推しコメント1行（13pt・グレー）
+- 1位カードのみ：オレンジ枠 #f97316 4px＋微発光
+
+【テキスト】
+- タイトル（30-40pt・黒 #111827 極太）：「${title || 'おすすめランキング TOP3'}」
+- 推し製品：${main || '1位=製品A / 2位=製品B / 3位=製品C'}
+- 補足（12pt・グレー・最下部）：${sub || '2026年5月時点・編集部独自評価'}
+
+【配色】
+${mood || '白 #ffffff 背景 / 1位 金系 / 2位 銀系 / 3位 銅系 / テキスト #111827・#6b7280 / 1位の枠オレンジ #f97316'}
+
+【スタイル】The Verge / GIZMODO のランキング記事品質。1位の威厳と、2位3位の納得感を両立。
+${COMMON_GUARDS}`,
+
+    // 🎯 こんな人におすすめ/不要（結論前ペルソナ提示）
+    target_buyer: ({title, main, sub, mood}) => `# こんな人におすすめ/不要 並列カード（購買決定促進）
+
+【出力仕様】1200×630px / PNG / 白背景
+
+【構図】中央縦線で左右2分割
+- 上部 1/8：タイトル
+- 左半分（幅 580px・薄緑グラデ背景 #ecfdf5→#d1fae5）「✅ おすすめな人」
+- 右半分（幅 580px・薄グレーグラデ背景 #f9fafb→#f3f4f6）「❌ 不要な人」
+- 中央縦線（2px・グレー・余白20px）
+
+【左半分】
+- 見出し（28-32pt・緑 #059669 極太）：「✅ おすすめな人」
+- 4項目（各 16-20pt・黒）：${main || '賃貸暮らし / 在宅ワーカー / 子育て世代 / 鍵をなくしやすい人'}
+- 各項目の左に人物アイコン（線画・緑 #059669・32×32px）
+
+【右半分】
+- 見出し（28-32pt・グレー #6b7280 極太）：「❌ 不要な人」
+- 2-3項目（各 16-20pt・黒）：${sub || '一戸建てで強固な鍵運用 / 短期賃貸 / 機械音NGの人'}
+- 各項目の左に人物アイコン（線画・グレー #9ca3af・32×32px）
+
+【テキスト】タイトル（26-32pt・黒 #111827 極太・中央）：「${title || 'こんな人におすすめ'}」
+
+【配色】
+${mood || '左：推奨感の緑系（活発）/ 右：非推奨の薄グレー（控えめ）/ 過剰でない柔らかいコントラスト'}
+
+【スタイル】親しみやすいフラットイラスト風。読者が自分の状況に当てはめやすい配置と簡潔さ。
+${COMMON_GUARDS}`,
+
+    // 🌿 使い分けフローチャート（Yes/No分岐）
+    decision_tree: ({title, main, sub, mood}) => `# 使い分けフローチャート（Yes/No分岐・選び方ガイド）
+
+【出力仕様】1200×630px / PNG / 白背景
+
+【構図】上から下へ流れる階層フロー
+- 上部 1/8：タイトル
+- 中央 6/8：分岐ツリー（最上段に質問1、中段に質問2、下段に2つの結論）
+- 下部 1/8：補足
+
+【ノード構造】
+- 質問ノード：青菱形（青 #1d4ed8 ベタ枠＋白背景・幅240px・高さ120px）＋ 黒太字18-22pt
+- 結論ノード：オレンジ角丸矩形（#f97316 ベタ＋白文字・幅280px・高さ100px）＋ 白極太22-28pt
+- 矢印（4px太・先端三角）
+   - Yes 矢印：緑 #059669・矢印近くに「Yes」ラベル
+   - No 矢印：赤 #dc2626・矢印近くに「No」ラベル
+
+【分岐構造（例）】
+- 質問1（最上段）：「${main || '賃貸住まいですか?'}」
+  - Yes → 質問2「工事不可ですか?」 → Yes → 結論A「ロックLite が最適」（オレンジ）
+  - No → 結論B「フル機能のロックPro」（オレンジ薄め）
+- 結論内容：${sub || '結論A=ロックLite、結論B=ロックPro'}
+
+【テキスト】タイトル（28-36pt・青 #1d4ed8 極太・中央）：「${title || 'あなたにピッタリの選び方'}」
+
+【配色】
+${mood || '白背景 / 質問 青菱形 #1d4ed8 / Yes矢印 緑 #059669 / No矢印 赤 #dc2626 / 結論 オレンジ #f97316'}
+
+【スタイル】Mermaid 級のクリーンなフローチャート。線太さ完全統一、矢印角度45度 or 90度のみ、ノード間隔均等。読者が「自分はこの道」と一目で分かる。
+${COMMON_GUARDS}`,
 
     custom: () => '',
   };
 
   function regenerateAIPrompt() {
     const key = aiTemplateSelect.value;
+    // テンプレに合わせて入力欄のラベル・プレースホルダーを更新（直感的なUX）
+    applyTemplateFields(key, 'helper');
     const tpl = AI_TEMPLATES[key];
     if (!tpl) return;
     const vars = {
@@ -1370,6 +2058,12 @@ ${mood || 'メイン青 #1d4ed8 / アクセントオレンジ #f97316 / 白＆�
     if (aiPrompt && !aiPrompt.value.trim()) {
       regenerateAIPrompt();
     }
+  }
+
+  // 🔍 リサーチプロンプト生成ボタン（上部ヘルパー）
+  const btnResearchHelper = $('btn-research-helper');
+  if (btnResearchHelper) {
+    btnResearchHelper.addEventListener('click', () => copyResearchPromptForCurrent('helper'));
   }
 
   // 「📋 プロンプトをコピー」
@@ -1562,7 +2256,8 @@ ${mood || 'メイン青 #1d4ed8 / アクセントオレンジ #f97316 / 白＆�
       return;
     }
     const items = await queueAll();
-    if (items.length === 0) return;
+    // キューが空でもメモがあれば保存だけは走らせる（記事メモ単独編集ケース）
+    if (items.length === 0 && !hasPromptData()) return;
     uploadAllBtn.disabled = true;
 
     // 先に PROMPT.md を保存（フォルダが新規ならここで作成される）
@@ -1583,20 +2278,79 @@ ${mood || 'メイン青 #1d4ed8 / アクセントオレンジ #f97316 / 白＆�
       }
     }
 
+    // メモのみ保存ケース：画像転送ループはスキップして完了
+    if (items.length === 0) {
+      uploadAllBtn.disabled = false;
+      setStatus(promptSaved ? '💾 メモのみ保存完了（画像なし）' : '何もすることがありません');
+      showToast(promptSaved ? '💾 メモを保存しました（転送する画像なし）' : '転送する画像がありません', promptSaved ? 'success' : 'warn');
+      if (promptSaved) clearMemoState();
+      return;
+    }
+
+    // 役割（アイキャッチ/セクション/図解 等）が指定された画像は、ファイル名にプレフィックス付与
+    for (const it of items) {
+      const roleKey = normalizeItemRole(it);
+      if (roleKey === 'none') continue;
+      const def = getRoleDef(roleKey);
+      const prefix = def.prefix;
+      if (prefix && !new RegExp('^' + prefix, 'i').test(it.originalName || '')) {
+        it.originalName = prefix + (it.originalName || (roleKey + '.png'));
+        await queuePut(it);
+      }
+    }
+
     let success = 0, skipped = 0, failed = 0;
+    // 役割→[ファイル名+fileId] の記録（PROMPT.mdに反映するため）
+    const roleUploadMap = {};
     for (const item of items) {
       setStatus('転送中 ' + (success + skipped + failed + 1) + '/' + items.length);
       try {
         const result = item.size > SMALL_FILE_LIMIT
           ? await uploadLarge(item, articleTitle, articleFolderId)
           : await uploadSmall(item, articleTitle, articleFolderId);
-        if (result.ok && result.result === 'success') success++;
+        if (result.ok && result.result === 'success') {
+          success++;
+          const roleKey = normalizeItemRole(item);
+          if (roleKey !== 'none') {
+            if (!roleUploadMap[roleKey]) roleUploadMap[roleKey] = [];
+            roleUploadMap[roleKey].push({
+              name: result.fileName || item.originalName,
+              fileId: result.fileId || '',
+            });
+          }
+        }
         else if (result.ok && result.result === 'skipped') skipped++;
         else { failed++; continue; }
         await queueDelete(item.id);
       } catch (e) {
         failed++;
         console.error('upload error:', e);
+      }
+    }
+
+    // 役割ごとの画像参照をメモに追記して再保存（AIが認識するため）
+    const roleKeys = Object.keys(roleUploadMap);
+    if (roleKeys.length > 0 && (articleFolderId || articleTitle)) {
+      try {
+        // 既存の「画像役割:」「アイキャッチ画像:」始まり行を全削除して書き直す
+        memos = memos.filter(m =>
+          !/^(画像役割|アイキャッチ画像|ヒーローバナー|セクション画像|商品\/実機写真|図解\/フロー図|比較\/Before-After|NG集サマリ):/.test(m)
+        );
+        const newNotes = [];
+        for (const def of ROLE_DEFS) {
+          if (def.key === 'none' || !roleUploadMap[def.key]) continue;
+          const list = roleUploadMap[def.key];
+          const desc = list.map(f => f.name + (f.fileId ? ` (fileId: ${f.fileId})` : '')).join(', ');
+          newNotes.push(`${def.label}: ${desc}`);
+        }
+        // 上部に挿入（優先度高い扱い）
+        memos = [...newNotes, ...memos];
+        persistMemoState();
+        renderMemos();
+        await savePromptToDrive(articleTitle, articleFolderId);
+        showToast(`⭐ 画像役割 ${roleKeys.length}種類を PROMPT.md に記録`, 'success');
+      } catch (e) {
+        console.error('role memo save error:', e);
       }
     }
     await renderQueue();
@@ -1613,7 +2367,28 @@ ${mood || 'メイン青 #1d4ed8 / アクセントオレンジ #f97316 / 白＆�
 
   async function uploadSmall(item, articleTitle, articleFolderId) {
     const base64 = await blobToBase64(item.blob);
-    // x-www-form-urlencoded で送れば CORS preflight 不要
+    // 既存ファイル上書きモード（再編集用）
+    if (item.replaceDriveFileId) {
+      const body = new URLSearchParams({
+        token: TOKEN,
+        action: 'replaceFile',
+        fileId: item.replaceDriveFileId,
+        mimeType: item.mimeType,
+        fileDataBase64: base64,
+      });
+      const res = await fetch(GAS_URL, {
+        method: 'POST',
+        body: body.toString(),
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
+      });
+      const json = await res.json();
+      if (json.ok && json.result === 'replaced') {
+        // uploadSmall の戻り値形式に合わせる
+        return { ok: true, result: 'success', fileId: json.newFileId, fileName: json.fileName, articleFolderId: json.articleFolderId };
+      }
+      return json;
+    }
+    // 通常の新規アップロード
     const body = new URLSearchParams({
       token: TOKEN,
       action: 'uploadSmall',
@@ -1698,21 +2473,215 @@ ${mood || 'メイン青 #1d4ed8 / アクセントオレンジ #f97316 / 白＆�
   function getSelectedArticleTitle() { return selectedNewArticle || ''; }
   function getSelectedArticleFolderId() { return articleSelect.value || ''; }
 
-  useNewArticleBtn.addEventListener('click', () => {
+  useNewArticleBtn.addEventListener('click', async () => {
     const title = newArticleInput.value.trim();
     if (!title) { showToast('記事名を入力してください', 'error'); return; }
-    selectedNewArticle = title;
-    articleSelect.value = '';
-    showToast('新規記事として使用: ' + title, 'success');
-    updateCurrentArticleDisplay();
+    // 即時 Drive フォルダ作成（prefix「【記事】」は GAS が自動付与）
+    useNewArticleBtn.disabled = true;
+    const originalLabel = useNewArticleBtn.textContent;
+    useNewArticleBtn.textContent = '作成中…';
+    try {
+      const res = await fetch(GAS_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          token: TOKEN,
+          action: 'createArticle',
+          articleTitle: title,
+        }).toString(),
+      }).then(r => r.json());
+      if (!res || !res.ok) throw new Error((res && res.message) || 'createArticle 失敗');
+
+      // 記事リストを再読込し、新規作成された記事を選択状態に
+      await loadArticleList();
+      articleSelect.value = res.articleFolderId;
+      selectedNewArticle = null; // Drive上に存在する記事として扱う
+      newArticleInput.value = '';
+      // 既存メモ/ファイルがあれば取得（新規ならどちらも空のはず）
+      await loadExistingPrompt(res.articleFolderId, { silent: true });
+      await loadExistingFiles(res.articleFolderId);
+      showToast(`📁 記事「${res.articleFolderName}」を作成しました`, 'success');
+    } catch (err) {
+      console.error('createArticle error:', err);
+      // GAS呼び出し失敗時は従来通り「メモリ内記事」として扱うフォールバック
+      selectedNewArticle = title;
+      articleSelect.value = '';
+      showToast('フォルダ作成失敗（転送時に再試行されます）: ' + (err.message || err), 'warn');
+    } finally {
+      useNewArticleBtn.disabled = false;
+      useNewArticleBtn.textContent = originalLabel;
+      updateCurrentArticleDisplay();
+    }
   });
+  const LS_LAST_FOLDER_KEY = 'kiji-meshi:last-article-folder';
   articleSelect.addEventListener('change', async () => {
     selectedNewArticle = null;
     newArticleInput.value = '';
-    // 既存記事を選んだら PROMPT.md をDriveから復元
+    // 既存記事を選んだら PROMPT.md と既存ファイル一覧をDriveから復元
     const folderId = articleSelect.value;
-    if (folderId) await loadExistingPrompt(folderId);
+    if (folderId) {
+      localStorage.setItem(LS_LAST_FOLDER_KEY, folderId);
+      await loadExistingPrompt(folderId);
+      await loadExistingFiles(folderId);
+    } else {
+      localStorage.removeItem(LS_LAST_FOLDER_KEY);
+      hideExistingFiles();
+    }
     updateCurrentArticleDisplay();
+  });
+
+  // ─── 既存ファイル一覧（再編集用） ────────────────────
+  const existingFilesDetails = $('existing-files-details');
+  const efSummaryStatus = $('ef-summary-status');
+  const efGrid = $('ef-grid');
+  const efEmpty = $('ef-empty');
+  const btnReloadFiles = $('btn-reload-files');
+
+  function hideExistingFiles() {
+    if (existingFilesDetails) existingFilesDetails.hidden = true;
+  }
+
+  async function loadExistingFiles(folderId) {
+    if (!existingFilesDetails) return;
+    existingFilesDetails.hidden = false;
+    efSummaryStatus.textContent = '読込中…';
+    efGrid.innerHTML = '';
+    efEmpty.hidden = true;
+    try {
+      const url = GAS_URL + '?' + new URLSearchParams({
+        token: TOKEN, action: 'listArticleFiles', articleFolderId: folderId,
+      }).toString();
+      const res = await fetch(url).then(r => r.json());
+      if (!res.ok) throw new Error(res.message);
+      const files = res.files || [];
+      efSummaryStatus.textContent = files.length + '件';
+      if (files.length === 0) {
+        efEmpty.hidden = false;
+        return;
+      }
+      for (const f of files) {
+        const card = document.createElement('div');
+        card.className = 'ef-card';
+        card.innerHTML =
+          `<img loading="lazy" src="${f.thumbnailUrl}" alt="${f.name}" referrerpolicy="no-referrer">` +
+          `<div class="ef-name" title="${f.name}">${f.name}</div>` +
+          '<div class="ef-buttons">' +
+            '<button class="ai-edit-btn" data-action="ef-gpt" title="ChatGPTで再編集">🤖</button>' +
+            '<button class="ai-edit-btn ai-edit-gemini" data-action="ef-gem" title="Geminiで再編集">🍌</button>' +
+            '<button class="ai-edit-btn ai-edit-canva" data-action="ef-canva" title="Canvaで仕上げ">🎨</button>' +
+          '</div>';
+        card.querySelector('[data-action="ef-gpt"]').onclick = () => editExistingFile(f, 'chatgpt');
+        card.querySelector('[data-action="ef-gem"]').onclick = () => editExistingFile(f, 'gemini');
+        card.querySelector('[data-action="ef-canva"]').onclick = () => editExistingFile(f, 'canva');
+        efGrid.appendChild(card);
+      }
+    } catch (e) {
+      efSummaryStatus.textContent = 'エラー';
+      showToast('ファイル一覧取得失敗: ' + (e.message || e), 'error');
+    }
+  }
+
+  // Drive 画像を GAS経由でフルサイズ取得 → キューに追加（上書きモード）→ AI 編集起動
+  async function editExistingFile(driveFile, engine) {
+    try {
+      showToast(`「${driveFile.name}」を取込中…`, 'success');
+      // GAS の downloadFile action で base64 取得（CORS回避＆フル解像度維持）
+      const url = GAS_URL + '?' + new URLSearchParams({
+        token: TOKEN,
+        action: 'downloadFile',
+        fileId: driveFile.id,
+      }).toString();
+      const res = await fetch(url).then(r => r.json());
+      if (!res || !res.ok) throw new Error((res && res.message) || 'downloadFile 失敗');
+      // base64 → Blob 変換
+      const bin = atob(res.dataBase64);
+      const len = bin.length;
+      const u8 = new Uint8Array(len);
+      for (let i = 0; i < len; i++) u8[i] = bin.charCodeAt(i);
+      const blob = new Blob([u8], { type: res.mimeType || driveFile.mimeType });
+      const ext = (driveFile.name.split('.').pop() || 'png').toLowerCase();
+      const item = {
+        id: 'edit-' + driveFile.id + '-' + Date.now(),
+        blob: blob,
+        mimeType: blob.type,
+        ext: ext,
+        size: blob.size,
+        originalName: driveFile.name,
+        createdAt: Date.now(),
+        replaceDriveFileId: driveFile.id, // ← 上書き保存マーカー
+      };
+      await queuePut(item);
+      await renderQueue();
+      // 取込んだ item を引数に AI 編集起動
+      await oneClickEdit(item, engine);
+    } catch (e) {
+      showToast('取込失敗: ' + (e.message || e), 'error');
+      console.error('editExistingFile error:', e);
+    }
+  }
+
+  btnReloadFiles && btnReloadFiles.addEventListener('click', async () => {
+    const folderId = articleSelect.value;
+    if (!folderId) { showToast('記事を選択してください', 'warn'); return; }
+    await loadExistingFiles(folderId);
+  });
+
+  const btnMemoReload = $('btn-memo-reload');
+  btnMemoReload && btnMemoReload.addEventListener('click', async () => {
+    const folderId = articleSelect.value;
+    if (!folderId) { showToast('記事を選択してください', 'warn'); return; }
+    await loadExistingPrompt(folderId);
+  });
+
+  const btnMemoSave = $('btn-memo-save');
+  btnMemoSave && btnMemoSave.addEventListener('click', async () => {
+    const folderId = articleSelect.value;
+    const title = getSelectedArticleTitle();
+    if (!folderId && !title) {
+      showToast('記事を選択／作成してください', 'warn');
+      return;
+    }
+    if (!hasPromptData()) {
+      showToast('メモが空です（記事タイプ・ポイントを少なくとも1つ入力してください）', 'warn');
+      return;
+    }
+    const original = btnMemoSave.textContent;
+    btnMemoSave.disabled = true;
+    btnMemoSave.textContent = '保存中…';
+    let saved = false;
+    try {
+      const res = await savePromptToDrive(title, folderId);
+      console.log('[memo save] response:', res);
+      if (!res || (!res.ok && !res.skipped)) {
+        throw new Error((res && res.message) || 'savePrompt 失敗');
+      }
+      if (res.skipped) {
+        showToast('メモが空のため保存スキップ', 'warn');
+      } else {
+        const validCount = getValidMemos().length;
+        const articleTypeVal = articleTypeSelect.value || '(未設定)';
+        showToast(
+          `💾 Driveに保存完了：記事タイプ「${articleTypeVal}」/ メモ${validCount}件 → PROMPT.md`,
+          'success'
+        );
+        saved = true;
+      }
+    } catch (err) {
+      console.error('memo save error:', err);
+      showToast('保存失敗: ' + (err.message || err), 'error');
+    } finally {
+      btnMemoSave.disabled = false;
+      if (saved) {
+        btnMemoSave.textContent = '✅ 保存済';
+        btnMemoSave.classList.add('btn-saved-flash');
+        setTimeout(() => {
+          btnMemoSave.textContent = original;
+          btnMemoSave.classList.remove('btn-saved-flash');
+        }, 2500);
+      } else {
+        btnMemoSave.textContent = original;
+      }
+    }
   });
 
   // ─── 現在使用中の記事 表示＆リネーム ────────────────
@@ -1742,16 +2711,28 @@ ${mood || 'メイン青 #1d4ed8 / アクセントオレンジ #f97316 / 白＆�
       return;
     }
     currentArticleBar.hidden = false;
-    currentArticleNameEl.textContent = name;
+    // 表示は prefix を外して見やすく（フル名は title 属性で残す）
+    const displayName = typeof stripArticlePrefix === 'function' ? stripArticlePrefix(name) : name;
+    currentArticleNameEl.textContent = displayName;
+    currentArticleNameEl.title = name;
     // 編集モードを閉じる
     currentArticleDisplay.hidden = false;
     currentArticleEditForm.hidden = true;
   }
 
+  // 「【記事】」prefix は GAS 側で自動付与されるので、編集UI上は隠して本体だけ見せる
+  const ARTICLE_PREFIX = '【記事】';
+  function stripArticlePrefix(name) {
+    if (!name) return '';
+    while (name.indexOf(ARTICLE_PREFIX) === 0) name = name.substring(ARTICLE_PREFIX.length).trim();
+    return name;
+  }
+
   btnRenameArticle && btnRenameArticle.addEventListener('click', () => {
     const cur = getCurrentArticleName();
     if (!cur) { showToast('記事を選択してから変更してください', 'error'); return; }
-    renameArticleInput.value = cur;
+    // prefix を取り除いて見せる
+    renameArticleInput.value = stripArticlePrefix(cur);
     currentArticleDisplay.hidden = true;
     currentArticleEditForm.hidden = false;
     setTimeout(() => { renameArticleInput.focus(); renameArticleInput.select(); }, 50);
@@ -1823,17 +2804,18 @@ ${mood || 'メイン青 #1d4ed8 / アクセントオレンジ #f97316 / 白＆�
   // 初期表示時にも反映
   setTimeout(updateCurrentArticleDisplay, 100);
 
-  async function loadExistingPrompt(folderId) {
+  async function loadExistingPrompt(folderId, opts) {
+    opts = opts || {};
     try {
       const url = GAS_URL + '?' + new URLSearchParams({
         token: TOKEN, action: 'getPrompt', articleFolderId: folderId,
       }).toString();
       const res = await fetch(url).then((r) => r.json());
-      if (!res.ok || !res.exists) return;
-      // 既存メモを上書きして良いか軽く確認
-      if (hasPromptData()) {
-        if (!confirm('この記事に既存のメモが見つかりました。現在の入力を破棄して読み込みますか？')) return;
+      if (!res.ok || !res.exists) {
+        if (opts.silent !== true) showToast('この記事にはまだメモがありません', 'warn');
+        return;
       }
+      // 既存メモ上書きの確認は完全廃止（自動上書き）— 必要なら「↻ メモ再読込」を押す形に
       articleTypes = Array.from(new Set([
         ...articleTypes,
         ...(res.articleType ? [res.articleType] : []),
@@ -1847,7 +2829,7 @@ ${mood || 'メイン青 #1d4ed8 / アクセントオレンジ #f97316 / 白＆�
       // メモセクションを開く
       const det = document.getElementById('memo-details');
       if (det && !det.open) det.open = true;
-      showToast('既存メモを読み込みました', 'success');
+      if (opts.silent !== true) showToast('既存メモを読み込みました', 'success');
     } catch (e) {
       console.error('loadExistingPrompt error:', e);
     }
@@ -2043,6 +3025,27 @@ ${mood || 'メイン青 #1d4ed8 / アクセントオレンジ #f97316 / 白＆�
     });
   });
 
+  // カメラ ON/OFF 電源ボタン（右上）/ OFFマスク（中央のタップで起動ボタン）
+  const cameraPowerBtn = document.getElementById('camera-power');
+  const cameraOnBtn = document.getElementById('camera-on-btn');
+  async function toggleCameraPower(forceOn) {
+    const next = (typeof forceOn === 'boolean') ? forceOn : !isCameraEnabled();
+    setCameraEnabled(next);
+    applyCameraPowerUI();
+    if (next) {
+      await startCamera();
+      showToast('📷 カメラ ON', 'success');
+    } else {
+      stopCamera();
+      setStatus('📷 カメラ OFF（タップで起動）');
+      showToast('🌙 カメラを停止しました', 'success');
+    }
+  }
+  cameraPowerBtn && cameraPowerBtn.addEventListener('click', () => toggleCameraPower());
+  cameraOnBtn && cameraOnBtn.addEventListener('click', () => toggleCameraPower(true));
+  // 初期UI反映
+  applyCameraPowerUI();
+
   // 写真/動画の切替
   document.querySelectorAll('.kind-btn').forEach((btn) => {
     btn.addEventListener('click', async () => {
@@ -2089,6 +3092,16 @@ ${mood || 'メイン青 #1d4ed8 / アクセントオレンジ #f97316 / 白＆�
     renderMemos();
     await renderQueue();
     await loadArticleList();
+    // 前回選択していた記事を復元（リロード後もメモ・ファイル一覧が継続）
+    try {
+      const lastFolder = localStorage.getItem(LS_LAST_FOLDER_KEY);
+      if (lastFolder && Array.from(articleSelect.options).some(o => o.value === lastFolder)) {
+        articleSelect.value = lastFolder;
+        await loadExistingPrompt(lastFolder, { silent: true });
+        await loadExistingFiles(lastFolder);
+        updateCurrentArticleDisplay();
+      }
+    } catch (e) { console.warn('restore last article failed:', e); }
     // 初期はライブカメラ
     await startCamera();
     setStatus('準備完了');

@@ -110,6 +110,152 @@ body {
 }
 
 /* 記事作成メモ（AIへの指示） */
+/* ─── 既存ファイル一覧（再編集用） ─── */
+.existing-files-details {
+  margin: 12px 0;
+  background: #fefce8;
+  border: 1px solid #fde68a;
+  border-radius: 12px;
+  padding: 10px 14px;
+}
+.existing-files-details[open] { box-shadow: var(--shadow-md, 0 4px 12px rgba(0,0,0,0.08)); }
+.existing-files-details summary {
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  color: #92400e;
+}
+.existing-files-details summary::-webkit-details-marker { display: none; }
+.ef-summary-status {
+  font-size: 0.85em;
+  background: rgba(146,64,14,0.15);
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+.ef-body { padding-top: 10px; }
+.ef-intro { margin: 0 0 8px; font-size: 0.88em; color: #78350f; }
+.ef-actions { margin-bottom: 10px; }
+.ef-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 10px;
+}
+.ef-card {
+  background: #fff;
+  border-radius: 8px;
+  padding: 6px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+.ef-card img {
+  width: 100%;
+  height: 100px;
+  object-fit: cover;
+  border-radius: 4px;
+  background: #f3f4f6;
+}
+.ef-name {
+  font-size: 0.7em;
+  color: #4b5563;
+  width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ef-buttons {
+  display: flex;
+  gap: 4px;
+}
+.ef-buttons .ai-edit-btn {
+  position: static;
+  width: 26px;
+  height: 26px;
+  font-size: 13px;
+}
+.ef-empty {
+  text-align: center;
+  color: #92400e;
+  padding: 20px;
+  font-size: 0.9em;
+}
+
+/* キュー上の「上書き保存」バッジ */
+.replace-badge {
+  position: absolute;
+  top: 28px;
+  left: 6px;
+  background: rgba(124, 58, 237, 0.95);
+  color: #fff;
+  font-size: 9px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
+/* メモ ツールバー（スマート版） */
+.memo-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px dashed rgba(0,0,0,0.08);
+  flex-wrap: wrap;
+}
+.memo-toolbar-hint {
+  font-size: 0.72em;
+  color: #6b7280;
+  margin-left: auto;
+}
+/* スマートなピル型ボタン（メモ専用） */
+.memo-toolbar .btn-small {
+  font-size: 0.8em;
+  font-weight: 600;
+  padding: 5px 12px;
+  border-radius: 999px;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 28px;
+  line-height: 1;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: background .15s, transform .1s, box-shadow .15s;
+}
+.memo-toolbar .btn-small:hover { transform: translateY(-1px); box-shadow: 0 2px 6px rgba(0,0,0,0.12); }
+.memo-toolbar .btn-small:active { transform: translateY(0); }
+.memo-toolbar .btn-primary {
+  background: #1d4ed8;
+  color: #fff;
+  border-color: #1e40af;
+}
+.memo-toolbar .btn-primary:hover { background: #1e40af; }
+.memo-toolbar .btn-saved-flash {
+  background: #16a34a !important;
+  border-color: #15803d !important;
+  animation: saved-flash 0.4s ease;
+}
+@keyframes saved-flash {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.1); }
+  100% { transform: scale(1); }
+}
+.memo-toolbar .btn-secondary {
+  background: #f3f4f6;
+  color: #374151;
+  border-color: #d1d5db;
+}
+.memo-toolbar .btn-secondary:hover { background: #e5e7eb; }
+.btn-small { font-size: 0.85em; padding: 4px 10px; }
+
 .memo-details {
   margin-bottom: 20px;
   background: #fff;
@@ -262,12 +408,48 @@ body {
   position: absolute; top: 12px; right: 12px;
   display: flex; gap: 8px;
 }
-.flip-btn {
+.flip-btn,
+.power-btn {
   background: rgba(0,0,0,0.5); color: #fff;
   border: none; width: 40px; height: 40px; border-radius: 50%;
   cursor: pointer; font-size: 18px;
   backdrop-filter: blur(8px);
+  display: flex; align-items: center; justify-content: center;
+  transition: background .15s, color .15s, transform .15s;
 }
+.power-btn { font-weight: 700; }
+.power-btn.off {
+  background: rgba(239,68,68,0.9); /* OFF状態は赤 */
+  color: #fff;
+  animation: pulse-off 2s ease-in-out infinite;
+}
+@keyframes pulse-off {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.08); }
+}
+/* OFF時のマスク（カメラ映像を完全隠蔽） */
+.camera-off-mask {
+  position: absolute; inset: 0;
+  background: linear-gradient(135deg, #1f2937 0%, #374151 100%);
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 12px;
+  color: #f3f4f6;
+  z-index: 5;
+}
+.camera-off-mask[hidden] { display: none; }
+.cof-icon { font-size: 48px; opacity: .8; }
+.cof-text { font-size: 18px; font-weight: 700; opacity: .9; }
+.camera-on-btn {
+  background: linear-gradient(135deg, #16a34a, #15803d);
+  color: #fff; border: none;
+  padding: 10px 20px; border-radius: 999px;
+  font-size: 14px; font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+}
+.camera-on-btn:hover { transform: scale(1.05); }
+.cof-hint { font-size: 11px; opacity: .6; }
 .camera-controls {
   position: absolute; bottom: 16px; left: 0; right: 0;
   display: flex; align-items: center; justify-content: space-around;
@@ -1021,6 +1203,51 @@ body.is-dropping .drop-overlay { display: flex; }
   left: 74px;
   background: linear-gradient(135deg, #7c3aed, #4338ca);
 }
+/* 画像役割サイクルボタン（右下） */
+.role-btn {
+  position: absolute;
+  bottom: 6px;
+  right: 6px;
+  width: 28px;
+  height: 28px;
+  border: 2px solid #fff;
+  font-size: 14px;
+  border-radius: 50%;
+  cursor: pointer;
+  background: rgba(255,255,255,0.85);
+  color: #9ca3af;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  transition: transform .15s;
+}
+.role-btn.active {
+  box-shadow: 0 0 12px currentColor;
+  animation: role-pulse 2s ease-in-out infinite;
+}
+@keyframes role-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.08); }
+}
+.role-btn:hover { transform: scale(1.15); }
+
+.role-badge {
+  position: absolute;
+  top: 50px;
+  left: 6px;
+  color: #fff;
+  font-size: 9px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  white-space: nowrap;
+}
+
 .ai-edit-btn:hover {
   transform: scale(1.15);
   box-shadow: 0 4px 14px rgba(0,0,0,0.3);
@@ -1065,6 +1292,62 @@ body.is-dropping .drop-overlay { display: flex; }
   max-height: calc(100vh - 120px);
   overflow-y: auto;
 }
+/* AI 貼付直前の再コピーゾーン（重要操作） */
+.banner-prep-paste {
+  margin-top: 10px;
+  padding: 10px 12px;
+  background: rgba(251, 191, 36, 0.18);
+  border: 2px solid rgba(251, 191, 36, 0.6);
+  border-radius: 10px;
+}
+.prep-paste-title {
+  font-size: 0.88em;
+  font-weight: 700;
+  color: #fef3c7;
+  margin-bottom: 8px;
+}
+.prep-paste-title kbd {
+  background: rgba(255,255,255,0.25);
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 0.85em;
+}
+.prep-paste-buttons {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 6px;
+  flex-wrap: wrap;
+}
+.prep-btn {
+  flex: 1;
+  min-width: 140px;
+  padding: 12px 14px !important;
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  border-radius: 10px !important;
+  border: 2px solid !important;
+  cursor: pointer;
+  transition: transform .15s, box-shadow .15s;
+}
+.prep-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(0,0,0,0.3); }
+.prep-btn:active { transform: translateY(0); }
+.prep-btn-image {
+  background: linear-gradient(135deg, #3b82f6, #1d4ed8) !important;
+  border-color: #1e40af !important;
+  color: #fff !important;
+}
+.prep-btn-prompt {
+  background: linear-gradient(135deg, #f97316, #ea580c) !important;
+  border-color: #c2410c !important;
+  color: #fff !important;
+}
+.prep-paste-hint {
+  display: block;
+  font-size: 0.75em;
+  color: #fef3c7;
+  opacity: .85;
+}
+
 .banner-copy-prompt-strong {
   background: linear-gradient(135deg, #f97316, #ea580c) !important;
   border-color: #c2410c !important;
@@ -1077,6 +1360,25 @@ body.is-dropping .drop-overlay { display: flex; }
   0%, 100% { transform: scale(1); }
   50% { transform: scale(1.04); }
 }
+
+/* リサーチプロンプトボタンとヒント */
+.ai-research-row,
+.banner-research-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 8px 0;
+  padding: 8px;
+  background: rgba(251, 191, 36, 0.08);
+  border-left: 3px solid #f59e0b;
+  border-radius: 6px;
+  flex-wrap: wrap;
+}
+.banner-research-row {
+  background: rgba(251, 191, 36, 0.15);
+  border-left-color: #fbbf24;
+}
+.ai-research-hint { font-size: 0.75em; color: #6b7280; }
 
 .banner-prompt-builder {
   margin-top: 10px;

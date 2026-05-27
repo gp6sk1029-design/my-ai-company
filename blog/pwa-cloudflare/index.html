@@ -60,6 +60,24 @@
     </div>
   </div>
 
+  <!-- 既存ファイル一覧（再編集用） -->
+  <details class="existing-files-details" id="existing-files-details" hidden>
+    <summary>
+      <span class="ef-summary-label">📁 この記事の既存ファイル（再編集）</span>
+      <span class="ef-summary-status" id="ef-summary-status">読込中…</span>
+    </summary>
+    <div class="ef-body">
+      <p class="ef-intro">
+        Driveに保存されている画像を <strong>🤖 / 🍌 / 🎨</strong> で再編集 → 同じファイルに <strong>上書き保存</strong> されます。
+      </p>
+      <div class="ef-actions">
+        <button type="button" id="btn-reload-files" class="btn-secondary">↻ 再読込</button>
+      </div>
+      <div class="ef-grid" id="ef-grid"></div>
+      <p class="ef-empty" id="ef-empty" hidden>このフォルダに画像はまだありません。</p>
+    </div>
+  </details>
+
   <!-- 記事作成メモ（AIへの指示／任意） -->
   <details class="memo-details" id="memo-details">
     <summary>
@@ -67,6 +85,11 @@
       <span class="memo-summary-status" id="memo-summary-status">未設定</span>
     </summary>
     <div class="memo-body">
+      <div class="memo-toolbar">
+        <button type="button" id="btn-memo-save" class="btn-primary btn-small" title="現在の内容でDriveのPROMPT.mdを上書き保存">💾 保存</button>
+        <button type="button" id="btn-memo-reload" class="btn-secondary btn-small" title="Driveから既存メモを再読込（現在の入力は破棄）">↻ 再読込</button>
+        <small class="memo-toolbar-hint">Driveに反映 / 復元</small>
+      </div>
       <div class="memo-row">
         <label class="memo-label">記事タイプ</label>
         <div class="memo-type-row">
@@ -101,7 +124,15 @@
   <div class="live-camera" id="live-camera">
     <video id="camera-preview" autoplay playsinline muted></video>
     <div class="camera-overlay">
+      <button id="camera-power" class="power-btn" type="button" aria-label="カメラON/OFF" title="カメラを停止/起動">⏻</button>
       <button id="camera-flip" class="flip-btn" type="button" aria-label="カメラ切替">🔄</button>
+    </div>
+    <!-- カメラOFF時のマスク（タップで起動） -->
+    <div id="camera-off-mask" class="camera-off-mask" hidden>
+      <div class="cof-icon">📷</div>
+      <div class="cof-text">カメラ OFF</div>
+      <button id="camera-on-btn" class="camera-on-btn" type="button">タップでカメラを起動</button>
+      <div class="cof-hint">プライバシー保護・バッテリー節約のため待機中</div>
     </div>
     <div class="camera-controls">
       <button class="kind-btn active" data-kind="photo" type="button">写真</button>
@@ -170,16 +201,33 @@
       <div class="ai-template-row">
         <label for="ai-template-select" class="ai-label">テンプレート選択：</label>
         <select id="ai-template-select" class="ai-template-select">
-          <option value="eyecatch">🖼️ ブログアイキャッチ（1200×630・青系）</option>
-          <option value="concept">💡 概念図（フラットデザイン・白背景）</option>
-          <option value="flow">🔀 フロー図（縦長・矢印強調）</option>
-          <option value="roi">📐 ROI 計算式の流れ図</option>
-          <option value="compare">⚖️ 比較表ビジュアル</option>
-          <option value="ngsummary">⚠️ NG集サマリ（4アイコン）</option>
-          <option value="bgremove">🪄 背景除去・背景クリーンアップ</option>
-          <option value="colorfix">🎨 配色統一・ブランドカラー適用</option>
-          <option value="addtext">✏️ 画像にテキスト追加</option>
-          <option value="custom">📝 カスタム（自分で書く）</option>
+          <optgroup label="── 記事冒頭 ──">
+            <option value="eyecatch">🖼️ ブログアイキャッチ（1200×630・青系）</option>
+            <option value="big_number">💯 数値インパクト（年6万円の時短 等）</option>
+          </optgroup>
+          <optgroup label="── 製品紹介 ──">
+            <option value="specs_card">📋 スペック表カード</option>
+            <option value="icon_grid">🔲 機能アイコン6個グリッド</option>
+            <option value="pros_cons">⚖️ メリット/デメリット並列</option>
+          </optgroup>
+          <optgroup label="── 図解・概念 ──">
+            <option value="concept">💡 概念図（フラットデザイン・白背景）</option>
+            <option value="flow">🔀 フロー図（縦長・矢印強調）</option>
+            <option value="roi">📐 ROI 計算式の流れ図</option>
+            <option value="decision_tree">🌿 使い分けフロー（Yes/No分岐）</option>
+          </optgroup>
+          <optgroup label="── まとめ・比較 ──">
+            <option value="compare">📊 比較表ビジュアル</option>
+            <option value="ranking">🥇 ランキング上位3位</option>
+            <option value="target_buyer">🎯 こんな人におすすめ/不要</option>
+            <option value="ngsummary">⚠️ NG集サマリ（4アイコン）</option>
+          </optgroup>
+          <optgroup label="── 画像加工 ──">
+            <option value="bgremove">🪄 背景除去・背景クリーンアップ</option>
+            <option value="colorfix">🎨 配色統一・ブランドカラー適用</option>
+            <option value="addtext">✏️ 画像にテキスト追加</option>
+            <option value="custom">📝 カスタム（自分で書く）</option>
+          </optgroup>
         </select>
       </div>
 
@@ -201,6 +249,10 @@
           <input type="text" id="ai-var-mood" placeholder="例：青系（#1d4ed8）+ アクセントオレンジ #f97316">
         </label>
       </div>
+      <div class="ai-research-row">
+        <button type="button" id="btn-research-helper" class="btn-secondary btn-small" title="このテンプレを埋めるためのAI質問プロンプトをクリップボードへコピー">🔍 リサーチプロンプトをコピー</button>
+        <small class="ai-research-hint">↑ クリックしてChatGPT/Gemini/Claudeに貼付 → 回答を上の欄に転記</small>
+      </div>
 
       <div class="ai-prompt-area">
         <label for="ai-prompt" class="ai-label">生成プロンプト（自由編集可）：</label>
@@ -217,7 +269,7 @@
       <div class="ai-engine-hint">
         <strong>使い分けの目安：</strong>
         <ul>
-          <li><strong>ChatGPT（gpt-image-1）</strong>：英語フォント・写実的・複雑な構図に強い</li>
+          <li><strong>ChatGPT（gpt-image-2）</strong>：英語フォント・写実的・複雑な構図に強い</li>
           <li><strong>Gemini ナノバナナ2</strong>：<u>日本語テキスト含む画像</u>・既存写真の編集・背景除去に強い</li>
         </ul>
         <p class="ai-engine-extension-hint" style="margin-top:8px; padding:8px 10px; background:#fff8e6; border-left:3px solid #f59e0b; border-radius:4px; font-size:0.85em;">

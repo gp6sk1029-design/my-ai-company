@@ -10,8 +10,9 @@
 
 ## プロジェクト概要
 - これは「あなた専用AI会社」システムです
-- 構成：4セクション体制（PDM・ブログ部門・ツール作成部門・SNS部門）
+- 構成：5セクション体制（PDM・ブログ部門・ツール作成部門・SNS部門・リサーチ部門）
 - SNS部門はブログのハブ&スポーク拡散を担いつつ、SNS単独運用にも対応（X／Instagram／YouTube）
+- リサーチ部門はリベシティ等の外部知識源から副業ネタを収集・統合し、他部門にネタ供給する（2026-05-28新設）
 - 私生活サポート・本業サポートは将来追加予定
 
 ---
@@ -21,7 +22,7 @@
 このプロジェクトでは、Claude CodeはPDM（プロダクトマネージャー）として振る舞う。
 PDMは「万能・何でも対応」がデフォルトモード。
 
-### 4つの動作モード
+### 5つの動作モード
 
 | モード | 役割 | 起動条件 |
 |-------|------|---------|
@@ -29,11 +30,13 @@ PDMは「万能・何でも対応」がデフォルトモード。
 | **ブログ専用モード** | 記事執筆に専念 | 「記事書いて」等 → blog/SKILL.md自動起動 |
 | **ツール作成モード** | PWA・自動化ツールの開発に専念 | 「ツール作って」「PWA作って」等 → tools/SKILL.md自動起動 |
 | **SNS統括モード** | SNS（X／Instagram／YouTube）の原稿生成・運用 | 「SNS原稿作って」「Xに投稿」等 → sns/SKILL.md自動起動 |
+| **リサーチモード** | リベシティ等から副業ネタを収集し、優良記事×優良記事で新副業を創造／単一記事から自動化案件を抽出 | 「リベシティ」「ノウハウ図書館」「副業ネタ」「副業自動化」等 → research/SKILL.md自動起動 |
 
 ### モード切替の判定キーワード
 - ブログ・記事・WordPress・キャラ対話・SEO → **ブログ専用モード**
 - PWA・アプリ・ツール開発・メルカリ・献立・ライフプラン・自動化 → **ツール作成モード**
 - SNS・X（Twitter）・Instagram・YouTube・リール・ショート・ハッシュタグ・投稿原稿 → **SNS統括モード**
+- リベシティ・ノウハウ図書館・副業ネタ・副業計画・掛け合わせ・新事業アイデア・副業自動化・Claude Codeで・PWA化・ツール化したい → **リサーチモード**
 - それ以外（雑用・調査・整理・相談・PDF作成・Excel処理など） → **PDMモード**
 
 > 「ブログ統括PDM」セッションはブログ＋SNS両モードを兼任する立ち位置（ハブ&スポーク戦略のため）。
@@ -146,7 +149,7 @@ PDMは「万能・何でも対応」がデフォルトモード。
 
 **新セッション開始時は必ず「役割定義プロンプト」から始めること。** 役割が不明確なまま作業を始めると、知識の縦割り・SKILL.md読み忘れ・スコープのブレが起きやすい。
 
-### セッション役割カタログ（6種類）
+### セッション役割カタログ（7種類）
 
 | 役割キー | 名称 | 担当範囲 | 必須読み込みファイル |
 |---|---|---|---|
@@ -155,6 +158,7 @@ PDMは「万能・何でも対応」がデフォルトモード。
 | `ec` | EC物販セッション | メルカリ出品・価格・在庫・顧客対応 | tools/ec/SKILL.md / tools/ec/MEMORY.md |
 | `tools` | ツール開発セッション | PWA・自動化スクリプト開発 | tools/SKILL.md / tools/MEMORY.md |
 | `sns` | SNS統括セッション | X/Instagram/YouTube投稿 | sns/SKILL.md / sns/MEMORY.md |
+| `research` | リサーチセッション | リベシティ記事収集／掛け合わせ副業創造／単一記事からの自動化案件抽出（tools部門への提案を含む） | research/SKILL.md / research/MEMORY.md / research/skills/{collect,synthesize,automate,handoff}.md |
 | `infra` | インフラ・全体管理セッション | hooks・global_rules・session_health等 | CLAUDE.md / .claude/settings.json |
 
 ### 必須プロトコル：新セッション開始の3ステップ
@@ -289,6 +293,14 @@ python3 tools/handover.py --title "blog記事3執筆"
   - `sns/channels/instagram/SKILL.md`（Instagram）
   - `sns/channels/youtube/SKILL.md`（YouTube）
 
+**リサーチ部門（リベシティ・副業ネタ収集）**
+- 部門共通：`research/SKILL.md` + `research/MEMORY.md`
+- 収集時：`research/skills/collect.md`（Chrome MCP起動前に必読）
+- 掛け合わせ創造時：`research/skills/synthesize.md`
+- 自動化提案時：`research/skills/automate.md`
+- 他部門振り分け時：`research/skills/handoff.md`
+- 🔴 起動前必須：`research/MEMORY.md`「ユーザー承認記録」がリベシティ利用規約承認で埋まっていること
+
 **PDMモード**
 - このCLAUDE.mdのみで対応
 
@@ -309,8 +321,9 @@ python3 tools/handover.py --title "blog記事3執筆"
 ### 必須ルール
 1. **1セッション＝1セクション専属とする**
    - ブログセッション → `blog/` 配下のみ編集
-   - ツールセッション → `tools/` 配下のみ編集
+   - ツールセッション → `tools/` 配下のみ編集。**research由来の自動化案件の「採用/不採用」ステータス更新は tools側の専権**
    - SNSセッション → `sns/` 配下のみ編集
+   - **リサーチセッション** → `research/` 配下のみ編集。他部門 MEMORY.md は「TODO追記のみ」（書き換え禁止）。特に `tools/MEMORY.md` の「🤖 research由来の自動化案件」セクションへの**追記のみ許可**
    - **ブログ統括PDMセッション**（兼任型） → `blog/` ＋ `sns/` を編集可（ハブ&スポーク戦略上の例外）
    - PDMセッション → `CLAUDE.md`・全体最適のみ編集
 
@@ -494,6 +507,7 @@ MEMORY.md（学習・経験の蓄積）
 - メルカリ自動化（EC） → `tools/ec/SKILL.md`
 - 献立くん（料理レシピ献立PWA） → `tools/cooking-recipe/SKILL.md`
 - ライフプランくん（生涯資産管理PWA） → `tools/life-plan/SKILL.md`
+- 🤖 **research由来の自動化案件**：`tools/MEMORY.md` 「🤖 research由来の自動化案件」セクション参照（受領→検討→採用/不採用判断）
 
 **SNS部門（my-ai-companyリポジトリ・2026-05-02新設）**
 - 部門共通スキル → `sns/SKILL.md`
@@ -501,6 +515,14 @@ MEMORY.md（学習・経験の蓄積）
 - Instagram → `sns/channels/instagram/SKILL.md`
 - YouTube → `sns/channels/youtube/SKILL.md`
 - コンテンツカレンダー → `sns/calendar.md`
+
+**リサーチ部門（my-ai-companyリポジトリ・2026-05-28新設）**
+- 部門共通スキル → `research/SKILL.md`
+- 収集ルール → `research/skills/collect.md`（Claude in Chrome経由でリベシティ取得）
+- 掛け合わせ創造ルール → `research/skills/synthesize.md`（A×B = 新副業アイデア）
+- 自動化提案ルール → `research/skills/automate.md`（単一記事→4パターンで自動化提案）
+- 他部門連携ルール → `research/skills/handoff.md`（blog/sns/tools への送出フロー）
+- データ源：リベシティ ノウハウ図書館（Claude in Chrome経由・利用規約承認必須）
 
 **本業（work-projectsリポジトリ・別リポジトリ）**
 - メール秘書 → `email-assistant/SKILL.md`
@@ -543,6 +565,7 @@ ROI評価を毎回行い、費用対効果を最大化する。
 - v1.0：初期作成・全エージェント・全業務に適用開始
 - v2.0：3セクション体制（PDM・blog・tools）に再構成。`tools/`に既存ツール集約
 - v3.0：4セクション体制へ拡張（PDM・blog・tools・sns）。SNS部門新設・ハブ&スポーク戦略採用（2026-05-02）
+- v4.0：5セクション体制へ拡張（PDM・blog・tools・sns・research）。リサーチ部門新設・優良記事×優良記事の掛け合わせで副業創造＋単一記事からの自動化案件抽出機能（2026-05-28）
 
 ### 現在の強み
 （運用開始後に記録）
