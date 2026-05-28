@@ -25,6 +25,8 @@ synthesize.md（掛け合わせ）・automate.md（自動化提案）の出力�
 | 献立くん改善 | tools/cooking-recipe | TODO追記 | `tools/cooking-recipe/MEMORY.md` 同上 |
 | life-plan改善 | tools/life-plan | TODO追記 | `tools/life-plan/MEMORY.md` 同上 |
 | 副業収入シミュ | tools/life-plan | 手動入力（Phase 1） | life-plan PWAライフイベントへ転記 |
+| 高配当株ポートフォリオ記録 | tools/life-plan | 🔬TODO追記（記録・可視化のみ／投資助言NG） | `tools/life-plan/MEMORY.md`「🔬 research由来TODO」 |
+| 学長メソッドの蓄積 | research自身 | 台帳追記（私的利用） | `research/MEMORY.md`「学長メソッド蓄積台帳」 |
 | 自分の副業着手 | research自身 | ポートフォリオ追記 | `research/MEMORY.md`「マイ副業ポートフォリオ」 |
 
 ---
@@ -187,6 +189,16 @@ Phase 1では **手動入力**（life-plan PWAの「ライフイベント」ま�
 
 ### Phase 2以降
 将来的にAPIで連動するなら、tools部門の改修案件として `tools/life-plan/MEMORY.md` に「🔬 research由来TODO」で要望提出。
+
+### 高配当株ポートフォリオ記録の連携（digest.md §6）
+
+学長の高配当株メソッド（research側で要約）を踏まえ、自分の保有株の「記録・可視化」は life-plan に持たせる。
+
+🚨 **投資助言NG**：life-planに渡すのは「記録・計算・可視化」の要望のみ。「買うべき／この配分に／買い時」等の助言機能は要望しない（CLAUDE.md安全ルール／automate.md §12）。
+
+- **渡す要望**: 銘柄・株数・取得単価・配当・業種の記録UI、年間配当合計・平均利回り・セクター分散の可視化
+- **振り先**: `tools/life-plan/MEMORY.md`「🔬 research由来TODO」（追記のみ・採用判断はtools専権）
+- **役割分担**: research＝「学長の考え方」、life-plan＝「自分の保有データ」
 
 ---
 

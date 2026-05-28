@@ -30,13 +30,13 @@ PDMは「万能・何でも対応」がデフォルトモード。
 | **ブログ専用モード** | 記事執筆に専念 | 「記事書いて」等 → blog/SKILL.md自動起動 |
 | **ツール作成モード** | PWA・自動化ツールの開発に専念 | 「ツール作って」「PWA作って」等 → tools/SKILL.md自動起動 |
 | **SNS統括モード** | SNS（X／Instagram／YouTube）の原稿生成・運用 | 「SNS原稿作って」「Xに投稿」等 → sns/SKILL.md自動起動 |
-| **リサーチモード** | リベシティ等から副業ネタを収集し、優良記事×優良記事で新副業を創造／単一記事から自動化案件を抽出 | 「リベシティ」「ノウハウ図書館」「副業ネタ」「副業自動化」等 → research/SKILL.md自動起動 |
+| **リサーチモード** | リベシティ等から副業ネタを収集し、優良記事×優良記事で新副業を創造／単一記事から自動化案件を抽出／学長マガジン等を要約し副業・投資の考え方を蓄積 | 「リベシティ」「ノウハウ図書館」「副業ネタ」「副業自動化」「学長マガジン」「高配当株」等 → research/SKILL.md自動起動 |
 
 ### モード切替の判定キーワード
 - ブログ・記事・WordPress・キャラ対話・SEO → **ブログ専用モード**
 - PWA・アプリ・ツール開発・メルカリ・献立・ライフプラン・自動化 → **ツール作成モード**
 - SNS・X（Twitter）・Instagram・YouTube・リール・ショート・ハッシュタグ・投稿原稿 → **SNS統括モード**
-- リベシティ・ノウハウ図書館・副業ネタ・副業計画・掛け合わせ・新事業アイデア・副業自動化・Claude Codeで・PWA化・ツール化したい → **リサーチモード**
+- リベシティ・ノウハウ図書館・副業ネタ・副業計画・掛け合わせ・新事業アイデア・副業自動化・Claude Codeで・PWA化・ツール化したい・学長マガジン・高配当株マガジン・学長の考え方 → **リサーチモード**
 - それ以外（雑用・調査・整理・相談・PDF作成・Excel処理など） → **PDMモード**
 
 > 「ブログ統括PDM」セッションはブログ＋SNS両モードを兼任する立ち位置（ハブ&スポーク戦略のため）。
@@ -298,6 +298,7 @@ python3 tools/handover.py --title "blog記事3執筆"
 - 収集時：`research/skills/collect.md`（Chrome MCP起動前に必読）
 - 掛け合わせ創造時：`research/skills/synthesize.md`
 - 自動化提案時：`research/skills/automate.md`
+- 学長メソッド研究時：`research/skills/digest.md`（学長マガジン等の要約・蓄積）
 - 他部門振り分け時：`research/skills/handoff.md`
 - 🔴 起動前必須：`research/MEMORY.md`「ユーザー承認記録」がリベシティ利用規約承認で埋まっていること
 
@@ -521,8 +522,9 @@ MEMORY.md（学習・経験の蓄積）
 - 収集ルール → `research/skills/collect.md`（Claude in Chrome経由でリベシティ取得）
 - 掛け合わせ創造ルール → `research/skills/synthesize.md`（A×B = 新副業アイデア）
 - 自動化提案ルール → `research/skills/automate.md`（単一記事→4パターンで自動化提案）
+- 学長メソッド研究ルール → `research/skills/digest.md`（学長マガジン等を要約・蓄積／🚨投資助言NG・記録と可視化のみ）
 - 他部門連携ルール → `research/skills/handoff.md`（blog/sns/tools への送出フロー）
-- データ源：リベシティ ノウハウ図書館（Claude in Chrome経由・利用規約承認必須）
+- データ源：リベシティ ノウハウ図書館・学長マガジン等（Claude in Chrome経由・利用規約承認必須）
 
 **本業（work-projectsリポジトリ・別リポジトリ）**
 - メール秘書 → `email-assistant/SKILL.md`
