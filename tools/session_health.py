@@ -22,7 +22,7 @@
 検出ロジック：
   画像数:  WARN=25,  CRIT=40
   サイズ:  WARN=5MB, CRIT=9MB
-  ターン:  WARN=50,  CRIT=80
+  ターン:  WARN=30,  CRIT=50  （実コード・CLAUDE.mdと一致。ユーザー入力回数ベース）
 """
 from __future__ import annotations
 
