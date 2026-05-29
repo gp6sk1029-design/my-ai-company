@@ -1,0 +1,13 @@
+{
+  "_note": "ライフイベントの既定テンプレ。ユーザーは頻度・金額・開始年齢を編集可能",
+  "templates": [
+    { "key": "car_replace",   "label": "🚗 車買替",     "category": "car",       "amountDefault": 3000000, "everyYears": 10, "startAge": 35 },
+    { "key": "appliance",     "label": "🔌 家電更新",   "category": "appliance", "amountDefault": 500000,  "everyYears": 10, "startAge": 40 },
+    { "key": "travel_int",    "label": "✈️ 海外旅行",   "category": "travel",    "amountDefault": 400000,  "everyYears": 2,  "startAge": 35 },
+    { "key": "travel_dom",    "label": "🚅 国内旅行",   "category": "travel",    "amountDefault": 100000,  "everyYears": 1,  "startAge": 30 },
+    { "key": "reform",        "label": "🏠 外壁・水回り修繕", "category": "reform", "amountDefault": 1500000, "everyYears": 15, "startAge": 45 },
+    { "key": "wedding",       "label": "💒 結婚式",     "category": "other",     "amountDefault": 3000000, "everyYears": 0,  "startAge": 30 },
+    { "key": "childbirth",    "label": "👶 出産費用",   "category": "other",     "amountDefault": 500000,  "everyYears": 0,  "startAge": 32 },
+    { "key": "house_purchase","label": "🏡 住宅購入頭金","category": "other",     "amountDefault": 5000000, "everyYears": 0,  "startAge": 35 }
+  ]
+}

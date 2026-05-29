@@ -1,0 +1,85 @@
+{
+  "posts": [
+    {
+      "id": 605,
+      "title": "Garmin Venu 2S を4年半使ったリアルレビュー｜27円/日で健康管理できる最強スマートウォッチ",
+      "link": "https://www.ootanisatan.com/garmin-venu-2s-%e3%82%924%e5%b9%b4%e5%8d%8a%e4%bd%bf%e3%81%a3%e3%81%9f%e3%83%aa%e3%82%a2%e3%83%ab%e3%83%ac%e3%83%93%e3%83%a5%e3%83%bc%ef%bd%9c27%e5%86%86-%e6%97%a5%e3%81%a7%e5%81%a5%e5%ba%b7%e7%ae%a1/",
+      "date": "2026.04.04",
+      "categories": [
+        1
+      ],
+      "featured_media": 633,
+      "thumb_url": "https://www.ootanisatan.com/wp-content/uploads/2026/04/garmin-venu2s-eyecatch-v3.jpg"
+    },
+    {
+      "id": 552,
+      "title": "MX ERGO Sの持ち運び問題を完全解決！収納ケース＆変換アダプタの最強セット",
+      "link": "https://www.ootanisatan.com/mx-ergo-s%e3%81%ae%e6%8c%81%e3%81%a1%e9%81%8b%e3%81%b3%e5%95%8f%e9%a1%8c%e3%82%92%e5%ae%8c%e5%85%a8%e8%a7%a3%e6%b1%ba%ef%bc%81%e5%8f%8e%e7%b4%8d%e3%82%b1%e3%83%bc%e3%82%b9%ef%bc%86%e5%a4%89%e6%8f%9b/",
+      "date": "2026.02.25",
+      "categories": [
+        1
+      ],
+      "featured_media": 558,
+      "thumb_url": "https://www.ootanisatan.com/wp-content/uploads/2026/02/d6fe4181d7968e456b77277c584c9395-1.jpg"
+    },
+    {
+      "id": 526,
+      "title": "MX ERGO S レビュー｜エンジニアの「稼働率」を上げる最強の相棒",
+      "link": "https://www.ootanisatan.com/mx-ergo-s-%e3%83%ac%e3%83%93%e3%83%a5%e3%83%bc%ef%bd%9c%e3%82%a8%e3%83%b3%e3%82%b8%e3%83%8b%e3%82%a2%e3%81%ae%e3%80%8c%e7%a8%bc%e5%83%8d%e7%8e%87%e3%80%8d%e3%82%92%e4%b8%8a%e3%81%92%e3%82%8b%e6%9c%80/",
+      "date": "2026.02.21",
+      "categories": [
+        1
+      ],
+      "featured_media": 549,
+      "thumb_url": "https://www.ootanisatan.com/wp-content/uploads/2026/02/d5dcaac3a3a8f57dff51c348e1b2c39c.jpg"
+    },
+    {
+      "id": 450,
+      "title": "【実機】Keychron K1 Maxレビュー｜薄型キーボードの完成形",
+      "link": "https://www.ootanisatan.com/%e3%80%90%e5%ae%9f%e6%a9%9f%e3%80%91keychron-k1-max%e3%83%ac%e3%83%93%e3%83%a5%e3%83%bc%ef%bd%9c%e8%96%84%e5%9e%8b%e3%82%ad%e3%83%bc%e3%83%9c%e3%83%bc%e3%83%89%e3%81%ae%e5%ae%8c%e6%88%90%e5%bd%a2/",
+      "date": "2026.02.05",
+      "categories": [
+        1
+      ],
+      "featured_media": 455,
+      "thumb_url": "https://www.ootanisatan.com/wp-content/uploads/2026/02/CleanShot-2026-02-05-at-00.24.17.jpg"
+    },
+    {
+      "id": 12,
+      "title": "ガジェットと生産技術の関係について",
+      "link": "https://www.ootanisatan.com/%e4%bb%95%e4%ba%8b%e3%81%ae%e8%a9%b1/",
+      "date": "2023.05.08",
+      "categories": [
+        4
+      ],
+      "featured_media": 588,
+      "thumb_url": "https://www.ootanisatan.com/wp-content/uploads/2023/05/bafe983d916a22767195470df0818886.jpg"
+    }
+  ],
+  "categories": [
+    {
+      "id": 1,
+      "link": "https://www.ootanisatan.com/category/gadget-lab/",
+      "name": "ガジェット研究室",
+      "slug": "gadget-lab"
+    },
+    {
+      "id": 6,
+      "link": "https://www.ootanisatan.com/category/jitan-tool-lab/",
+      "name": "時短ツール研究室",
+      "slug": "jitan-tool-lab"
+    },
+    {
+      "id": 5,
+      "link": "https://www.ootanisatan.com/category/kurashi-hack-lab/",
+      "name": "暮らしハック研究室",
+      "slug": "kurashi-hack-lab"
+    },
+    {
+      "id": 4,
+      "link": "https://www.ootanisatan.com/category/seigi-lab/",
+      "name": "生産技術研究室",
+      "slug": "seigi-lab"
+    }
+  ]
+}

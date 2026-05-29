@@ -1,0 +1,132 @@
+[
+  {
+    "file": "オオタニ所長 通常.png",
+    "slot": 1,
+    "char": "オオタニ所長",
+    "expr": "通常",
+    "title": "オオタニ所長-通常",
+    "alt": "PTGLキャップを被ったオオタニ所長の通常表情",
+    "media_id": 737,
+    "source_url": "https://www.ootanisatan.com/wp-content/uploads/2026/05/E382AAE382AAE382BFE3838BE68980E995B7-E9809AE5B8B8.jpg"
+  },
+  {
+    "file": "オオタニ所長 ドヤ顔 (1).png",
+    "slot": 2,
+    "char": "オオタニ所長",
+    "expr": "ドヤ顔",
+    "title": "オオタニ所長-ドヤ顔",
+    "alt": "PTGLキャップを被ったオオタニ所長のドヤ顔",
+    "media_id": 738,
+    "source_url": "https://www.ootanisatan.com/wp-content/uploads/2026/05/E382AAE382AAE382BFE3838BE68980E995B7-E38389E383A4E9A194.jpg"
+  },
+  {
+    "file": "オオタニ所長 悩む.png",
+    "slot": 3,
+    "char": "オオタニ所長",
+    "expr": "悩む",
+    "title": "オオタニ所長-悩む",
+    "alt": "PTGLキャップを被ったオオタニ所長の悩む表情",
+    "media_id": 739,
+    "source_url": "https://www.ootanisatan.com/wp-content/uploads/2026/05/E382AAE382AAE382BFE3838BE68980E995B7-E682A9E38280.jpg"
+  },
+  {
+    "file": "オオタニ所長 焦り.png",
+    "slot": 4,
+    "char": "オオタニ所長",
+    "expr": "焦り",
+    "title": "オオタニ所長-焦り",
+    "alt": "PTGLキャップを被ったオオタニ所長の焦り表情",
+    "media_id": 740,
+    "source_url": "https://www.ootanisatan.com/wp-content/uploads/2026/05/E382AAE382AAE382BFE3838BE68980E995B7-E784A6E3828A.jpg"
+  },
+  {
+    "file": "オオタニ所長 恥ずかしい.png",
+    "slot": 5,
+    "char": "オオタニ所長",
+    "expr": "恥ずかしい",
+    "title": "オオタニ所長-恥ずかしい",
+    "alt": "PTGLキャップを被ったオオタニ所長の恥ずかしい表情",
+    "media_id": 741,
+    "source_url": "https://www.ootanisatan.com/wp-content/uploads/2026/05/E382AAE382AAE382BFE3838BE68980E995B7-E681A5E3819AE3818BE38197E38184.jpg"
+  },
+  {
+    "file": "新人タナカ 正常 .png",
+    "slot": 6,
+    "char": "新人タナカ",
+    "expr": "通常",
+    "title": "新人タナカ-通常",
+    "alt": "PTGLキャップを被った新人タナカの通常表情",
+    "media_id": 749,
+    "source_url": "https://www.ootanisatan.com/wp-content/uploads/2026/05/E696B0E4BABAE382BFE3838AE382AB-E9809AE5B8B8.jpg"
+  },
+  {
+    "file": "新人タナカ 驚き.png",
+    "slot": 7,
+    "char": "新人タナカ",
+    "expr": "驚き",
+    "title": "新人タナカ-驚き",
+    "alt": "PTGLキャップを被った新人タナカの驚き表情",
+    "media_id": 742,
+    "source_url": "https://www.ootanisatan.com/wp-content/uploads/2026/05/E696B0E4BABAE382BFE3838AE382AB-E9A99AE3818D.jpg"
+  },
+  {
+    "file": "新人タナカ 絶望顔.png",
+    "slot": 8,
+    "char": "新人タナカ",
+    "expr": "絶望",
+    "title": "新人タナカ-絶望",
+    "alt": "PTGLキャップを被った新人タナカの絶望表情",
+    "media_id": 743,
+    "source_url": "https://www.ootanisatan.com/wp-content/uploads/2026/05/E696B0E4BABAE382BFE3838AE382AB-E7B5B6E69C9B.jpg"
+  },
+  {
+    "file": "新人タナカ ニヤ顔.png",
+    "slot": 9,
+    "char": "新人タナカ",
+    "expr": "怪しげ",
+    "title": "新人タナカ-怪しげ",
+    "alt": "PTGLキャップを被った新人タナカのニヤ顔（怪しげ）",
+    "media_id": 744,
+    "source_url": "https://www.ootanisatan.com/wp-content/uploads/2026/05/E696B0E4BABAE382BFE3838AE382AB-E680AAE38197E38192.jpg"
+  },
+  {
+    "file": "新人タナカ ドヤ顔.png",
+    "slot": 10,
+    "char": "新人タナカ",
+    "expr": "ドヤ顔",
+    "title": "新人タナカ-ドヤ顔",
+    "alt": "PTGLキャップを被った新人タナカのドヤ顔",
+    "media_id": 745,
+    "source_url": "https://www.ootanisatan.com/wp-content/uploads/2026/05/E696B0E4BABAE382BFE3838AE382AB-E38389E383A4E9A194.jpg"
+  },
+  {
+    "file": "オオタニ所長 悲しい.png",
+    "slot": null,
+    "char": "オオタニ所長",
+    "expr": "悲しい",
+    "title": "オオタニ所長-悲しい",
+    "alt": "PTGLキャップを被ったオオタニ所長の悲しい表情",
+    "media_id": 746,
+    "source_url": "https://www.ootanisatan.com/wp-content/uploads/2026/05/E382AAE382AAE382BFE3838BE68980E995B7-E682B2E38197E38184.jpg"
+  },
+  {
+    "file": "オオタニ所長 驚き.png",
+    "slot": null,
+    "char": "オオタニ所長",
+    "expr": "驚き",
+    "title": "オオタニ所長-驚き",
+    "alt": "PTGLキャップを被ったオオタニ所長の驚き表情",
+    "media_id": 747,
+    "source_url": "https://www.ootanisatan.com/wp-content/uploads/2026/05/E382AAE382AAE382BFE3838BE68980E995B7-E9A99AE3818D.jpg"
+  },
+  {
+    "file": "オオタニ所長 絶望.png",
+    "slot": null,
+    "char": "オオタニ所長",
+    "expr": "絶望",
+    "title": "オオタニ所長-絶望",
+    "alt": "PTGLキャップを被ったオオタニ所長の絶望表情",
+    "media_id": 748,
+    "source_url": "https://www.ootanisatan.com/wp-content/uploads/2026/05/E382AAE382AAE382BFE3838BE68980E995B7-E7B5B6E69C9B.jpg"
+  }
+]

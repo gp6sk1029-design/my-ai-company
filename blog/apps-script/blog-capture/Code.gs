@@ -16,6 +16,12 @@ function doGet(e) {
       return jsonResponse_({ ok: true, articles: listArticleFolders() });
     case 'resumableUrl':
       return handleResumableUrl_(p);
+    case 'getPrompt':
+      return handleGetPrompt_(p);
+    case 'listArticleFiles':
+      return handleListArticleFiles_(p);
+    case 'downloadFile':
+      return handleDownloadFile_(p);
     case 'ping':
       return jsonResponse_({ ok: true, time: new Date().toISOString() });
     default:
@@ -28,7 +34,222 @@ function doPost(e) {
   if (!verifyToken_(p.token)) return jsonResponse_({ ok: false, message: 'unauthorized' });
 
   if (p.action === 'uploadSmall') return handleUploadSmall_(p);
+  if (p.action === 'savePrompt') return handleSavePrompt_(p);
+  if (p.action === 'replaceFile') return handleReplaceFile_(p);
+  if (p.action === 'renameArticle') return handleRenameArticle_(p);
+  if (p.action === 'createArticle') return handleCreateArticle_(p);
   return jsonResponse_({ ok: false, message: 'unknown action: ' + p.action });
+}
+
+// ─── 記事フォルダだけを作成（転送を待たずに先行作成） ─────────────────────
+// 命名規則「【記事】◯◯」を必ず付与。既存があれば再利用してそのIDを返す。
+function handleCreateArticle_(p) {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(15000);
+  try {
+    if (!p.articleTitle || !p.articleTitle.trim()) {
+      return jsonResponse_({ ok: false, message: 'articleTitle required' });
+    }
+    // prefix を全て剥がしてから1個だけ付ける（重複防止）
+    let base = p.articleTitle.trim();
+    while (base.indexOf(CONFIG.ARTICLE_PREFIX) === 0) {
+      base = base.substring(CONFIG.ARTICLE_PREFIX.length).trim();
+    }
+    if (!base) return jsonResponse_({ ok: false, message: 'prefix を除いた本体名が空です' });
+    // getOrCreateArticleFolder は prefix なしの本体名を受け取って内部で prefix を付与する
+    const folder = getOrCreateArticleFolder(base);
+    appendLog({
+      articleTitle: folder.getName(),
+      fileName: '(create)',
+      result: '記事フォルダ作成',
+      note: 'folderId=' + folder.getId(),
+    });
+    return jsonResponse_({
+      ok: true,
+      result: 'created',
+      articleFolderId: folder.getId(),
+      articleFolderName: folder.getName(),
+    });
+  } catch (err) {
+    Logger.log('handleCreateArticle_ error: ' + err.message + '\n' + err.stack);
+    return jsonResponse_({ ok: false, message: err.message });
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+// ─── 記事フォルダ名の変更 ─────────────────────
+// 命名規則「【記事】◯◯」を必ず維持する。ユーザーが prefix を付け忘れたり外したりしても自動補正
+function handleRenameArticle_(p) {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(15000);
+  try {
+    if (!p.articleFolderId) return jsonResponse_({ ok: false, message: 'articleFolderId required' });
+    if (!p.newName || !p.newName.trim()) return jsonResponse_({ ok: false, message: 'newName required' });
+    const folder = getArticleFolderById(p.articleFolderId);
+    const oldName = folder.getName();
+    let newName = p.newName.trim();
+    // 末尾の prefix が複数付くのを防ぐため、まず全ての prefix を剥がしてから1個だけ付ける
+    while (newName.indexOf(CONFIG.ARTICLE_PREFIX) === 0) {
+      newName = newName.substring(CONFIG.ARTICLE_PREFIX.length).trim();
+    }
+    if (!newName) return jsonResponse_({ ok: false, message: 'prefix を除いた本体名が空です' });
+    newName = CONFIG.ARTICLE_PREFIX + newName;
+
+    if (oldName === newName) {
+      return jsonResponse_({ ok: true, result: 'unchanged', articleFolderId: folder.getId(), articleFolderName: oldName });
+    }
+    // 同一親フォルダ内に同名が既に存在するかチェック
+    const parents = folder.getParents();
+    if (parents.hasNext()) {
+      const parent = parents.next();
+      const it = parent.getFoldersByName(newName);
+      if (it.hasNext()) {
+        const dupe = it.next();
+        if (dupe.getId() !== folder.getId()) {
+          return jsonResponse_({ ok: false, message: '同名の記事フォルダが既に存在します: ' + newName });
+        }
+      }
+    }
+    folder.setName(newName);
+    appendLog({
+      articleTitle: newName,
+      fileName: '(rename)',
+      result: '記事名変更',
+      note: 'from=' + oldName + ' to=' + newName + ' folderId=' + folder.getId(),
+    });
+    return jsonResponse_({
+      ok: true,
+      result: 'renamed',
+      articleFolderId: folder.getId(),
+      articleFolderName: newName,
+      oldName: oldName,
+    });
+  } catch (err) {
+    Logger.log('handleRenameArticle_ error: ' + err.message + '\n' + err.stack);
+    return jsonResponse_({ ok: false, message: err.message });
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+// ─── 破損した記事フォルダ（prefixが外れたフォルダ）を修復する管理用関数 ─────────────
+// PWA からの過去の名前変更で prefix が外れたフォルダがあれば、ID指定で復元できる
+// ※ GAS エディタから直接 fixOrphanedFolder('FOLDER_ID', 'MX ERGO S 設定') を呼ぶ用途
+function fixOrphanedFolder(folderId, baseTitle) {
+  const folder = DriveApp.getFolderById(folderId);
+  const parents = folder.getParents();
+  if (!parents.hasNext()) throw new Error('親フォルダがありません');
+  const parent = parents.next();
+  if (parent.getId() !== CONFIG.ROOT_FOLDER_ID) {
+    throw new Error('ブロブ関連の直下にありません。手動で移動してから実行してください');
+  }
+  const newName = CONFIG.ARTICLE_PREFIX + (baseTitle || folder.getName()).trim();
+  folder.setName(newName);
+  Logger.log('✅ 修復完了: ' + folder.getName());
+  return newName;
+}
+
+// ─── ファイル本体ダウンロード（PWAへbase64返却・再編集用） ─────────────────────
+// Driveへ直接fetchするとCORSで失敗するので GAS を経由してbase64で受け渡す
+function handleDownloadFile_(p) {
+  try {
+    if (!p.fileId) return jsonResponse_({ ok: false, message: 'fileId required' });
+    const file = DriveApp.getFileById(p.fileId);
+    const blob = file.getBlob();
+    const bytes = blob.getBytes();
+    // 10MB超は base64 化で重くなるので警告だけ出す（必要なら chunked download に変更）
+    if (bytes.length > 10 * 1024 * 1024) {
+      Logger.log('downloadFile warning: large file ' + bytes.length + ' bytes for ' + file.getName());
+    }
+    const b64 = Utilities.base64Encode(bytes);
+    return jsonResponse_({
+      ok: true,
+      fileId: p.fileId,
+      fileName: file.getName(),
+      mimeType: blob.getContentType(),
+      size: bytes.length,
+      dataBase64: b64,
+    });
+  } catch (err) {
+    Logger.log('handleDownloadFile_ error: ' + err.message);
+    return jsonResponse_({ ok: false, message: err.message });
+  }
+}
+
+// ─── フォルダ内ファイル一覧（既存画像の再編集用） ─────────────────────
+function handleListArticleFiles_(p) {
+  try {
+    if (!p.articleFolderId) return jsonResponse_({ ok: false, message: 'articleFolderId required' });
+    const folder = getArticleFolderById(p.articleFolderId);
+    const out = [];
+    const it = folder.getFiles();
+    while (it.hasNext()) {
+      const f = it.next();
+      const mime = f.getMimeType();
+      const name = f.getName();
+      const isImg = mime && mime.indexOf('image/') === 0;
+      // 画像のみ返す（PROMPT.md は別アクション getPrompt で扱う）
+      if (!isImg) continue;
+      out.push({
+        id: f.getId(),
+        name: name,
+        mimeType: mime,
+        size: f.getSize(),
+        modifiedTime: f.getLastUpdated().toISOString(),
+        // Drive サムネ（PWAから直接 <img src> で参照可能）
+        thumbnailUrl: 'https://drive.google.com/thumbnail?id=' + f.getId() + '&sz=w400',
+      });
+    }
+    // 更新日時の降順
+    out.sort(function (a, b) { return a.modifiedTime < b.modifiedTime ? 1 : -1; });
+    return jsonResponse_({ ok: true, files: out });
+  } catch (err) {
+    return jsonResponse_({ ok: false, message: err.message });
+  }
+}
+
+// ─── 既存ファイルの中身を上書き保存（fileId は同じファイル名でリネーム） ─────────────
+// 実装: 元ファイルを trash → 同じフォルダに同じ名前で再作成
+//   ※ Advanced Drive Service が不要、シンプルでロック耐性あり
+function handleReplaceFile_(p) {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    if (!p.fileId) return jsonResponse_({ ok: false, message: 'fileId required' });
+    if (!p.fileDataBase64) return jsonResponse_({ ok: false, message: 'fileDataBase64 required' });
+    const oldFile = DriveApp.getFileById(p.fileId);
+    const oldName = oldFile.getName();
+    const parents = oldFile.getParents();
+    if (!parents.hasNext()) return jsonResponse_({ ok: false, message: 'file has no parent folder' });
+    const parent = parents.next();
+    const bytes = Utilities.base64Decode(p.fileDataBase64);
+    const blob = Utilities.newBlob(bytes, p.mimeType || oldFile.getMimeType(), oldName);
+    // 元ファイルをゴミ箱へ
+    oldFile.setTrashed(true);
+    // 同名で新規作成
+    const newFile = parent.createFile(blob);
+    appendLog({
+      articleTitle: parent.getName(),
+      fileName: oldName,
+      sizeBytes: bytes.length,
+      result: '上書き保存',
+      note: 'old=' + p.fileId + ' new=' + newFile.getId(),
+    });
+    return jsonResponse_({
+      ok: true,
+      result: 'replaced',
+      oldFileId: p.fileId,
+      newFileId: newFile.getId(),
+      fileName: oldName,
+      articleFolderId: parent.getId(),
+    });
+  } catch (err) {
+    Logger.log('handleReplaceFile_ error: ' + err.message + '\n' + err.stack);
+    return jsonResponse_({ ok: false, message: err.message });
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 // ─── 小ファイルアップロード ─────────────────────
@@ -96,6 +317,134 @@ function handleUploadSmall_(p) {
   } finally {
     lock.releaseLock();
   }
+}
+
+// ─── 記事作成メモ（PROMPT.md）保存 ─────────────────────
+function handleSavePrompt_(p) {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(15000);
+  try {
+    const folder = p.articleFolderId
+      ? getArticleFolderById(p.articleFolderId)
+      : getOrCreateArticleFolder(p.articleTitle);
+
+    const articleType = (p.articleType || '').trim();
+    let memos = [];
+    try {
+      const parsed = JSON.parse(p.memosJson || '[]');
+      if (Array.isArray(parsed)) {
+        memos = parsed.map(function (m) { return String(m || '').trim(); })
+                     .filter(function (m) { return m.length > 0; });
+      }
+    } catch (_) {}
+
+    // 何も指示がなければファイルは作らない（既存は保持）
+    if (!articleType && memos.length === 0) {
+      return jsonResponse_({
+        ok: true, result: 'no-prompt',
+        articleFolderId: folder.getId(),
+        articleFolderName: folder.getName(),
+      });
+    }
+
+    const now = Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy-MM-dd HH:mm');
+    let md = '# 記事作成メモ（AIへの指示）\n\n';
+    md += '> このファイルは「記事めし」PWAから生成された。\n';
+    md += '> 記事執筆時は下記の指示を**必ず優先度順に反映**すること。\n';
+    md += '> このファイルが存在する場合、SKILL.mdの標準構成より本メモを上位とする。\n\n';
+    md += '生成日時: ' + now + '\n';
+    md += '記事フォルダ: ' + folder.getName() + '\n\n';
+
+    if (articleType) {
+      md += '## 記事タイプ\n';
+      md += '**' + articleType + '**\n\n';
+    }
+    if (memos.length > 0) {
+      md += '## 読者に伝えたいポイント（優先度順）\n';
+      for (var i = 0; i < memos.length; i++) {
+        md += (i + 1) + '. ' + memos[i] + '\n';
+      }
+      md += '\n';
+    }
+    md += '---\n';
+    md += '※1番目が最重要。記事の結論・導入・強調装飾は優先度上位のポイントに寄せる。\n';
+
+    // 既存 PROMPT.md を削除して新規作成
+    const existing = folder.getFilesByName('PROMPT.md');
+    while (existing.hasNext()) existing.next().setTrashed(true);
+
+    const blob = Utilities.newBlob(md, 'text/markdown', 'PROMPT.md');
+    const file = folder.createFile(blob);
+
+    appendLog({
+      articleTitle: folder.getName(),
+      fileName: 'PROMPT.md',
+      sizeBytes: md.length,
+      result: 'メモ保存',
+      note: 'type=' + articleType + ' memos=' + memos.length,
+    });
+
+    return jsonResponse_({
+      ok: true, result: 'success',
+      fileId: file.getId(),
+      articleFolderId: folder.getId(),
+      articleFolderName: folder.getName(),
+    });
+  } catch (err) {
+    Logger.log('handleSavePrompt_ error: ' + err.message + '\n' + err.stack);
+    return jsonResponse_({ ok: false, message: err.message });
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+// ─── 既存 PROMPT.md 取得（編集復元用） ─────────────────────
+function handleGetPrompt_(p) {
+  try {
+    if (!p.articleFolderId) {
+      return jsonResponse_({ ok: true, exists: false, message: 'no folderId' });
+    }
+    const folder = getArticleFolderById(p.articleFolderId);
+    const files = folder.getFilesByName('PROMPT.md');
+    if (!files.hasNext()) {
+      return jsonResponse_({ ok: true, exists: false });
+    }
+    const file = files.next();
+    const text = file.getBlob().getDataAsString('UTF-8');
+
+    // パースして articleType と memos を抽出
+    const parsed = parsePromptMd_(text);
+
+    return jsonResponse_({
+      ok: true, exists: true,
+      articleType: parsed.articleType,
+      memos: parsed.memos,
+      raw: text,
+    });
+  } catch (err) {
+    return jsonResponse_({ ok: false, message: err.message });
+  }
+}
+
+function parsePromptMd_(text) {
+  const result = { articleType: '', memos: [] };
+  if (!text) return result;
+  const lines = text.split(/\r?\n/);
+  let section = '';
+  for (var i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (/^##\s*記事タイプ/.test(line)) { section = 'type'; continue; }
+    if (/^##\s*読者に伝えたいポイント/.test(line)) { section = 'memos'; continue; }
+    if (/^##\s/.test(line)) { section = ''; continue; }
+    if (section === 'type') {
+      const m = line.match(/^\*\*(.+?)\*\*\s*$/) || line.match(/^([^\s*-].+?)\s*$/);
+      if (m && m[1]) { result.articleType = m[1].trim(); section = ''; }
+    } else if (section === 'memos') {
+      const m = line.match(/^\d+\.\s+(.+?)\s*$/);
+      if (m && m[1]) result.memos.push(m[1].trim());
+    }
+  }
+  return result;
 }
 
 // ─── Resumable URL 発行 ─────────────────────

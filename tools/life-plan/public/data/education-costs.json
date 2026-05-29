@@ -1,0 +1,50 @@
+{
+  "_source": "文部科学省「子供の学習費調査」令和3年度＋日本政策金融公庫「教育費負担の実態調査」R5",
+  "_unit": "円／年（学校外活動費・給食費含む、大学のみ総額ベース）",
+  "stages": {
+    "pre": {
+      "label": "幼稚園・保育園",
+      "fromAge": 3,
+      "toAge": 5,
+      "public": 165000,
+      "private": 309000
+    },
+    "es": {
+      "label": "小学校",
+      "fromAge": 6,
+      "toAge": 11,
+      "public": 353000,
+      "private": 1667000
+    },
+    "jhs": {
+      "label": "中学校",
+      "fromAge": 12,
+      "toAge": 14,
+      "public": 539000,
+      "private": 1436000
+    },
+    "hs": {
+      "label": "高校",
+      "fromAge": 15,
+      "toAge": 17,
+      "public": 513000,
+      "private": 1054000
+    },
+    "univ": {
+      "label": "大学（4年総額の年割）",
+      "fromAge": 18,
+      "toAge": 21,
+      "public": 2425000,
+      "private_bunkei": 4690000,
+      "private_rikei": 6010000,
+      "private_med": 23500000
+    }
+  },
+  "juku": {
+    "label": "塾・習い事 上乗せ（年額）",
+    "none": 0,
+    "light": 120000,
+    "standard": 360000,
+    "heavy": 720000
+  }
+}

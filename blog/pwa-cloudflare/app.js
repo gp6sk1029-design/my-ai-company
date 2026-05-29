@@ -11,6 +11,12 @@
   const articleSelect = $('article-select');
   const newArticleInput = $('new-article-title');
   const useNewArticleBtn = $('use-new-article');
+  const articleTypeSelect = $('article-type-select');
+  const addArticleTypeBtn = $('add-article-type');
+  const removeArticleTypeBtn = $('remove-article-type');
+  const memoList = $('memo-list');
+  const addMemoBtn = $('add-memo');
+  const memoSummaryStatus = $('memo-summary-status');
   const liveCamera = $('live-camera');
   const pickerGrid = $('picker-grid');
   const cameraPreview = $('camera-preview');
@@ -33,22 +39,44 @@
   // ─── IndexedDB ─────────────────────
   const DB_NAME = 'blog-capture';
   const STORE = 'queue';
+  const SETTINGS_STORE = 'settings'; // v2 追加：DirectoryHandle 等の設定保存
   let dbPromise = null;
   function openDB() {
     if (dbPromise) return dbPromise;
     dbPromise = new Promise((resolve, reject) => {
-      const req = indexedDB.open(DB_NAME, 1);
-      req.onupgradeneeded = () => {
+      const req = indexedDB.open(DB_NAME, 2);
+      req.onupgradeneeded = (e) => {
         const db = req.result;
         if (!db.objectStoreNames.contains(STORE)) {
           const os = db.createObjectStore(STORE, { keyPath: 'id' });
           os.createIndex('createdAt', 'createdAt');
+        }
+        if (!db.objectStoreNames.contains(SETTINGS_STORE)) {
+          db.createObjectStore(SETTINGS_STORE);
         }
       };
       req.onsuccess = () => resolve(req.result);
       req.onerror = () => reject(req.error);
     });
     return dbPromise;
+  }
+  async function settingsGet(key) {
+    const db = await openDB();
+    return new Promise((res, rej) => {
+      const tx = db.transaction(SETTINGS_STORE, 'readonly');
+      const req = tx.objectStore(SETTINGS_STORE).get(key);
+      req.onsuccess = () => res(req.result);
+      req.onerror = () => rej(req.error);
+    });
+  }
+  async function settingsPut(key, value) {
+    const db = await openDB();
+    return new Promise((res, rej) => {
+      const tx = db.transaction(SETTINGS_STORE, 'readwrite');
+      tx.objectStore(SETTINGS_STORE).put(value, key);
+      tx.oncomplete = () => res();
+      tx.onerror = () => rej(tx.error);
+    });
   }
   async function queuePut(r) {
     const db = await openDB();
@@ -96,8 +124,34 @@
   let recordStartTs = 0;
   let recordTimerId = null;
 
+  // カメラ ON/OFF 状態（localStorage 永続化、デフォルト ON）
+  const CAM_ENABLED_KEY = 'kiji-meshi:camera-enabled';
+  function isCameraEnabled() {
+    const v = localStorage.getItem(CAM_ENABLED_KEY);
+    return v === null ? true : v === '1';
+  }
+  function setCameraEnabled(on) {
+    localStorage.setItem(CAM_ENABLED_KEY, on ? '1' : '0');
+  }
+  function applyCameraPowerUI() {
+    const on = isCameraEnabled();
+    const mask = document.getElementById('camera-off-mask');
+    const power = document.getElementById('camera-power');
+    if (mask) mask.hidden = on;
+    if (power) {
+      power.classList.toggle('off', !on);
+      power.title = on ? 'カメラ停止（OFF）' : 'カメラ起動（ON）';
+    }
+  }
+
   async function startCamera() {
     stopCamera();
+    // OFF 状態なら起動しない（待機）
+    if (!isCameraEnabled()) {
+      applyCameraPowerUI();
+      setStatus('📷 カメラ OFF（タップで起動）');
+      return;
+    }
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       setStatus('⚠️ このブラウザはカメラ非対応。「選択」タブを使ってください');
       return;
@@ -110,6 +164,7 @@
       currentStream = await navigator.mediaDevices.getUserMedia(constraints);
       cameraPreview.srcObject = currentStream;
       setStatus('📷 カメラ起動中');
+      applyCameraPowerUI();
     } catch (e) {
       let msg = e.message || String(e);
       if (e.name === 'NotAllowedError') msg = 'カメラ権限を許可してください（URLバーの🔒から）';
@@ -217,10 +272,28 @@
       if (isVideo) div.innerHTML = '<video src="' + url + '" muted></video>';
       else if (isPdf) div.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:32px;">📄</div>';
       else div.innerHTML = '<img src="' + url + '" alt="">';
+      const editBtnHtml = (isVideo || isPdf) ? '' :
+        '<button class="ai-edit-btn" type="button" title="ChatGPTで編集" data-action="ai-gpt">🤖</button>' +
+        '<button class="ai-edit-btn ai-edit-gemini" type="button" title="Geminiで編集" data-action="ai-gem">🍌</button>' +
+        '<button class="ai-edit-btn ai-edit-canva" type="button" title="Canvaで仕上げ" data-action="ai-canva">🎨</button>';
+      const curRoleKey = (item.role || (item.isEyecatch ? 'eyecatch' : 'none'));
+      const roleDef = getRoleDef(curRoleKey);
+      const roleBtnHtml = (isVideo || isPdf) ? '' :
+        '<button class="role-btn' + (curRoleKey !== 'none' ? ' active' : '') + '" type="button" ' +
+        'style="' + (curRoleKey !== 'none' ? `background:${roleDef.color};color:#fff;border-color:${roleDef.color};` : '') + '" ' +
+        'title="' + (curRoleKey === 'none' ? 'タップして用途を割当' : `${roleDef.label}（タップで次の用途へ）`) + '" ' +
+        'data-action="cycle-role">' + roleDef.emoji + '</button>';
+      const editingBadge = (item.editingWith ? '<div class="editing-badge">編集中…</div>' : '');
+      const replaceBadge = (item.replaceDriveFileId ? '<div class="replace-badge" title="転送時に既存ファイルを上書き">↻ 上書き</div>' : '');
+      const roleBadge = (curRoleKey !== 'none'
+        ? `<div class="role-badge" style="background:${roleDef.color}" title="${roleDef.label}">${roleDef.emoji} ${roleDef.label}</div>`
+        : '');
       div.insertAdjacentHTML('beforeend',
         '<span class="type-badge">' + (isVideo ? 'VID' : isPdf ? 'PDF' : 'IMG') + '</span>' +
+        editBtnHtml + roleBtnHtml +
         '<button class="delete-btn" type="button">✕</button>' +
-        (item.status === 'uploading' ? '<div class="status-overlay">転送中…</div>' : '')
+        (item.status === 'uploading' ? '<div class="status-overlay">転送中…</div>' : '') +
+        editingBadge + replaceBadge + roleBadge
       );
       div.querySelector('.delete-btn').addEventListener('click', async (e) => {
         e.stopPropagation();
@@ -228,9 +301,70 @@
         URL.revokeObjectURL(url);
         await renderQueue();
       });
+      const gptBtn = div.querySelector('[data-action="ai-gpt"]');
+      const gemBtn = div.querySelector('[data-action="ai-gem"]');
+      const canvaBtn = div.querySelector('[data-action="ai-canva"]');
+      const roleBtn = div.querySelector('[data-action="cycle-role"]');
+      if (gptBtn) gptBtn.addEventListener('click', async (e) => { e.stopPropagation(); await oneClickEdit(item, 'chatgpt'); });
+      if (gemBtn) gemBtn.addEventListener('click', async (e) => { e.stopPropagation(); await oneClickEdit(item, 'gemini'); });
+      if (canvaBtn) canvaBtn.addEventListener('click', async (e) => { e.stopPropagation(); await oneClickEdit(item, 'canva'); });
+      if (roleBtn) roleBtn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        await cycleRole(item.id);
+      });
       queueList.appendChild(div);
     }
   }
+  // ─── 画像役割（用途別タグ）──────────────────
+  // 1記事につきユニーク（アイキャッチ）／複数可（他）でルールが異なる
+  const ROLE_DEFS = [
+    { key: 'none',      emoji: '☆',  label: '役割なし',           prefix: '',          unique: false, color: '#9ca3af' },
+    { key: 'eyecatch',  emoji: '⭐', label: 'アイキャッチ',       prefix: 'eyecatch_', unique: true,  color: '#f59e0b' },
+    { key: 'hero',      emoji: '🎯', label: 'ヒーローバナー',     prefix: 'hero_',     unique: true,  color: '#ef4444' },
+    { key: 'section',   emoji: '📑', label: 'セクション画像',     prefix: 'section_',  unique: false, color: '#3b82f6' },
+    { key: 'product',   emoji: '📸', label: '商品/実機写真',      prefix: 'product_',  unique: false, color: '#10b981' },
+    { key: 'diagram',   emoji: '📐', label: '図解/フロー図',       prefix: 'diagram_',  unique: false, color: '#8b5cf6' },
+    { key: 'compare',   emoji: '⚖️', label: '比較/Before-After',  prefix: 'compare_',  unique: false, color: '#ec4899' },
+    { key: 'ngsummary', emoji: '⚠️', label: 'NG集サマリ',         prefix: 'ngsummary_', unique: true, color: '#dc2626' },
+  ];
+  function getRoleDef(key) {
+    return ROLE_DEFS.find(r => r.key === key) || ROLE_DEFS[0];
+  }
+  // 旧 isEyecatch との後方互換
+  function normalizeItemRole(item) {
+    if (item.role) return item.role;
+    if (item.isEyecatch) return 'eyecatch';
+    return 'none';
+  }
+  async function cycleRole(targetId) {
+    const all = await queueAll();
+    const target = all.find(x => x.id === targetId);
+    if (!target) return;
+    const cur = normalizeItemRole(target);
+    const idx = ROLE_DEFS.findIndex(r => r.key === cur);
+    const next = ROLE_DEFS[(idx + 1) % ROLE_DEFS.length];
+    // ユニーク役割なら他を解除
+    if (next.unique) {
+      for (const it of all) {
+        if (it.id !== targetId && normalizeItemRole(it) === next.key) {
+          it.role = 'none';
+          it.isEyecatch = false;
+          await queuePut(it);
+        }
+      }
+    }
+    target.role = next.key;
+    // 互換: eyecatch のみ isEyecatch も維持
+    target.isEyecatch = (next.key === 'eyecatch');
+    await queuePut(target);
+    await renderQueue();
+    if (next.key === 'none') {
+      showToast('役割をクリアしました', 'success');
+    } else {
+      showToast(`${next.emoji} ${next.label}に指定 → 転送時 \`${next.prefix}xxx\` で保存`, 'success');
+    }
+  }
+
   function prettySize(b) {
     if (b < 1024) return b + 'B';
     if (b < 1024 * 1024) return (b / 1024).toFixed(1) + 'KB';
@@ -251,25 +385,1940 @@
   inputVideo.addEventListener('change', handleInputChange);
   inputFiles.addEventListener('change', handleInputChange);
 
+  // ─── AI 接続先設定（プロジェクト／Gem URL を localStorage に保存） ────────
+  const CONN_KEY_GPT = 'pwa-meshi-conn-chatgpt';
+  const CONN_KEY_GEM = 'pwa-meshi-conn-gemini';
+  const DEFAULT_GPT_URL = 'https://chatgpt.com/?model=gpt-4o';
+  const DEFAULT_GEM_URL = 'https://gemini.google.com/app';
+
+  function getChatGPTUrl() {
+    return (localStorage.getItem(CONN_KEY_GPT) || '').trim() || DEFAULT_GPT_URL;
+  }
+  function getGeminiUrl() {
+    return (localStorage.getItem(CONN_KEY_GEM) || '').trim() || DEFAULT_GEM_URL;
+  }
+
+  // プロンプトを URL クエリに埋め込んで AI 起動 URL を構築
+  // ユーザーが保存したプロジェクト/Gem URL を基底にし、その上に ?q= / ?prompt= を付加する。
+  // ⚠️ プロジェクトURLでは ?q= が効かない可能性があるが、ユーザーは「プロジェクト文脈で開く」ことを優先
+  function buildAIUrl(engine, prompt) {
+    if (!prompt) {
+      // プロンプトなし → ユーザー設定のプロジェクトURLを尊重
+      return engine === 'gemini' ? getGeminiUrl() : getChatGPTUrl();
+    }
+    // プロンプトあり
+    // ChatGPTサーバーは長いURLで HTTP 431 を返す。安全圏は raw 日本語 300文字以内（≈ URL 2700バイト）
+    // ※ 完全版プロンプトはクリップボード経由で渡す（btnOpenAIのonclick内で navigator.clipboard.writeText）
+    const MAX = 300;
+    let p = prompt;
+    if (p.length > MAX) {
+      // URL用は冒頭サマリだけ。詳細はクリップボードからペーストする旨を末尾に
+      p = p.slice(0, MAX) + '\n…（詳細はPWAの📋プロンプトボタン経由でペーストしてください）';
+    }
+    if (engine === 'gemini') {
+      const saved = (localStorage.getItem(CONN_KEY_GEM) || '').trim();
+      const base = saved || 'https://gemini.google.com/app';
+      const sep = base.includes('?') ? '&' : '?';
+      return base + sep + 'prompt=' + encodeURIComponent(p) + '&autosubmit=false';
+    }
+    if (engine === 'canva') {
+      // Canva はURLプリフィル非対応。ホームページを開く（ログイン済みならダッシュボード）
+      // 推奨：右上「デザインを作成」→ カスタムサイズ「1200×630」を入力 → ⌘Vで画像貼付
+      return 'https://www.canva.com/';
+    }
+    // ChatGPT: プロンプトがある場合は chatgpt.com ルートを強制（プロジェクトURLは ?q= を無視するため）
+    // → プロンプト自動入力を最優先。プロジェクト文脈を使いたい場合はChatGPT側で手動切替
+    return 'https://chatgpt.com/?q=' + encodeURIComponent(p);
+  }
+
+  // Engine ラベル取得（バナー表示用）
+  function getEngineLabel(engine) {
+    if (engine === 'gemini') return '🍌 Gemini';
+    if (engine === 'canva')  return '🎨 Canva';
+    return '🤖 ChatGPT';
+  }
+
+  // ─── URL検証＆ラベル抽出 ─────
+  function isValidChatGPTUrl(u) {
+    return /^https?:\/\/(?:chat\.openai\.com|chatgpt\.com)\//i.test(u);
+  }
+  function isValidGeminiUrl(u) {
+    return /^https?:\/\/(?:gemini\.google\.com|aistudio\.google\.com)\//i.test(u);
+  }
+  function extractProjectLabel(url, engine) {
+    if (!url) return '';
+    if (engine === 'chatgpt') {
+      // 例: https://chatgpt.com/g/g-xxx → GPT、 https://chatgpt.com/projects/xxx → Project
+      if (/\/g\//.test(url)) return 'カスタムGPT';
+      if (/\/projects?\//.test(url)) return 'プロジェクト';
+      return '保存先';
+    } else {
+      if (/\/gem\//.test(url)) return 'Gem';
+      if (/aistudio/i.test(url)) return 'AI Studio';
+      return '保存先';
+    }
+  }
+
+  // ─── 接続先バー更新 ─────
+  function updateConnBar() {
+    const bar = document.getElementById('ai-conn-bar');
+    const engines = document.getElementById('ai-conn-bar-engines');
+    const status = document.getElementById('ai-conn-status');
+    if (!bar || !engines) return;
+    const gpt = localStorage.getItem(CONN_KEY_GPT) || '';
+    const gem = localStorage.getItem(CONN_KEY_GEM) || '';
+    const parts = [];
+    if (gpt) parts.push(`<span class="ai-conn-bar-engine"><span class="ai-conn-bar-icon">🤖</span> ${extractProjectLabel(gpt,'chatgpt')}</span>`);
+    if (gem) parts.push(`<span class="ai-conn-bar-engine ai-conn-bar-gem"><span class="ai-conn-bar-icon">🍌</span> ${extractProjectLabel(gem,'gemini')}</span>`);
+    if (parts.length === 0) {
+      bar.hidden = true;
+      if (status) { status.textContent = '未設定'; status.className = 'ai-conn-summary-status'; }
+      return;
+    }
+    bar.hidden = false;
+    engines.innerHTML = parts.join('');
+    if (status) {
+      status.textContent = '✅ 設定済';
+      status.className = 'ai-conn-summary-status is-active';
+    }
+  }
+
+  // 設定UIへのイベント紐付け
+  setTimeout(() => {
+    const inpGpt = document.getElementById('ai-conn-chatgpt');
+    const inpGem = document.getElementById('ai-conn-gemini');
+    const btnSave = document.getElementById('btn-conn-save');
+    const btnReset = document.getElementById('btn-conn-reset');
+    const btnPasteGpt = document.getElementById('btn-conn-paste-gpt');
+    const btnPasteGem = document.getElementById('btn-conn-paste-gem');
+    const btnOpenChatGPTFind = document.getElementById('btn-conn-open-chatgpt-find');
+    const btnOpenGeminiFind = document.getElementById('btn-conn-open-gemini-find');
+    if (!inpGpt || !inpGem) return;
+    inpGpt.value = localStorage.getItem(CONN_KEY_GPT) || '';
+    inpGem.value = localStorage.getItem(CONN_KEY_GEM) || '';
+    updateConnBar();
+
+    // 📋 クリップボードから貼付（ChatGPT）
+    if (btnPasteGpt) btnPasteGpt.addEventListener('click', async () => {
+      try {
+        const text = (await navigator.clipboard.readText()).trim();
+        if (!text) { showToast('クリップボードが空です', 'error'); return; }
+        if (!isValidChatGPTUrl(text)) {
+          showToast('ChatGPT のURLではありません: ' + text.slice(0, 50), 'error');
+          return;
+        }
+        inpGpt.value = text;
+        showToast('ChatGPT URL を貼付しました。「💾 保存」をお忘れなく', 'success');
+      } catch (err) {
+        showToast('クリップボード読取が拒否されました。手動でペーストしてください', 'error');
+      }
+    });
+
+    // 📋 クリップボードから貼付（Gemini）
+    if (btnPasteGem) btnPasteGem.addEventListener('click', async () => {
+      try {
+        const text = (await navigator.clipboard.readText()).trim();
+        if (!text) { showToast('クリップボードが空です', 'error'); return; }
+        if (!isValidGeminiUrl(text)) {
+          showToast('Gemini のURLではありません: ' + text.slice(0, 50), 'error');
+          return;
+        }
+        inpGem.value = text;
+        showToast('Gemini URL を貼付しました。「💾 保存」をお忘れなく', 'success');
+      } catch (err) {
+        showToast('クリップボード読取が拒否されました。手動でペーストしてください', 'error');
+      }
+    });
+
+    // 🔍 ChatGPT を「探す用」で開く
+    if (btnOpenChatGPTFind) btnOpenChatGPTFind.addEventListener('click', () => {
+      window.open('https://chatgpt.com/', '_blank');
+      showToast('開いた ChatGPT でプロジェクトに移動 → URL をコピー → 戻って 📋 ボタン', 'success');
+    });
+    if (btnOpenGeminiFind) btnOpenGeminiFind.addEventListener('click', () => {
+      window.open('https://gemini.google.com/', '_blank');
+      showToast('開いた Gemini で Gem に移動 → URL をコピー → 戻って 📋 ボタン', 'success');
+    });
+
+    // 💾 保存
+    if (btnSave) btnSave.addEventListener('click', () => {
+      const v1 = inpGpt.value.trim();
+      const v2 = inpGem.value.trim();
+      if (v1 && !isValidChatGPTUrl(v1)) {
+        showToast('ChatGPT URL の形式が不正です（chatgpt.com / chat.openai.com 必須）', 'error'); return;
+      }
+      if (v2 && !isValidGeminiUrl(v2)) {
+        showToast('Gemini URL の形式が不正です（gemini.google.com 必須）', 'error'); return;
+      }
+      localStorage.setItem(CONN_KEY_GPT, v1);
+      localStorage.setItem(CONN_KEY_GEM, v2);
+      updateConnBar();
+      const msg = (v1 ? '🤖 ChatGPT' : '') + (v1 && v2 ? ' + ' : '') + (v2 ? '🍌 Gemini' : '') + ' に接続設定完了';
+      showToast(msg || '設定をクリア', 'success');
+      navigator.vibrate && navigator.vibrate(20);
+    });
+
+    // デフォルトに戻す
+    if (btnReset) btnReset.addEventListener('click', () => {
+      localStorage.removeItem(CONN_KEY_GPT);
+      localStorage.removeItem(CONN_KEY_GEM);
+      inpGpt.value = '';
+      inpGem.value = '';
+      updateConnBar();
+      showToast('デフォルトに戻しました', 'success');
+    });
+  }, 200);
+
+  // ─── ワンクリック AI 編集（画像コピー＋プロンプト＋AI起動＋置換待機）──────────
+  let pendingReplace = null; // {originalId, originalItem, aiEngine, startedAt}
+
+  async function blobToPngBlob(blob) {
+    if (blob.type === 'image/png') return blob;
+    const img = new Image();
+    img.src = URL.createObjectURL(blob);
+    await new Promise((res, rej) => { img.onload = res; img.onerror = rej; });
+    const canvas = document.createElement('canvas');
+    canvas.width = img.naturalWidth;
+    canvas.height = img.naturalHeight;
+    canvas.getContext('2d').drawImage(img, 0, 0);
+    URL.revokeObjectURL(img.src);
+    return new Promise(res => canvas.toBlob(res, 'image/png'));
+  }
+
+  function defaultEditPrompt() {
+    // 編集系のデフォルトプロンプト（カスタマイズせず使えるもの）
+    return [
+      '以下の画像を編集してください。',
+      '',
+      '【依頼】',
+      '・背景を白に統一（または背景を除去して透過）',
+      '・被写体を明るく鮮明に',
+      '・ブログ記事用の清潔な仕上がりに',
+      '',
+      '【画像サイズ】',
+      '元のアスペクト比を維持',
+      '',
+      '出力された画像は右クリックで保存・コピーできるようにしてください。',
+    ].join('\n');
+  }
+
+  // ─── 取込元フォルダ（Google Drive ダウンロード等）の管理 ─────────────────
+  const FOLDER_KEY = 'download-folder-handle';
+
+  // File System Access API サポート判定
+  function supportsFSAccess() {
+    return typeof window.showDirectoryPicker === 'function';
+  }
+
+  // 保存済みのフォルダハンドルを取得（権限がなければ再要求）
+  async function getSavedFolderHandle() {
+    if (!supportsFSAccess()) return null;
+    try {
+      const handle = await settingsGet(FOLDER_KEY);
+      if (!handle) return null;
+      // 権限確認
+      const opts = { mode: 'read' };
+      let perm = await handle.queryPermission(opts);
+      if (perm === 'prompt') perm = await handle.requestPermission(opts);
+      if (perm !== 'granted') return null;
+      return handle;
+    } catch (e) {
+      console.warn('saved folder handle invalid:', e);
+      return null;
+    }
+  }
+
+  // ユーザーにフォルダを選んでもらい IDB に保存
+  async function chooseDownloadFolder() {
+    if (!supportsFSAccess()) {
+      showToast('このブラウザはフォルダ選択非対応（Chrome/Edge で開いてください）', 'warn');
+      return null;
+    }
+    try {
+      const handle = await window.showDirectoryPicker({ mode: 'read', startIn: 'downloads' });
+      await settingsPut(FOLDER_KEY, handle);
+      showToast(`📁 取込元フォルダを「${handle.name}」に設定しました`, 'success');
+      return handle;
+    } catch (e) {
+      if (e && e.name === 'AbortError') return null; // キャンセル
+      showToast('フォルダ選択に失敗: ' + (e.message || e), 'error');
+      return null;
+    }
+  }
+
+  // フォルダ内で「最新の画像ファイル」を取得
+  //   sinceMs: この時刻以降に更新されたファイルのみ対象（編集開始時刻を渡す → 古いゴミを拾わない）
+  //   excludeKey: 直前に取り込んだファイルのキー（name+lastModified）を渡せばそれは除外
+  async function pickLatestImageFromFolder(dirHandle, sinceMs = 0, excludeKey = '') {
+    const IMG_EXT = /\.(png|jpe?g|webp|gif|heic|heif|avif)$/i;
+    const all = [];
+    for await (const [name, entry] of dirHandle.entries()) {
+      if (entry.kind !== 'file') continue;
+      if (!IMG_EXT.test(name)) continue;
+      try {
+        const f = await entry.getFile();
+        const key = `${name}|${f.lastModified}`;
+        if (key === excludeKey) continue;
+        if (f.lastModified < sinceMs) continue;
+        all.push({ file: f, key, name });
+      } catch (_) {}
+    }
+    if (!all.length) return null;
+    all.sort((a, b) => b.file.lastModified - a.file.lastModified);
+    return all[0]; // {file, key, name}
+  }
+
+  // 標準のファイル選択ダイアログ（フォルダ未設定／非対応ブラウザ用フォールバック）
+  function openFilePickerForReceive() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.onchange = async (e) => {
+      const f = e.target.files && e.target.files[0];
+      if (!f) return;
+      const ext = (f.name.split('.').pop() || 'png').toLowerCase();
+      const ok = await tryReplaceWithEditedImage(f, f.type || 'image/png', ext);
+      if (!ok) showToast('置換に失敗しました', 'error');
+    };
+    input.click();
+  }
+
+  // モバイル端末判定（スマホ／タブレット）
+  function isMobileDevice() {
+    if (navigator.userAgentData && navigator.userAgentData.mobile) return true;
+    const ua = navigator.userAgent || '';
+    return /iPhone|iPad|iPod|Android|Mobile/i.test(ua);
+  }
+
+  // モバイル：Web Share API で画像＋プロンプトをネイティブ共有
+  // → 共有シートからChatGPT/Geminiアプリを選んで送る（拡張機能不要）
+  async function mobileShareEdit(item, engine, prompt) {
+    const aiName = engine === 'gemini' ? 'Gemini' : 'ChatGPT';
+    try {
+      const pngBlob = await blobToPngBlob(item.blob);
+      const fileName = (item.originalName || ('edit_' + item.id)).replace(/\.[^.]+$/, '') + '.png';
+      const file = new File([pngBlob], fileName, { type: 'image/png' });
+      // ファイル共有がサポートされてるか確認
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          files: [file],
+          text: prompt,
+          title: `${aiName}で画像編集`,
+        });
+        showToast(`📤 共有シートを開きました。${aiName}アプリを選択してください`, 'success');
+        return true;
+      }
+      // ファイル共有不可 → テキストのみ共有（画像はクリップボード経由）
+      if (navigator.share) {
+        await navigator.share({ text: prompt, title: `${aiName}で画像編集` });
+        return true;
+      }
+    } catch (err) {
+      if (err && err.name === 'AbortError') {
+        // ユーザーが共有シートを閉じただけ。エラー扱いしない
+        return true;
+      }
+      console.warn('Web Share failed:', err);
+    }
+    return false;
+  }
+
+  async function oneClickEdit(item, engine) {
+    const prompt = (aiPrompt && aiPrompt.value.trim()) || defaultEditPrompt();
+    const aiName = getEngineLabel(engine);
+
+    // === モバイル分岐：Web Share API で画像＋プロンプトを共有（Canva は対象外） ===
+    if (isMobileDevice() && navigator.share && engine !== 'canva') {
+      // 置換待機状態を先に作る（共有後に戻ってきた画像で置換するため）
+      pendingReplace = {
+        originalId: item.id,
+        originalItem: item,
+        aiEngine: engine,
+        prompt: prompt,
+        startedAt: Date.now(),
+        aiWindow: null,
+        aiUrl: buildAIUrl(engine, prompt),
+      };
+      item.editingWith = engine;
+      await queuePut(item);
+      await renderQueue();
+      showEditingBanner();
+      const shared = await mobileShareEdit(item, engine, prompt);
+      if (!shared) {
+        // 共有に失敗した → デスクトップフローへフォールバック
+        showToast(`共有が使えないため、ブラウザで${aiName}を開きます`, 'warn');
+      } else {
+        return; // 共有完了
+      }
+    }
+
+    // === PC：URLプリフィル＋クリップボード経由 ===
+    let copyOK = false;
+    try {
+      if (navigator.clipboard && window.ClipboardItem) {
+        const pngBlob = await blobToPngBlob(item.blob);
+        await navigator.clipboard.write([new ClipboardItem({'image/png': pngBlob})]);
+        copyOK = true;
+        clipboardMode = 'image';
+      }
+    } catch (err) {
+      console.warn('image clipboard copy failed:', err);
+    }
+
+    const url = buildAIUrl(engine, prompt);
+    pendingReplace = {
+      originalId: item.id,
+      originalItem: item,
+      aiEngine: engine,
+      prompt: prompt,
+      startedAt: Date.now(),
+      aiWindow: null,
+      aiUrl: url,
+    };
+    item.editingWith = engine;
+    await queuePut(item);
+    await renderQueue();
+    showEditingBanner();
+
+    // ChatGPT のプロジェクトURL（/g/g-p-）や、Gemini の Gem URL（/gem/）では ?q=/?prompt= のプリフィルが効かない
+    // → プロンプトが入力欄に入らないので、ユーザーに「📋 プロンプト」ボタンで手動切替してもらう必要がある
+    const savedGptUrl = (localStorage.getItem(CONN_KEY_GPT) || '').trim();
+    const savedGemUrl = (localStorage.getItem(CONN_KEY_GEM) || '').trim();
+    const isGptProject = engine === 'chatgpt' && /\/g\/g-p?-/.test(savedGptUrl);
+    const isGemGem     = engine === 'gemini'  && /\/gem\//.test(savedGemUrl);
+    pendingReplace.needsPromptPaste = isGptProject || isGemGem;
+
+    if (engine === 'canva') {
+      if (copyOK) {
+        showToast(`🎨 画像をコピー完了。Canvaを開いて <kbd>⌘/Ctrl+V</kbd> でキャンバスに貼付→装飾→ダウンロード`, 'success');
+      } else {
+        showToast(`画像のクリップボード書込に失敗。Canva 側で「アップロード」から画像を追加してください`, 'warn');
+      }
+    } else if (pendingReplace.needsPromptPaste) {
+      // プロジェクト/Gem URL → 2段階ペースト
+      showToast(
+        `⚠️ プロジェクトURLでは ?q= プリフィル不可。①AI で画像を <kbd>⌘V</kbd> ②PWA バナーの「📋 プロンプト」 ③AI で <kbd>⌘V</kbd>（プロンプト）`,
+        'warn'
+      );
+    } else if (copyOK) {
+      showToast(`✨ 画像をコピー＆プロンプトはURLに埋込済み。${aiName} を開いて <kbd>⌘/Ctrl+V</kbd> 一発で画像添付`, 'success');
+    } else {
+      showToast(`画像のクリップボード書込に失敗。${aiName} 側で右クリック→画像を貼付してください`, 'warn');
+    }
+  }
+
+  // ─── 編集中バナー（フローティング）────
+  let editingBanner = null;
+  function showEditingBanner() {
+    if (!pendingReplace) return;
+    if (!editingBanner) {
+      editingBanner = document.createElement('div');
+      editingBanner.id = 'editing-banner';
+      editingBanner.className = 'editing-banner';
+      document.body.appendChild(editingBanner);
+    }
+    const engineLabel = getEngineLabel(pendingReplace.aiEngine);
+    const isCanva = pendingReplace.aiEngine === 'canva';
+    const promptPreview = (pendingReplace.prompt || '').slice(0, 200);
+    editingBanner.innerHTML =
+      '<button type="button" id="banner-close-x" class="banner-close-x" title="バナーを閉じる（置換待機もキャンセル）" aria-label="閉じる">✕</button>' +
+      '<div class="editing-banner-inner">' +
+      `<span class="editing-banner-icon">${engineLabel}</span>` +
+      '<div class="editing-banner-text">' +
+        (isCanva
+          ? '<strong>仕上げ中：</strong> Canva の新規デザインに画像を貼付して仕上げ。<br>' +
+            '<span class="step-chip is-active">①Canvaを開く</span><span class="arrow">→</span>' +
+            '<span class="step-chip">②画像 <kbd>⌘V</kbd></span><span class="arrow">→</span>' +
+            '<span class="step-chip">③テキスト等で装飾</span><span class="arrow">→</span>' +
+            '<span class="step-chip submit-chip">④ダウンロード→取込</span>'
+          : (pendingReplace.needsPromptPaste
+            ? '<strong>編集中（プロジェクトURL）：</strong> プロンプトは2段階で貼付。<br>' +
+              '<span class="step-chip is-active">①AIを開く</span><span class="arrow">→</span>' +
+              '<span class="step-chip">②画像 <kbd>⌘V</kbd></span><span class="arrow">→</span>' +
+              '<span class="step-chip">③PWAで📋プロンプト切替</span><span class="arrow">→</span>' +
+              '<span class="step-chip">④AIで <kbd>⌘V</kbd>（プロンプト）</span><span class="arrow">→</span>' +
+              '<span class="step-chip submit-chip">⑤送信→受取</span>'
+          : (isMobileDevice() && navigator.share
+            ? '<strong>編集中（スマホ）：</strong> 共有シートから AI アプリを選択。<br>' +
+              '<span class="step-chip is-active">①共有</span><span class="arrow">→</span>' +
+              '<span class="step-chip">②AIアプリ選択</span><span class="arrow">→</span>' +
+              '<span class="step-chip">③送信</span><span class="arrow">→</span>' +
+              '<span class="step-chip submit-chip">④受取</span>'
+            : '<strong>編集中：</strong> プロンプトはURLにプリフィル済み。<br>' +
+              '<span class="step-chip is-active">①AIを開く</span><span class="arrow">→</span>' +
+              '<span class="step-chip">②画像 <kbd>⌘V</kbd></span><span class="arrow">→</span>' +
+              '<span class="step-chip">③送信</span><span class="arrow">→</span>' +
+              '<span class="step-chip submit-chip">④受取</span>'))) +
+      '</div>' +
+      // === ④受取の具体的な手順を強調表示 ===
+      '<div class="banner-receive-guide">' +
+        (isCanva
+          ? '<strong>🎨 Canva 仕上げ手順</strong>' +
+            '<ol style="margin:6px 0 0; padding-left:20px; font-size:0.85em;">' +
+            '<li>「🚀 Canva を開く」 → Canva ホーム（ダッシュボード）が開く</li>' +
+            '<li>右上「<strong>デザインを作成</strong>」→「カスタムサイズ」→ <strong>1200×630</strong> を入力</li>' +
+            '<li>キャンバス上で <kbd>⌘V</kbd> → 画像が貼付される</li>' +
+            '<li>テキスト・矢印・ブランドカラーを追加して装飾</li>' +
+            '<li>右上「共有」→「ダウンロード」で PNG/JPG 保存</li>' +
+            '<li>このPWA に戻り <strong>「📥 完成画像を取込」</strong> または <strong>ドラッグ＆ドロップ</strong> → 自動置換</li>' +
+            '</ol>'
+          : '<strong>📥 ④受取：AI画像が出たあと</strong>' +
+            (isMobileDevice() && navigator.share
+              ? '<ol style="margin:6px 0 0; padding-left:20px; font-size:0.85em;">' +
+                '<li>AI画像を<strong>長押し→画像を保存</strong>（または共有→このPWAを選択）</li>' +
+                '<li>このPWAに戻る → 下の <strong>「📥 完成画像を取込」</strong> ボタンを押す → 保存した画像を選択</li>' +
+                '<li>または PWA画面でファイルをドラッグ＆ドロップ</li>' +
+                '<li>→ 元画像が <strong>自動で置換</strong>されます</li>' +
+                '</ol>'
+              : '<ol style="margin:6px 0 0; padding-left:20px; font-size:0.85em;">' +
+                '<li>AI画像を<strong>右クリック→画像をコピー</strong>（ChatGPTは「画像をコピー」、Geminiは「画像を保存」推奨）</li>' +
+                '<li>このPWA画面に戻る（Cmd+Tab）</li>' +
+                '<li><kbd>⌘V</kbd> でペースト → 元画像が <strong>自動で置換</strong>されます</li>' +
+                '<li>または保存ファイルをこのPWA画面に <strong>ドラッグ＆ドロップ</strong></li>' +
+                '</ol>')) +
+      '</div>' +
+      // 直前再コピー（重要操作）を強調表示
+      '<div class="banner-prep-paste">' +
+        '<div class="prep-paste-title">📋 AIで <kbd>⌘V</kbd> する <strong>直前に</strong> 押してください</div>' +
+        '<div class="prep-paste-buttons">' +
+          '<button type="button" id="banner-copy-image" class="prep-btn prep-btn-image" title="クリップボードを画像に上書き">🖼 画像を再コピー</button>' +
+          '<button type="button" id="banner-copy-prompt" class="prep-btn prep-btn-prompt" title="クリップボードをプロンプトに上書き">📝 プロンプトをコピー</button>' +
+        '</div>' +
+        '<small class="prep-paste-hint">途中で別のスクショを取ると上書きされます。AIに貼付直前にこのボタンを押してください。</small>' +
+      '</div>' +
+      '<div class="editing-banner-actions">' +
+        (isMobileDevice() && navigator.share
+          ? `<button type="button" id="banner-share" class="banner-open-ai" title="画像＋プロンプトを共有">📤 ${engineLabel}アプリへ共有</button>`
+          : `<button type="button" id="banner-open-ai" class="banner-open-ai" title="${engineLabel} を開き直す">🚀 ${engineLabel} を開く</button>`) +
+        '<button type="button" id="banner-receive-file" title="設定フォルダから最新画像を自動取込（未設定なら標準ファイル選択）">📥 完成画像を取込</button>' +
+        '<button type="button" id="banner-set-folder" title="取込元フォルダ（Google Drive ダウンロード等）を設定">📁 取込元設定</button>' +
+        '<button type="button" id="banner-cancel">置換キャンセル</button>' +
+      '</div>' +
+      '<div id="banner-folder-status" class="banner-folder-status"></div>' +
+      // ── プロンプトの編集UI（テンプレ・変数・本文） ──
+      '<details class="banner-prompt-builder" id="banner-prompt-builder">' +
+        '<summary>📝 プロンプトを編集（テンプレ・変数・本文）</summary>' +
+        '<div class="banner-pb-body">' +
+          '<div class="banner-pb-row">' +
+            '<label for="banner-tpl">テンプレート：</label>' +
+            '<select id="banner-tpl">' +
+              '<option value="__keep__">— 変更しない（現在のプロンプト）—</option>' +
+              '<optgroup label="── 記事冒頭 ──">' +
+                '<option value="eyecatch">🖼️ ブログアイキャッチ</option>' +
+                '<option value="big_number">💯 数値インパクト</option>' +
+              '</optgroup>' +
+              '<optgroup label="── 製品紹介 ──">' +
+                '<option value="specs_card">📋 スペック表カード</option>' +
+                '<option value="icon_grid">🔲 機能アイコン6個</option>' +
+                '<option value="pros_cons">⚖️ メリット/デメリット</option>' +
+              '</optgroup>' +
+              '<optgroup label="── 図解・概念 ──">' +
+                '<option value="concept">💡 概念図</option>' +
+                '<option value="flow">🔀 フロー図</option>' +
+                '<option value="roi">📐 ROI 流れ図</option>' +
+                '<option value="decision_tree">🌿 使い分けフロー</option>' +
+              '</optgroup>' +
+              '<optgroup label="── まとめ・比較 ──">' +
+                '<option value="compare">📊 比較表</option>' +
+                '<option value="ranking">🥇 ランキング</option>' +
+                '<option value="target_buyer">🎯 こんな人におすすめ</option>' +
+                '<option value="ngsummary">⚠️ NG集サマリ</option>' +
+              '</optgroup>' +
+              '<optgroup label="── 画像加工 ──">' +
+                '<option value="bgremove">🪄 背景除去</option>' +
+                '<option value="colorfix">🎨 配色統一</option>' +
+                '<option value="addtext">✏️ テキスト追加</option>' +
+                '<option value="custom">📝 カスタム</option>' +
+              '</optgroup>' +
+            '</select>' +
+          '</div>' +
+          '<div class="banner-pb-vars">' +
+            '<label class="banner-pb-var"><span>記事タイトル</span>' +
+              '<input type="text" id="banner-var-title" placeholder="例：MX ERGO S 設定編"></label>' +
+            '<label class="banner-pb-var"><span>メイン訴求</span>' +
+              '<input type="text" id="banner-var-main"  placeholder="例：年6万円の時短"></label>' +
+            '<label class="banner-pb-var"><span>サブ訴求</span>' +
+              '<input type="text" id="banner-var-sub"   placeholder="例：Logi Options+ で1個を5職務分の専用機に化かす"></label>' +
+            '<label class="banner-pb-var"><span>配色／雰囲気</span>' +
+              '<input type="text" id="banner-var-mood"  placeholder="例：青系（#1d4ed8）＋アクセントオレンジ #f97316"></label>' +
+          '</div>' +
+          '<div class="banner-research-row">' +
+            '<button type="button" id="banner-research-btn" class="btn-secondary btn-small" title="リサーチ用プロンプトをクリップボードへ">🔍 リサーチプロンプトをコピー</button>' +
+            '<small style="opacity:.75">AIに貼って回答取得 → 上の欄に転記</small>' +
+          '</div>' +
+          '<textarea id="banner-prompt-edit" rows="8" class="banner-prompt-edit"></textarea>' +
+          '<small style="opacity:.75">本文を直接編集してもOK。変更は自動で次回の「🚀 開く」に反映されます。</small>' +
+        '</div>' +
+      '</details>' +
+      '</div>';
+    editingBanner.style.display = 'block';
+    // 取込元フォルダ名を非同期表示
+    (async () => {
+      const fs = document.getElementById('banner-folder-status');
+      if (!fs) return;
+      if (!supportsFSAccess()) {
+        fs.innerHTML = '⚠️ このブラウザはフォルダ自動取込に未対応（Chrome/Edge推奨）';
+        return;
+      }
+      const h = await settingsGet(FOLDER_KEY);
+      fs.innerHTML = h
+        ? `📁 取込元：<strong>${h.name}</strong>（「📥 完成画像を取込」で最新画像を自動取込）`
+        : '📁 取込元フォルダ未設定 → <strong>「📁 取込元設定」</strong>で Google Drive のダウンロードフォルダを選択してください';
+    })();
+    // 編集中は新規生成ヘルパー(#ai-helper)とそのトリガー(#btn-open-ai-helper)を隠す（機能重複の解消）
+    const ah = document.getElementById('ai-helper');
+    if (ah) { ah.style.display = 'none'; if (ah.open) ah.open = false; }
+    const ahBtn = document.getElementById('btn-open-ai-helper');
+    if (ahBtn) ahBtn.style.display = 'none';
+
+    // ── プロンプト編集UIの初期化＆イベント結線 ──
+    (function setupPromptBuilder() {
+      const tplSel = document.getElementById('banner-tpl');
+      const inpT   = document.getElementById('banner-var-title');
+      const inpM   = document.getElementById('banner-var-main');
+      const inpS   = document.getElementById('banner-var-sub');
+      const inpO   = document.getElementById('banner-var-mood');
+      const taPrompt = document.getElementById('banner-prompt-edit');
+      if (!tplSel || !taPrompt) return;
+      // 既存変数値を上部AIヘルパー（#ai-helper側のinput）から引き継ぐ
+      const aiTitle = document.getElementById('ai-var-title');
+      const aiMain  = document.getElementById('ai-var-main');
+      const aiSub   = document.getElementById('ai-var-sub');
+      const aiMood  = document.getElementById('ai-var-mood');
+      if (aiTitle && inpT) inpT.value = aiTitle.value || '';
+      if (aiMain  && inpM) inpM.value = aiMain.value  || '';
+      if (aiSub   && inpS) inpS.value = aiSub.value   || '';
+      if (aiMood  && inpO) inpO.value = aiMood.value  || '';
+      // 現在のプロンプトを反映
+      taPrompt.value = pendingReplace.prompt || '';
+
+      function regen() {
+        let key = tplSel.value;
+        // 変数入力時に「__keep__」のままなら自動で eyecatch に切替（変数が無視されないように）
+        if (key === '__keep__') {
+          key = 'eyecatch';
+          tplSel.value = key;
+        }
+        // テンプレに合わせて入力欄のラベル・プレースホルダーを更新
+        if (typeof applyTemplateFields === 'function') applyTemplateFields(key, 'banner');
+        const tpl = (typeof AI_TEMPLATES !== 'undefined') ? AI_TEMPLATES[key] : null;
+        if (!tpl) return;
+        const vars = {
+          title: (inpT.value || '').trim(),
+          main:  (inpM.value || '').trim(),
+          sub:   (inpS.value || '').trim(),
+          mood:  (inpO.value || '').trim(),
+        };
+        taPrompt.value = tpl(vars);
+        pendingReplace.prompt = taPrompt.value;
+      }
+      // バナー表示直後にもラベル更新（__keep__ の時は eyecatch をデフォルト相当として）
+      if (tplSel.value && tplSel.value !== '__keep__') applyTemplateFields(tplSel.value, 'banner');
+      tplSel.addEventListener('change', () => {
+        // セレクト変更時もラベルを更新（再生成しない場合でも）
+        const k = tplSel.value === '__keep__' ? 'eyecatch' : tplSel.value;
+        applyTemplateFields(k, 'banner');
+        regen();
+      });
+      [inpT, inpM, inpS, inpO].forEach(el => el && el.addEventListener('input', () => {
+        if (tplSel.value !== 'custom') regen(); // __keep__ も含めて変数入力時は再生成
+      }));
+      taPrompt.addEventListener('input', () => {
+        pendingReplace.prompt = taPrompt.value;
+      });
+      // 🔍 リサーチプロンプト生成（バナー内）
+      const researchBtn = document.getElementById('banner-research-btn');
+      if (researchBtn) researchBtn.onclick = () => copyResearchPromptForCurrent('banner');
+    })();
+
+    document.getElementById('banner-cancel').onclick = cancelPendingReplace;
+    const btnCloseX = document.getElementById('banner-close-x');
+    if (btnCloseX) btnCloseX.onclick = cancelPendingReplace;
+    const btnReceiveFile = document.getElementById('banner-receive-file');
+    if (btnReceiveFile) {
+      btnReceiveFile.onclick = async () => {
+        if (!pendingReplace) return;
+        const handle = await getSavedFolderHandle();
+        if (handle) {
+          // 編集開始時刻以降に追加されたファイルのみ対象。前回取り込んだファイルは除外
+          const sinceMs = pendingReplace.startedAt || 0;
+          const excludeKey = pendingReplace.lastImportedKey || '';
+          let result = await pickLatestImageFromFolder(handle, sinceMs, excludeKey);
+          if (!result) {
+            // 編集開始後の新規ファイルが無い場合は、緩い条件（直近10分以内）で再検索
+            const recent = Date.now() - 10 * 60 * 1000;
+            result = await pickLatestImageFromFolder(handle, recent, excludeKey);
+          }
+          if (result) {
+            const { file, key } = result;
+            const ext = (file.name.split('.').pop() || 'png').toLowerCase();
+            const ok = await tryReplaceWithEditedImage(file, file.type || 'image/png', ext);
+            if (ok) {
+              // 次回の重複取込を防ぐためのキーを保存（ただしpendingReplaceはこの後nullになるので意味薄）
+              showToast(`✨ 「${file.name}」（${new Date(file.lastModified).toLocaleTimeString()}）で置換しました`, 'success');
+            } else {
+              showToast('置換に失敗しました', 'error');
+            }
+            return;
+          }
+          showToast(`「${handle.name}」フォルダに編集後の新しい画像が見つかりません。ダウンロードが完了しているか、または手動でファイル選択してください`, 'warn');
+        }
+        // 未設定 or 新規ファイルなし → 通常のファイル選択ダイアログ
+        openFilePickerForReceive();
+      };
+    }
+    const btnSetFolder = document.getElementById('banner-set-folder');
+    if (btnSetFolder) {
+      btnSetFolder.onclick = async () => {
+        await chooseDownloadFolder();
+        showEditingBanner(); // バナー再描画でフォルダ名を反映
+      };
+    }
+    const btnShare = document.getElementById('banner-share');
+    if (btnShare) {
+      btnShare.onclick = async () => {
+        if (!pendingReplace || !pendingReplace.originalItem) return;
+        const ok = await mobileShareEdit(
+          pendingReplace.originalItem,
+          pendingReplace.aiEngine || 'chatgpt',
+          pendingReplace.prompt || ''
+        );
+        if (!ok) showToast('共有に失敗しました。下の「📋 画像」「📋 プロンプト」で個別に渡してください', 'warn');
+      };
+    }
+    const btnOpenAI = document.getElementById('banner-open-ai');
+    if (btnOpenAI) {
+      btnOpenAI.onclick = () => {
+        if (!pendingReplace) return;
+        const engine = pendingReplace.aiEngine || 'chatgpt';
+
+        // ① ★最重要: window.open は最初に「同期で」呼ぶ。await 後に呼ぶと popup blocker に弾かれる
+        const url = buildAIUrl(engine, pendingReplace.prompt || '');
+        pendingReplace.aiUrl = url;
+
+        // 既存窓があれば閉じて開き直す（古いプロンプトURLが残るのを防ぐ）
+        const existing = pendingReplace.aiWindow;
+        if (existing && !existing.closed) {
+          try { existing.close(); } catch (_) {}
+        }
+        const w = window.open(url, '_blank', 'width=1000,height=900,scrollbars=yes,resizable=yes');
+
+        // ② 画像クリップボードへの再コピーは非同期で後追い（window.open が同期で済んでいれば popup blocker 通過）
+        let imageReady = false;
+        (async () => {
+          try {
+            if (pendingReplace.originalItem && navigator.clipboard && window.ClipboardItem) {
+              const pngBlob = await blobToPngBlob(pendingReplace.originalItem.blob);
+              const promptText = pendingReplace.prompt || '';
+              try {
+                await navigator.clipboard.write([new ClipboardItem({
+                  'image/png': pngBlob,
+                  'text/plain': new Blob([promptText], { type: 'text/plain' }),
+                })]);
+              } catch (mixErr) {
+                await navigator.clipboard.write([new ClipboardItem({ 'image/png': pngBlob })]);
+              }
+              imageReady = true;
+              clipboardMode = 'image';
+              updateStepChips && updateStepChips();
+            }
+          } catch (e) { console.warn('clipboard refresh failed:', e); }
+        })();
+
+        if (w) {
+          pendingReplace.aiWindow = w;
+          try { w.focus(); } catch(_) {}
+          if (imageReady) {
+            showToast(
+              '🚀 AI画面を開きました。<kbd>⌘V</kbd>で画像貼付。プロンプトが入力欄に出ない場合は<strong>📋 プロンプト</strong>ボタン→AIで再度<kbd>⌘V</kbd>',
+              'success'
+            );
+          } else {
+            showToast('🚀 AI画面を開きました。プロンプトはURL埋込済み', 'success');
+          }
+        }
+      };
+    }
+    const btnCopyImage = document.getElementById('banner-copy-image');
+    const btnCopyPrompt = document.getElementById('banner-copy-prompt');
+    if (btnCopyImage) {
+      btnCopyImage.onclick = async () => {
+        if (!pendingReplace || !pendingReplace.originalItem) return;
+        try {
+          const pngBlob = await blobToPngBlob(pendingReplace.originalItem.blob);
+          await navigator.clipboard.write([new ClipboardItem({'image/png': pngBlob})]);
+          clipboardMode = 'image';
+          showToast('📋 クリップボードを「画像」に切替', 'success');
+          updateStepChips();
+        } catch (e) {
+          showToast('画像コピー失敗: ' + (e.message || e), 'error');
+        }
+      };
+    }
+    if (btnCopyPrompt) {
+      btnCopyPrompt.onclick = async () => {
+        if (!pendingReplace) return;
+        try {
+          await navigator.clipboard.writeText(pendingReplace.prompt || '');
+          clipboardMode = 'prompt';
+          showToast('📋 クリップボードを「プロンプト」に切替', 'success');
+          updateStepChips();
+        } catch (e) {
+          showToast('プロンプトコピー失敗: ' + (e.message || e), 'error');
+        }
+      };
+    }
+    updateStepChips();
+  }
+
+  // ─── ステップチップの強調表示 + クリップボード状態追跡 ─────
+  let clipboardMode = 'image'; // 'image' | 'prompt'
+  function updateStepChips() {
+    if (!editingBanner) return;
+    const chips = editingBanner.querySelectorAll('.step-chip');
+    if (!chips.length) return;
+    // ①AIを開く ②画像 ③送信 の3チップ構成。クリップボード状態で②のラベルを切替
+    const secondChip = chips[1];
+    if (secondChip) {
+      if (clipboardMode === 'prompt') {
+        secondChip.innerHTML = '②プロンプト <kbd>⌘V</kbd>';
+        secondChip.classList.add('is-active');
+      } else {
+        secondChip.innerHTML = '②画像 <kbd>⌘V</kbd>';
+        secondChip.classList.add('is-active');
+      }
+    }
+  }
+
+  // 旧仕様の autoSwitchToPrompt は廃止
+  // 理由：プロンプトはURLにプリフィルするようになったため、
+  //       PWAに戻った瞬間にクリップボードを「画像→プロンプト」に切替えると
+  //       画像が消えてしまい、AI画面で⌘Vしてもテキストしか貼れない不具合になる。
+  //       明示的に「📋 プロンプト」ボタンを押した時だけクリップボードを切替える。
+
+  async function cancelPendingReplace() {
+    if (pendingReplace && pendingReplace.originalItem) {
+      try {
+        delete pendingReplace.originalItem.editingWith;
+        await queuePut(pendingReplace.originalItem);
+      } catch (e) {}
+    }
+    pendingReplace = null;
+    if (editingBanner) editingBanner.style.display = 'none';
+    // 隠していた新規生成ヘルパーを復活
+    const ah = document.getElementById('ai-helper');
+    if (ah) ah.style.display = '';
+    const ahBtn = document.getElementById('btn-open-ai-helper');
+    if (ahBtn) ahBtn.style.display = '';
+    await renderQueue();
+    showToast('置換待機をキャンセルしました', 'success');
+  }
+
+  // 編集後の画像が貼付された時、元と置き換える処理
+  async function tryReplaceWithEditedImage(blob, mime, ext) {
+    if (!pendingReplace) return false;
+    const orig = pendingReplace.originalItem;
+    // 元 item を編集後画像で更新
+    orig.blob = blob;
+    orig.mimeType = mime;
+    orig.ext = ext;
+    orig.size = blob.size;
+    orig.editedAt = Date.now();
+    orig.editedWith = pendingReplace.aiEngine;
+    delete orig.editingWith;
+    orig.originalName = (orig.originalName || ('edited_' + orig.id)).replace(/\.[^.]+$/, '') + '.' + ext;
+    await queuePut(orig);
+    pendingReplace = null;
+    if (editingBanner) editingBanner.style.display = 'none';
+    // 隠していた新規生成ヘルパーを復活
+    const ah = document.getElementById('ai-helper');
+    if (ah) ah.style.display = '';
+    const ahBtn = document.getElementById('btn-open-ai-helper');
+    if (ahBtn) ahBtn.style.display = '';
+    await renderQueue();
+    showToast(`✨ 編集後の画像で置換完了`, 'success');
+    navigator.vibrate && navigator.vibrate([20, 30, 30]);
+    return true;
+  }
+
+  // ─── クリップボード貼り付け（Cmd/Ctrl+V でスクショ追加 / 編集後置換）─────────
+  async function handlePastedItems(items) {
+    let added = 0;
+    let replaced = 0;
+    for (const item of items || []) {
+      if (!item || !item.type || !item.type.startsWith('image/')) continue;
+      const blob = (typeof item.getAsFile === 'function') ? item.getAsFile() : item;
+      if (!blob) continue;
+      const ext = (blob.type.split('/')[1] || 'png').toLowerCase().replace('jpeg', 'jpg');
+      // 置換モード中なら、最初の1枚で元画像を置換
+      if (pendingReplace && replaced === 0) {
+        const ok = await tryReplaceWithEditedImage(blob, blob.type || 'image/png', ext);
+        if (ok) { replaced++; continue; }
+      }
+      await addToQueue(blob, blob.type || 'image/png', ext);
+      added++;
+    }
+    if (added > 0 && !replaced) {
+      showToast(`スクショ${added}枚を貼付`, 'success');
+      navigator.vibrate && navigator.vibrate(30);
+    } else if (added > 0 && replaced) {
+      showToast(`編集後画像で置換＋追加${added}枚`, 'success');
+    }
+    return added + replaced;
+  }
+
+  // ─── 🎨 ChatGPT 画像生成・編集ヘルパー ───────────────────────
+  const aiHelperDetails = $('ai-helper');
+  const btnOpenAIHelper = $('btn-open-chatgpt-helper');
+  const aiTemplateSelect = $('ai-template-select');
+  const aiVarTitle = $('ai-var-title');
+  const aiVarMain = $('ai-var-main');
+  const aiVarSub = $('ai-var-sub');
+  const aiVarMood = $('ai-var-mood');
+  const aiPrompt = $('ai-prompt');
+  const btnAiCopy = $('btn-ai-copy');
+  const btnAiOpen = $('btn-ai-open');
+
+  // ─── テンプレごとの入力欄ラベル＆プレースホルダー定義 ─────────
+  // テンプレを切り替えると4つの変数欄が「そのテンプレに最適な質問」に変化
+  const TEMPLATE_FIELDS = {
+    eyecatch: {
+      title: ['記事タイトル', '例：MX ERGO S 設定編'],
+      main:  ['メイン訴求',   '例：年6万円の時短'],
+      sub:   ['サブ訴求',     '例：Logi Options+ で1個を5職務分の専用機に化かす'],
+      mood:  ['配色／雰囲気', '例：青系（#1d4ed8）＋オレンジ #f97316'],
+    },
+    big_number: {
+      title: ['文脈テキスト', '例：時短で'],
+      main:  ['巨大な数字',   '例：64,500'],
+      sub:   ['単位・後置詞', '例：円/年'],
+      mood:  ['配色',         '例：青グラデ＋オレンジ強調'],
+    },
+    specs_card: {
+      title: ['製品名',       '例：SwitchBot ロックLite'],
+      main:  ['価格（強調値）', '例：12,978円'],
+      sub:   ['製品の特徴的形状', '例：白い小型・サムターン装着'],
+      mood:  ['配色',         '例：白背景＋青タイトル'],
+    },
+    icon_grid: {
+      title: ['グリッドタイトル', '例：6つの機能'],
+      main:  ['6機能（/区切り）', '例：指紋認証 / Suica対応 / スマホ操作 / オートロック / 遠隔操作 / 音声制御'],
+      sub:   ['補足コピー',   '例：主な機能一覧'],
+      mood:  ['配色',         '例：白背景＋青オレンジアイコン'],
+    },
+    pros_cons: {
+      title: ['全体タイトル', '例：メリット・デメリット'],
+      main:  ['メリット項目（/区切り）', '例：賃貸OK / 工事不要 / 15分で取付 / 指紋認証0.3秒'],
+      sub:   ['デメリット項目（/区切り）', '例：電池交換半年毎 / 物理鍵併用 / 締め出し注意'],
+      mood:  ['配色',         '例：左緑系/右赤系'],
+    },
+    ranking: {
+      title: ['ランキングタイトル', '例：おすすめスマートロックTOP3'],
+      main:  ['1〜3位の製品名', '例：1位=ロックLite / 2位=ロックPro / 3位=Qrio Lock'],
+      sub:   ['補足',         '例：2026年5月時点・編集部独自評価'],
+      mood:  ['配色',         '例：1位金/2位銀/3位銅'],
+    },
+    target_buyer: {
+      title: ['タイトル',     '例：こんな人におすすめ'],
+      main:  ['おすすめな人（/区切り）', '例：賃貸暮らし / 在宅ワーカー / 子育て世代 / 鍵をなくしやすい人'],
+      sub:   ['不要な人（/区切り）', '例：一戸建てで強固な鍵 / 短期賃貸 / 機械音NGの人'],
+      mood:  ['配色',         '例：左緑系/右薄グレー'],
+    },
+    concept: {
+      title: ['概念図タイトル', '例：Actions Ring の仕組み'],
+      main:  ['主役要素名',   '例：Actions Ring（円形メニュー）'],
+      sub:   ['衛星要素（,区切り）', '例：AI連携, アプリ起動, ショートカット'],
+      mood:  ['配色',         '例：白背景＋青枠'],
+    },
+    flow: {
+      title: ['フロー図タイトル', '例：取付5ステップ'],
+      main:  ['ステップ内容（/区切り）', '例：①採寸 / ②両面テープ貼付 / ③本体固定 / ④アプリ初期化 / ⑤指紋登録'],
+      sub:   ['補足',         '例：所要時間15分・工具不要'],
+      mood:  ['配色',         '例：青系＋オレンジ矢印'],
+    },
+    roi: {
+      title: ['ROIタイトル',  '例：ROI 計算の流れ'],
+      main:  ['主役数値',     '例：3年純利益 +10万円'],
+      sub:   ['注釈',         '例：時給950円・最低賃金基準'],
+      mood:  ['配色',         '例：青系＋オレンジハイライト'],
+    },
+    decision_tree: {
+      title: ['タイトル',     '例：あなたにピッタリの選び方'],
+      main:  ['最初の質問',   '例：賃貸住まいですか?'],
+      sub:   ['結論（Yes/Noの行先）', '例：Yes=ロックLite / No=ロックPro'],
+      mood:  ['配色',         '例：青菱形＋オレンジ結論'],
+    },
+    compare: {
+      title: ['比較タイトル', '例：スマートロック3製品比較'],
+      main:  ['比較対象3つ',  '例：ロックLite / ロックPro / Qrio Lock'],
+      sub:   ['補足',         '例：価格は2026年5月時点'],
+      mood:  ['配色',         '例：白背景＋勝者オレンジ強調'],
+    },
+    ngsummary: {
+      title: ['NGタイトル',   '例：やってはいけない設定 4つ'],
+      main:  ['4つのNG項目（/区切り）', '例：左クリック再割当 / DPI高すぎ / 競合設定ON / Smart Actions過多'],
+      sub:   ['補足',         '例：（省略可）'],
+      mood:  ['配色',         '例：白背景＋赤アクセント'],
+    },
+    bgremove: {
+      title: ['（使用しない）', '透過PNG化のためタイトル不要'],
+      main:  ['被写体',       '例：白いスマートロック本体'],
+      sub:   ['補足',         '例：透明部分は半透明で残す'],
+      mood:  ['（使用しない）', '加工処理のため配色指定不要'],
+    },
+    colorfix: {
+      title: ['（使用しない）', '配色統一のためタイトル不要'],
+      main:  ['用途',         '例：ブログ記事用'],
+      sub:   ['補足',         '例：人物の肌色は維持'],
+      mood:  ['ブランドパレット', '例：青 #1d4ed8 / オレンジ #f97316 / 白＆グレー'],
+    },
+    addtext: {
+      title: ['メインテキスト', '例：賃貸でも15分'],
+      main:  ['サブテキスト', '例：鍵から解放'],
+      sub:   ['補足テキスト', '例：時給950円で計算'],
+      mood:  ['配置・色',     '例：左下・白文字・半透明黒帯背景'],
+    },
+    custom: {
+      title: ['タイトル（自由）', '自由記述'],
+      main:  ['訴求（自由）',     '自由記述'],
+      sub:   ['サブ（自由）',     '自由記述'],
+      mood:  ['配色（自由）',     '自由記述'],
+    },
+  };
+
+  // ─── テンプレ別「リサーチ補助プロンプト」 ─────────
+  // リサーチ必須項目を埋めるための AI 用質問プロンプトをテンプレごとに用意
+  // ユーザーが「🔍 リサーチプロンプト生成」を押すと、クリップボードへコピー → AI に貼って回答取得
+  function buildResearchPrompt(key, vars) {
+    const today = new Date().toISOString().slice(0, 10);
+
+    // === PWA状態から文脈を自動収集 ===
+    // 1) 記事名（選択中・新規どちらも対応・prefix除去）
+    let articleName = '';
+    try {
+      const n = (typeof getCurrentArticleName === 'function') ? getCurrentArticleName() : '';
+      articleName = (typeof stripArticlePrefix === 'function') ? stripArticlePrefix(n) : n;
+    } catch (_) {}
+
+    // 2) 記事タイプ（レビュー / 商品比較 / ツール紹介 等）
+    let articleTypeStr = '';
+    try {
+      const sel = document.getElementById('article-type-select');
+      articleTypeStr = (sel && sel.value || '').trim();
+    } catch (_) {}
+
+    // 3) 読者に伝えたいポイント（メモ）— 最大6件
+    let memoLines = [];
+    try {
+      if (typeof memos !== 'undefined' && Array.isArray(memos)) {
+        memoLines = memos.map(m => (m || '').trim()).filter(m => m.length > 0).slice(0, 6);
+      }
+    } catch (_) {}
+
+    // 4) 入力変数
+    const v = {
+      title: (vars.title || '').trim(),
+      main: (vars.main || '').trim(),
+      sub: (vars.sub || '').trim(),
+      mood: (vars.mood || '').trim(),
+    };
+
+    // === 文脈ブロック（全テンプレに共通で先頭付与） ===
+    const tf = TEMPLATE_FIELDS[key] || TEMPLATE_FIELDS.eyecatch;
+    const ctxLines = [];
+    ctxLines.push('━━━ 製品・記事の文脈（リサーチ対象を理解するために必読） ━━━');
+    if (articleName)   ctxLines.push(`【記事タイトル】${articleName}`);
+    if (articleTypeStr) ctxLines.push(`【記事タイプ】${articleTypeStr}`);
+    if (memoLines.length) {
+      ctxLines.push(`【読者に伝えたいポイント（優先度順・1番目が最重要）】`);
+      memoLines.forEach((m, i) => ctxLines.push(`  ${i + 1}. ${m}`));
+    }
+    if (v.title) ctxLines.push(`【入力欄「${tf.title[0]}」】${v.title}`);
+    if (v.main)  ctxLines.push(`【入力欄「${tf.main[0]}」】${v.main}`);
+    if (v.sub)   ctxLines.push(`【入力欄「${tf.sub[0]}」】${v.sub}`);
+    if (v.mood)  ctxLines.push(`【入力欄「${tf.mood[0]}」】${v.mood}`);
+    if (!articleName && !v.title && !v.main && memoLines.length === 0) {
+      ctxLines.push('⚠️ 製品名/記事タイトルが特定できません。記事めしPWAで記事を選択＆メモ入力してから再実行してください。');
+    }
+    ctxLines.push('━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    ctxLines.push('');
+    const ctx = ctxLines.join('\n');
+
+    const common = `\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n【回答ルール】\n- ${today} 時点の最新情報で（不確かなら「不明」と明記）\n- 情報源（公式URL・Amazon・口コミサイト等）を併記\n- 上記の「製品・記事の文脈」を踏まえて、その製品/テーマに特化した内容で回答\n- 結果は記事めしPWAの入力欄に直接コピペできる形式で（簡潔・実用）`;
+
+    const M = {
+      eyecatch: `上記の記事に最適な「アイキャッチ用キャッチコピー」を提案してください。\n- メイン訴求（最大15文字・強い言葉）：3案\n- サブ訴求（最大30文字・具体メリット）：各メイン案に対応する3案\n- 配色／雰囲気の提案：1案`,
+      big_number: `上記の記事の読者にインパクトを与える「巨大な数字」を1つ提案してください。\n- 数字本体（例：64,500）\n- 単位・後置詞（例：円/年）\n- 数字を導く文脈テキスト（例：時短で）\n- その数字の根拠説明（記事本文に使うため計算式付きで）`,
+      specs_card: `上記の製品のスペック表データを6項目で教えてください：\n1. 価格（強調値）\n2. 重量 or サイズ\n3. 電源 or バッテリー\n4. 主要機能\n5. 対応OS/環境\n6. 取付方法 or 設置方法`,
+      icon_grid: `上記の製品の主要機能を6つ、簡潔な機能名で並べてください：\n例：指紋認証 / Suica対応 / スマホ操作 / オートロック / 遠隔操作 / 音声制御`,
+      pros_cons: `上記の製品を実機レビュー目線で：\n- 主なメリット 4つ（各15文字以内）\n- 主なデメリット 3つ（各15文字以内）\n誇張なく、実際の口コミから抽出した内容で。`,
+      ranking: `上記の記事カテゴリの人気・おすすめランキング上位3製品を教えてください。\n各製品：\n- 順位\n- 製品名\n- 価格\n- 1行特徴（30文字以内）`,
+      target_buyer: `上記の製品の購入者ペルソナを分析してください：\n- ✅ おすすめな人 4タイプ（属性ベースで例：賃貸暮らし、在宅ワーカー、子育て世代 等）\n- ❌ 不要な人 2-3タイプ`,
+      concept: `上記の製品/概念を概念図で説明したい。\n- 中心となる「主役要素」\n- 関連する「衛星要素」3〜5個（短い名詞で）`,
+      flow: `上記の製品の使用/設定を5ステップのフローで。\n①〜⑤ で簡潔に。所要時間も付記。`,
+      roi: `上記の製品のROI（投資対効果）を時給950円（最低賃金）基準で計算してください。\n- 価格（円）\n- 1日節約時間（分）と内訳\n- 1日節約価値（円/日）\n- 損益分岐日数（日）\n- 3年純利益（円）\n計算式の各ステップを明示。`,
+      decision_tree: `上記の製品を選ぶ時の最初の判断軸を1つ提案してください。\n- 質問1（Yes/Noで答えられる）：例「賃貸住まいですか?」\n- Yes の場合の結論：オススメ製品名\n- No の場合の結論：別の製品名`,
+      compare: `上記の製品と競合製品 計3つを比較してください。\n- 製品名 × 3\n- 価格 / 主要機能 / 重量 等 5項目の比較表`,
+      ngsummary: `上記の製品/設定で「やってはいけない設定/使い方」を4つ：\n各NG：\n- 簡潔な見出し（10文字以内）\n- 1行の理由説明`,
+      addtext: `上記の記事サムネ画像に重ねるキャッチコピー：\n- メインテキスト（最大10文字・強い言葉）\n- サブテキスト（最大20文字）\n- 補足（任意）`,
+      bgremove: `上記の画像の主役被写体を識別して、背景除去のための簡潔な被写体描写を1文で：\n例：「白い小型スマートロック本体（サムターン装着済み）」`,
+      colorfix: `上記の画像の用途と維持すべき色の制約を整理：\n- 用途（ブログ記事用/SNS等）\n- 維持すべき色（人物の肌色 等）\n- ブランドパレットへの寄せ方`,
+      custom: `上記のテーマで、ブログ記事に使う画像のアイデアを3つ提案。\n各案：構図・色・テキスト・ねらい`,
+    };
+    return ctx + (M[key] || M.custom) + common;
+  }
+
+  // 「🔍 リサーチプロンプトをコピー」ボタンの動作
+  async function copyResearchPromptForCurrent(scope) {
+    const prefix = scope === 'banner' ? 'banner-' : 'ai-';
+    const tplSelEl = document.getElementById(prefix + (scope === 'banner' ? 'tpl' : 'template-select'));
+    let key = tplSelEl ? tplSelEl.value : 'eyecatch';
+    if (key === '__keep__') key = 'eyecatch';
+    const vars = {
+      title: (document.getElementById(prefix + 'var-title') || {}).value || '',
+      main:  (document.getElementById(prefix + 'var-main')  || {}).value || '',
+      sub:   (document.getElementById(prefix + 'var-sub')   || {}).value || '',
+      mood:  (document.getElementById(prefix + 'var-mood')  || {}).value || '',
+    };
+    const prompt = buildResearchPrompt(key, vars);
+    try {
+      await navigator.clipboard.writeText(prompt);
+      showToast('🔍 リサーチプロンプトをコピー。ChatGPT/Gemini/Claude に貼って回答を取得してください', 'success');
+    } catch (e) {
+      // フォールバック：プロンプトをダイアログ表示
+      window.prompt('以下をAIに貼ってリサーチしてください', prompt);
+    }
+  }
+
+  // テンプレ切替時に入力欄のラベル＆プレースホルダーを書き換える
+  // scope: 'helper' = 上部AIヘルパー / 'banner' = バナー内プロンプト編集
+  function applyTemplateFields(key, scope) {
+    const def = TEMPLATE_FIELDS[key] || TEMPLATE_FIELDS.eyecatch;
+    const prefix = scope === 'banner' ? 'banner-var-' : 'ai-var-';
+    ['title', 'main', 'sub', 'mood'].forEach((k) => {
+      const inp = document.getElementById(prefix + k);
+      if (!inp) return;
+      const lbl = inp.parentElement && inp.parentElement.querySelector('span');
+      if (lbl) lbl.textContent = def[k][0];
+      inp.placeholder = def[k][1];
+    });
+  }
+
+  // ─── 共通ガード文（全テンプレに自動付与）──────────
+  // ChatGPT(gpt-image-2) / Gemini Nano Banana 2 両対応の高品質画像生成プロンプト
+  const COMMON_GUARDS = `
+【対応エンジン】このプロンプトは ChatGPT(gpt-image-2) と Gemini Nano Banana 2 の両方で最高品質の出力が得られるように設計されています。
+
+【絶対遵守ルール（最重要）】
+- 日本語テキストは絶対に正しく描画する。指定された文字を1字も省略・置換・架空化しない
+- 文字の欠損・分離・順序入れ替わり・架空のひらがな化・読めない崩し字は厳禁
+- フォント：Noto Sans JP / Hiragino Kaku Gothic ProN / Yu Gothic Bold / Source Han Sans 相当のクリーンなゴシック体
+- 全ての日本語文字を1文字単位で確認してから描画。指定外の文字は1字も追加しない
+- 人物が含まれる場合：手の指は5本・歪まない・正常な解剖学
+- ピクセル単位でくっきり、JPEG圧縮ノイズなし、4K相当の解像感
+- 余白を必ず確保（テキストが画面端に密着しない・最低5%マージン）
+- 商標ロゴの完全再現は避ける（一般化したアイコン表現で）
+
+【絶対避ける】
+- 「文字化け」「架空のひらがな」「漢字を勝手に追加」「英字に置換」
+- 散らかったレイアウト・要素の重なり・読みづらい配色
+- 過剰な装飾・ベタなクリップアート・90年代風影
+
+【参考品質基準】
+Pinterest 保存数上位 / プロデザイナーの LP 冒頭ヒーロー / Apple公式LP / Google Material Design 3 / Stripe / Linear の品質を目指す`;
+
+  const AI_TEMPLATES = {
+    eyecatch: ({title, main, sub, mood}) => `# ブログアイキャッチ画像（最高品質）
+
+【出力仕様】
+- サイズ：1200×630px（アスペクト比 40:21 横長）
+- 用途：日本語テックブログのアイキャッチ・SNSプレビュー対応
+- 出力形式：PNG / フルブリード（端まで色が広がる）
+
+【構図グリッド】
+- 黄金分割：左 5/8 にテキストエリア、右 3/8 にビジュアル要素配置
+- 左寄せレイアウト（読み視線の起点を左上に）
+
+【テキスト階層】
+1. 主見出し（大・48-72pt・白・極太）：「${title || 'メインタイトル'}」
+   - 1〜2行で改行、行間1.2倍、字間-2%
+2. アクセントタグ（中・18-24pt・オレンジ #f97316 ピル型背景）：「${main || 'メイン訴求'}」
+   - 主見出しの上に小さく配置
+3. サブコピー（小・20-28pt・薄白 #e5e7eb）：「${sub || 'サブ訴求'}」
+   - 主見出しの下、グレーで控えめに
+
+【配色（ブランド固定）】
+${mood || '左から右へ深い青 #1d4ed8 → 明るい青 #3b82f6 のリニアグラデ背景 / アクセントオレンジ #f97316 / テキスト白＆薄白 / 装飾の細線は #93c5fd'}
+
+【右側ビジュアル要素】
+- 関連する象徴的アイコン（製品シルエット、ロックアイコン、グラフ等）を線画＋ベタ塗りで配置
+- アイコンは画面高さの 40〜55%、軽い影付きで浮き感
+- 周囲に薄い光彩（ホワイトのソフトグロウ）
+
+【絶対避ける】
+- 文字の崩れ・分離・架空文字（特に「賃貸場まずに」のような誤生成）
+- 派手すぎる装飾、Web 1.0風の影、ベタなクリップアート
+- 過剰な絵文字（プロ感が損なわれる）
+${COMMON_GUARDS}`,
+
+    concept: ({title, main, sub, mood}) => `# コンセプト図解（フラット・ベクター品質）
+
+【出力仕様】1200×630px / PNG / 白背景フルブリード
+【用途】ブログ記事中の概念説明・H2セクション直下
+
+【構図】
+- 上部 1/8：タイトル帯
+- 中央 5/8：主役オブジェクトを中心に、衛星要素3〜5個を放射状配置（ハブ＆スポーク型）
+- 下部 2/8：補足ラベル
+
+【テキスト階層】
+1. タイトル（28-36pt・青 #1d4ed8 極太・中央寄せ）：「${title || '概念図タイトル'}」
+2. 主役ラベル（20-24pt・黒 #111827 太字）：「${main || '主役要素名'}」
+3. 関連要素ラベル（14-18pt・グレー #4b5563）：${sub || '衛星要素1, 2, 3'}
+
+【ビジュアル】
+- 主役は中央の円形 or 六角形フレーム（直径280px・青枠4px）
+- 衛星要素 3〜5個、太さ4pxの矢印で主役へ接続（先端は▶アイコン）
+- 各要素は薄シャドウ（4px blur, 10% opacity）で浮き感
+
+【配色】
+${mood || '白 #ffffff 背景 / 主役枠 青 #1d4ed8 / 衛星 青 #3b82f6 / アクセント オレンジ #f97316 / テキスト #111827・#4b5563'}
+
+【スタイル】Material Design / Notion 図解 / Apple Keynote 一級品の品質。線幅完全統一。
+${COMMON_GUARDS}`,
+
+    flow: ({title, main, sub, mood}) => `# フロー図（5ステップ・矢印強調）
+
+【出力仕様】1200×630px / PNG / 白背景
+
+【構図】
+- 上部にタイトル帯
+- 中央に5ステップを横並び（各ステップ幅200px、間に太矢印60px）
+- 下部に補足キャプション帯
+
+【ステップ構造】各ステップは丸角矩形（角丸12px・薄シャドウ）
+- 上：ステップ番号（白文字を青円 #1d4ed8 で囲む・直径44px）
+- 中：ステップ名（黒太字16-20pt）
+- 下：1行説明（グレー12pt）
+- ステップ内容：${main || '①開始 ②準備 ③実行 ④検証 ⑤完了'}
+- ステップ間：太矢印（オレンジ #f97316・幅8px・先端三角）
+
+【テキスト】
+- タイトル（28-36pt・青 #1d4ed8 極太）：「${title || 'プロセスフロー'}」
+- 補足キャプション（14pt・グレー）：${sub || '所要時間・前提条件など'}
+
+【配色】
+${mood || '白背景 / ステップ枠 薄青 #dbeafe 背景＋濃青 #1d4ed8 枠 / 矢印 オレンジ #f97316 / テキスト #111827'}
+
+【スタイル】Notion / Figma の標準フロー図品質。線太さ完全統一、矢印の角度・長さ統一。
+${COMMON_GUARDS}`,
+
+    roi: ({title, main, sub, mood}) => `# ROI投資対効果フロー図（インフォグラフィック）
+
+【出力仕様】1200×630px / PNG / 薄青背景
+
+【構図】
+- 上部にタイトル＋サブタイトル
+- 中央に4つの矩形ボックスを横並び、太矢印で接続
+- 下部に注釈帯
+
+【4ボックス内容】
+1. 「購入価格」 → 金額表記（例：18,000円）
+2. 「1日節約価値」 → 円/日（例：190円/日）
+3. 「損益分岐日数」 → 日数（例：95日）
+4. 「3年純利益」 → 大きく金額（例：+124,500円）★最重要・オレンジ強調・他より一回り大きい
+
+【テキスト】
+- タイトル（30-40pt・青 #1d4ed8 極太）：「${title || 'ROI 計算の流れ'}」
+- 各ボックス：見出し（14pt・グレー）／式 or 値（24-32pt・黒太字 or 白）
+- 主役数値：${main || '主要数値'}
+- 注釈（11pt・グレー・最下部）：${sub || '時給950円・最低賃金基準'}
+
+【配色】
+${mood || '背景 薄青 #eff6ff / ボックス1-3 白＋青枠 #1d4ed8 / ボックス4 オレンジ #f97316 ベタ＋白文字 / 矢印 グレー #6b7280→ オレンジ'}
+
+【スタイル】McKinsey 風コンサル資料 / インフォグラフィック上位1%の質感。
+${COMMON_GUARDS}`,
+
+    compare: ({title, main, sub, mood}) => `# 比較表ビジュアル（3列カード・勝者強調）
+
+【出力仕様】1200×630px / PNG / 白背景
+
+【構図】
+- 上部 1/8：タイトル
+- 中央 6/8：3カラム比較カード（各カード幅 320px、間隔 40px）
+- 下部 1/8：補足
+
+【3カードの構造】各カードは縦長丸角矩形（角丸16px）
+- ヘッダー：製品名／選択肢名（${main || '製品A, 製品B, 製品C'}）
+- 4-5項目の比較行（左：項目名グレー / 右：値）
+- ★最優秀カードはオレンジ枠＋「BEST」リボン（右上）
+- 各項目：勝者はオレンジ #f97316 太字、敗者はグレー #6b7280
+
+【テキスト】
+- タイトル（28-36pt・青 #1d4ed8 極太）：「${title || '製品比較'}」
+- 補足（13pt・グレー・最下部）：${sub || '価格は2026年5月時点・試用条件'}
+
+【配色】
+${mood || '白背景 / カード枠 グレー #e5e7eb / BESTカードのみ オレンジ枠 #f97316＋薄オレンジ背景 #fff7ed / ヘッダー 青 #1d4ed8 ベタ＋白文字'}
+
+【スタイル】Wirecutter / The Verge の比較表記事レベル。表の整列が完璧で目線が自然に流れる。
+${COMMON_GUARDS}`,
+
+    ngsummary: ({title, main, sub, mood}) => `# NG集サマリ図（やってはいけない4つ・警告系）
+
+【出力仕様】1200×630px / PNG / 白背景
+
+【構図】
+- 上部：タイトル（警告系・赤）
+- 中央：2×2 グリッドで4つの NG カード（各カード幅 480px・高さ 220px）
+- 下部：補足
+
+【4カードの構造】各カードは丸角矩形＋左上に❌赤バッジ
+- ❌バッジ（48×48px・赤 #dc2626 ベタ＋白×印）
+- 見出し（NGの内容・黒太字18pt・1行）
+- 1行説明（グレー13pt）
+- 4項目：${main || 'NG1, NG2, NG3, NG4'}
+
+【テキスト】
+- タイトル（30-40pt・赤 #dc2626 極太）：「${title || 'やってはいけない設定 4つ'}」
+- 補足（13pt・グレー）：${sub || ''}
+
+【配色】
+${mood || '背景 白 / カード 薄ピンク #fef2f2＋赤枠 #fca5a5 / ❌アイコン 赤 #dc2626 / 警告アクセント イエロー #f59e0b（一部）/ テキスト #111827・#4b5563'}
+
+【スタイル】公式マニュアルの注意ページ品質。赤を使いつつ過剰でなく、注意喚起が冷静に伝わる落ち着いたデザイン。
+${COMMON_GUARDS}`,
+
+    bgremove: ({title, main, sub, mood}) => `# 背景除去（透過PNG化）— 添付画像を処理
+
+【要件】
+- 被写体：${main || '主役オブジェクト（人物・製品・ロゴ等を自動判別）'}
+- 背景：完全削除して透過PNG化（アルファチャンネル有効）
+- エッジ処理：
+  - 毛髪・繊維・透明部分は自然なフェザリング（半透明グラデ）
+  - 直線エッジは1px精度でくっきり
+  - ハロー（古い背景色の残り）禁止
+- サイズ：オリジナル維持
+- カラー：被写体の色味は維持・補正なし
+${sub ? '【補足】' + sub : ''}
+${COMMON_GUARDS}`,
+
+    colorfix: ({title, main, sub, mood}) => `# 配色統一（ブランドカラー化）— 添付画像を処理
+
+【ブランドパレット】
+${mood || 'メイン青 #1d4ed8（深い青）/ 補助青 #3b82f6（明るい青）/ アクセントオレンジ #f97316 / 白 #ffffff / グレー #6b7280'}
+
+【処理要件】
+- 全体トーンをブランドパレットに収束（ヒストグラム調整 + LUT 適用）
+- 被写体本体の色（肌・自然な色）は維持
+- 背景・装飾要素・グラデ部分のみブランド色へ
+- 用途：${main || 'ブログ記事用'}
+- コントラスト維持、可読性最優先
+${sub ? '【補足】' + sub : ''}
+${COMMON_GUARDS}`,
+
+    addtext: ({title, main, sub, mood}) => `# 画像にテキスト追加（合成）— 添付画像を処理
+
+【追加するテキスト】
+1. メインタイトル（48-64pt・白・極太・縁取り黒1px）：「${title || 'メインテキスト'}」
+2. サブタイトル（24-32pt・オレンジ #f97316 強調）：「${main || 'サブテキスト'}」
+3. 補足（14-18pt・薄白）：「${sub || '補足'}」
+
+【配置ルール】
+- ${mood || '画像の主要被写体を妨げない位置（通常は左上 or 左下、視線の流入点）'}
+- 文字に半透明黒帯（rgba(0,0,0,0.5)）を背景として敷き、可読性確保
+- マージン：画面端から最低40px
+
+【フォント】Noto Sans JP / Hiragino Kaku Gothic ProN / Yu Gothic Bold 相当
+${COMMON_GUARDS}`,
+
+    // ─── 追加テンプレ7種（トップガジェットブロガー調査ベース・最高品質仕様） ──
+
+    // 💯 数値インパクトカード（記事冒頭・ROI訴求ヒーロー）
+    big_number: ({title, main, sub, mood}) => `# 数値インパクトカード（最高インパクト・LP一級品）
+
+【出力仕様】1200×630px / PNG / 青グラデ背景
+
+【構図】中央集約・左右均等の上下3層
+- 上層（高さ20%）：文脈テキスト（白・中央寄せ）：「${title || '時短で'}」（24-30pt）
+- 中層（高さ55%）：超巨大数字（オレンジ #f97316・極太・288-360pt）
+   - 数字本体：「${main || '64,500'}」
+   - 単位は数字より一回り小さく（120-160pt）：「円」
+   - 必要なら期間 prefix（48-60pt 白）：「${sub || '/年'}」
+   - 数字に微かなドロップシャドウ（4px、20% black）で立体感
+- 下層（高さ25%）：キャッチコピー（白・太字・36-48pt）：「節約できる時間と金額」
+
+【配色】
+${mood || '背景：左上 #1d4ed8 → 右下 #3b82f6 のリニアグラデーション / 数字：オレンジ #f97316 / 補助テキスト：白 #ffffff、薄白 #e5e7eb'}
+
+【装飾要素】
+- 右下隅に小さく「生産技術ガジェット研究所」（11pt・40% 不透明白）
+- 数字の周囲に微かなオレンジ光彩（glow radius 40px・15% opacity）
+
+【スタイル】Stripe / Linear / Apple LP のヒーローセクション一級品。数字が主役、それ以外は徹底的に引き算。1秒で意味が伝わるシンプルさ。
+${COMMON_GUARDS}`,
+
+    // 📋 スペック表カード（製品紹介セクション）
+    specs_card: ({title, main, sub, mood}) => `# 製品スペック表カード（プロダクトページ品質）
+
+【出力仕様】1200×630px / PNG / 白背景
+
+【構図】左右2カラム
+- 左カラム（幅 480px・全高）：製品の写実的アイコン or イラスト
+   - サブジェクト：${sub || '製品の特徴的形状を表現'}
+   - 中央配置・周囲に薄い影
+- 右カラム（幅 720px・全高）：スペック表
+   - 上部に製品名（青 #1d4ed8・極太・32-40pt）：「${title || '製品名'}」
+   - 縦に6行のスペック表：
+     1. 価格 ｜ ${main || '12,978円'}
+     2. 重量 ｜ 256g
+     3. 電源 ｜ CR123A
+     4. 認証 ｜ 指紋・IC・スマホ
+     5. 取付 ｜ 両面テープ
+     6. 対応 ｜ 99.9% のドア
+   - 各行：項目名（14pt・グレー #6b7280・左寄せ） ｜ 値（18-22pt・黒太字・右寄せ）
+   - 行間：18px、罫線：1px・薄グレー #e5e7eb
+   - 1番目の「価格」は値をオレンジ #f97316 で強調
+
+【配色】
+${mood || '白 #ffffff 背景 / タイトル青 #1d4ed8 / 価格値はオレンジ #f97316 / 罫線 薄グレー #e5e7eb / 項目名 #6b7280 / 値 #111827'}
+
+【スタイル】Apple / SwitchBot 公式プロダクトページ品質。整列完璧、余白十分、可読性最優先。
+${COMMON_GUARDS}`,
+
+    // 🔲 機能アイコン6個グリッド（機能解説）
+    icon_grid: ({title, main, sub, mood}) => `# 機能アイコン6個グリッド（インフォグラフィック品質）
+
+【出力仕様】1200×630px / PNG / 白背景
+
+【構図】
+- 上部 1/8：タイトル
+- 中央 6/8：2行×3列 のカードグリッド（各カード 360×220px、間隔 24px）
+- 下部 1/8：補足
+
+【6カードの構造】各カードは丸角矩形（角丸12px・1px枠 #e5e7eb・shadow 4px 8px rgba(0,0,0,0.04)）
+- 上半分：線画アイコン（96×96px・青 #1d4ed8 or オレンジ #f97316・線太さ 3.5px 統一）
+- 下半分：機能名（16-20pt・黒太字）＋ 1行説明（12-14pt・グレー #6b7280）
+- 6機能：${main || '指紋認証 / Suica対応 / スマホ操作 / オートロック / 遠隔操作 / 音声制御'}
+
+【テキスト】
+- タイトル（28-36pt・青 #1d4ed8 極太・中央寄せ）：「${title || '6つの機能'}」
+- 補足（13pt・グレー・最下部中央）：${sub || '主な機能一覧'}
+
+【配色】
+${mood || '白 #ffffff 背景 / アイコン 青 #1d4ed8 と オレンジ #f97316 を 4:2 の比率で配色 / カード枠 #e5e7eb / テキスト #111827・#6b7280'}
+
+【スタイル】Notion アイコンセット / Tabler Icons 級の線画統一感。アイコンは pictogram スタイル、線幅・端処理・サイズすべて完全に揃える。
+${COMMON_GUARDS}`,
+
+    // ⚖️ メリット/デメリット並列（レビュー中盤）
+    pros_cons: ({title, main, sub, mood}) => `# メリット/デメリット並列カード（レビュー必須ビジュアル）
+
+【出力仕様】1200×630px / PNG / 白背景
+
+【構図】中央縦線で左右2分割
+- 上部 1/8：タイトル（中央寄せ）
+- 左半分（幅 580px・薄緑グラデ背景 #ecfdf5→#d1fae5）
+- 右半分（幅 580px・薄ピンクグラデ背景 #fef2f2→#fee2e2）
+- 中央に縦線（2px・グレー #e5e7eb・余白20px）
+
+【左半分（メリット）】
+- 見出し（28-32pt・緑 #059669 極太）：「✅ メリット」
+- 箇条書き 3〜4項目（各 18-20pt・黒）：${main || '賃貸OK / 工事不要 / 15分で取付 / 指紋認証0.3秒'}
+- 各項目の左に ✅ アイコン（緑 #059669・サイズ統一 24px）
+
+【右半分（デメリット）】
+- 見出し（28-32pt・赤 #dc2626 極太）：「⚠️ デメリット」
+- 箇条書き 2〜3項目（各 18-20pt・黒）：${sub || '電池交換 半年毎 / オートロック締め出し注意 / 物理鍵は併用必須'}
+- 各項目の左に ⚠️ アイコン（オレンジ #f59e0b・サイズ統一 24px）
+
+【テキスト】タイトル（26-32pt・黒 #111827 極太）：「${title || 'メリット・デメリット'}」
+
+【配色】
+${mood || '左：成功感の緑系 #ecfdf5/#d1fae5/#059669 / 右：注意感の赤系 #fef2f2/#fee2e2/#dc2626 / テキストはコントラスト確保'}
+
+【スタイル】Wirecutter / Cnet の Pros&Cons セクション一級品。左右の重量バランス均衡、視線が左→右に自然に流れる。
+${COMMON_GUARDS}`,
+
+    // 🥇 ランキング上位3位（まとめ記事）
+    ranking: ({title, main, sub, mood}) => `# ランキング TOP3 カード（まとめ記事ヒーロー）
+
+【出力仕様】1200×630px / PNG / 白背景
+
+【構図】3カード横並び、1位を中央に大きく
+- 上部 1/8：タイトル＋小サブ
+- 中央 7/8：3カード（1位中央・大、2位左・中、3位右・中）
+  - 1位カード：幅 380px・高さ 460px（一回り大きい）・中央・上に出す
+  - 2位カード：幅 320px・高さ 400px・左
+  - 3位カード：幅 320px・高さ 400px・右
+
+【各カードの構造】丸角矩形（角丸20px）
+- 上：順位バッジ（円形 80×80px）
+   - 1位 = 金 #fbbf24（金グラデ #fcd34d→#f59e0b）+ 🥇
+   - 2位 = 銀 #cbd5e1（銀グラデ #e2e8f0→#94a3b8）+ 🥈
+   - 3位 = 銅 #b45309（銅グラデ #d97706→#92400e）+ 🥉
+- 中：製品アイコン（線画・カラー）120×120px
+- 下：製品名（20-26pt・黒太字）＋ 推しコメント1行（13pt・グレー）
+- 1位カードのみ：オレンジ枠 #f97316 4px＋微発光
+
+【テキスト】
+- タイトル（30-40pt・黒 #111827 極太）：「${title || 'おすすめランキング TOP3'}」
+- 推し製品：${main || '1位=製品A / 2位=製品B / 3位=製品C'}
+- 補足（12pt・グレー・最下部）：${sub || '2026年5月時点・編集部独自評価'}
+
+【配色】
+${mood || '白 #ffffff 背景 / 1位 金系 / 2位 銀系 / 3位 銅系 / テキスト #111827・#6b7280 / 1位の枠オレンジ #f97316'}
+
+【スタイル】The Verge / GIZMODO のランキング記事品質。1位の威厳と、2位3位の納得感を両立。
+${COMMON_GUARDS}`,
+
+    // 🎯 こんな人におすすめ/不要（結論前ペルソナ提示）
+    target_buyer: ({title, main, sub, mood}) => `# こんな人におすすめ/不要 並列カード（購買決定促進）
+
+【出力仕様】1200×630px / PNG / 白背景
+
+【構図】中央縦線で左右2分割
+- 上部 1/8：タイトル
+- 左半分（幅 580px・薄緑グラデ背景 #ecfdf5→#d1fae5）「✅ おすすめな人」
+- 右半分（幅 580px・薄グレーグラデ背景 #f9fafb→#f3f4f6）「❌ 不要な人」
+- 中央縦線（2px・グレー・余白20px）
+
+【左半分】
+- 見出し（28-32pt・緑 #059669 極太）：「✅ おすすめな人」
+- 4項目（各 16-20pt・黒）：${main || '賃貸暮らし / 在宅ワーカー / 子育て世代 / 鍵をなくしやすい人'}
+- 各項目の左に人物アイコン（線画・緑 #059669・32×32px）
+
+【右半分】
+- 見出し（28-32pt・グレー #6b7280 極太）：「❌ 不要な人」
+- 2-3項目（各 16-20pt・黒）：${sub || '一戸建てで強固な鍵運用 / 短期賃貸 / 機械音NGの人'}
+- 各項目の左に人物アイコン（線画・グレー #9ca3af・32×32px）
+
+【テキスト】タイトル（26-32pt・黒 #111827 極太・中央）：「${title || 'こんな人におすすめ'}」
+
+【配色】
+${mood || '左：推奨感の緑系（活発）/ 右：非推奨の薄グレー（控えめ）/ 過剰でない柔らかいコントラスト'}
+
+【スタイル】親しみやすいフラットイラスト風。読者が自分の状況に当てはめやすい配置と簡潔さ。
+${COMMON_GUARDS}`,
+
+    // 🌿 使い分けフローチャート（Yes/No分岐）
+    decision_tree: ({title, main, sub, mood}) => `# 使い分けフローチャート（Yes/No分岐・選び方ガイド）
+
+【出力仕様】1200×630px / PNG / 白背景
+
+【構図】上から下へ流れる階層フロー
+- 上部 1/8：タイトル
+- 中央 6/8：分岐ツリー（最上段に質問1、中段に質問2、下段に2つの結論）
+- 下部 1/8：補足
+
+【ノード構造】
+- 質問ノード：青菱形（青 #1d4ed8 ベタ枠＋白背景・幅240px・高さ120px）＋ 黒太字18-22pt
+- 結論ノード：オレンジ角丸矩形（#f97316 ベタ＋白文字・幅280px・高さ100px）＋ 白極太22-28pt
+- 矢印（4px太・先端三角）
+   - Yes 矢印：緑 #059669・矢印近くに「Yes」ラベル
+   - No 矢印：赤 #dc2626・矢印近くに「No」ラベル
+
+【分岐構造（例）】
+- 質問1（最上段）：「${main || '賃貸住まいですか?'}」
+  - Yes → 質問2「工事不可ですか?」 → Yes → 結論A「ロックLite が最適」（オレンジ）
+  - No → 結論B「フル機能のロックPro」（オレンジ薄め）
+- 結論内容：${sub || '結論A=ロックLite、結論B=ロックPro'}
+
+【テキスト】タイトル（28-36pt・青 #1d4ed8 極太・中央）：「${title || 'あなたにピッタリの選び方'}」
+
+【配色】
+${mood || '白背景 / 質問 青菱形 #1d4ed8 / Yes矢印 緑 #059669 / No矢印 赤 #dc2626 / 結論 オレンジ #f97316'}
+
+【スタイル】Mermaid 級のクリーンなフローチャート。線太さ完全統一、矢印角度45度 or 90度のみ、ノード間隔均等。読者が「自分はこの道」と一目で分かる。
+${COMMON_GUARDS}`,
+
+    custom: () => '',
+  };
+
+  function regenerateAIPrompt() {
+    const key = aiTemplateSelect.value;
+    // テンプレに合わせて入力欄のラベル・プレースホルダーを更新（直感的なUX）
+    applyTemplateFields(key, 'helper');
+    const tpl = AI_TEMPLATES[key];
+    if (!tpl) return;
+    const vars = {
+      title: aiVarTitle.value.trim(),
+      main: aiVarMain.value.trim(),
+      sub: aiVarSub.value.trim(),
+      mood: aiVarMood.value.trim(),
+    };
+    const generated = tpl(vars);
+    // custom テンプレなら現在のテキストを尊重
+    if (key !== 'custom' || !aiPrompt.value.trim()) {
+      aiPrompt.value = generated;
+    }
+  }
+
+  // 4つ目の丸ボタンクリックでヘルパーを開く（and 自動でプロンプト生成）
+  if (btnOpenAIHelper) {
+    btnOpenAIHelper.addEventListener('click', () => {
+      aiHelperDetails.open = true;
+      // 記事名を現在の選択から自動入力
+      if (!aiVarTitle.value) {
+        aiVarTitle.value = getCurrentArticleName() || '';
+      }
+      regenerateAIPrompt();
+      aiHelperDetails.scrollIntoView({behavior: 'smooth', block: 'start'});
+    });
+  }
+
+  // ─── 一時保存画像の AI 編集（キュー画像のセット）────────────
+  const aiSourceImageBox = document.getElementById('ai-source-image');
+  const aiSourceImg = document.getElementById('ai-source-img');
+  const btnAIClearSource = document.getElementById('btn-ai-clear-source');
+  const btnAICopyImage = document.getElementById('btn-ai-copy-image');
+  let currentEditTarget = null; // {id, blob, mimeType}
+
+  window.openAIHelperWithImage = async function(item) {
+    currentEditTarget = item;
+    // プレビュー画像セット
+    if (aiSourceImg.src && aiSourceImg.src.startsWith('blob:')) {
+      try { URL.revokeObjectURL(aiSourceImg.src); } catch (e) {}
+    }
+    aiSourceImg.src = URL.createObjectURL(item.blob);
+    aiSourceImageBox.hidden = false;
+    // 編集系テンプレを自動選択（最初の編集系）
+    aiHelperDetails.open = true;
+    aiTemplateSelect.value = 'bgremove';
+    regenerateAIPrompt();
+    // 記事名を自動入力
+    if (!aiVarTitle.value) aiVarTitle.value = getCurrentArticleName() || '';
+    aiHelperDetails.scrollIntoView({behavior: 'smooth', block: 'start'});
+    showToast('AI編集モード：画像をセットしました', 'success');
+  };
+
+  // クリアボタン
+  if (btnAIClearSource) {
+    btnAIClearSource.addEventListener('click', () => {
+      currentEditTarget = null;
+      if (aiSourceImg.src && aiSourceImg.src.startsWith('blob:')) {
+        try { URL.revokeObjectURL(aiSourceImg.src); } catch (e) {}
+      }
+      aiSourceImg.src = '';
+      aiSourceImageBox.hidden = true;
+      showToast('編集対象をクリアしました', 'success');
+    });
+  }
+
+  // 「📋 画像をクリップボードにコピー」
+  if (btnAICopyImage) {
+    btnAICopyImage.addEventListener('click', async () => {
+      if (!currentEditTarget) {
+        showToast('編集対象の画像が選ばれていません', 'error');
+        return;
+      }
+      try {
+        if (!navigator.clipboard || !window.ClipboardItem) {
+          showToast('このブラウザは画像クリップボードに未対応', 'error');
+          return;
+        }
+        let blob = currentEditTarget.blob;
+        // ClipboardItem は基本 image/png のみ確実。jpeg/webp は変換が必要
+        if (blob.type !== 'image/png') {
+          // canvas で PNG に変換
+          const img = new Image();
+          img.src = URL.createObjectURL(blob);
+          await new Promise((res, rej) => { img.onload = res; img.onerror = rej; });
+          const canvas = document.createElement('canvas');
+          canvas.width = img.naturalWidth;
+          canvas.height = img.naturalHeight;
+          canvas.getContext('2d').drawImage(img, 0, 0);
+          blob = await new Promise(res => canvas.toBlob(res, 'image/png'));
+          URL.revokeObjectURL(img.src);
+        }
+        await navigator.clipboard.write([new ClipboardItem({'image/png': blob})]);
+        showToast('画像をクリップボードにコピー完了。ChatGPT/Geminiで Cmd/Ctrl+V で貼付してください', 'success');
+        navigator.vibrate && navigator.vibrate(30);
+      } catch (err) {
+        console.error('image copy failed:', err);
+        if (err && (err.name === 'NotAllowedError' || /denied|permission/i.test(err.message||''))) {
+          showToast('クリップボード書き込みが拒否されました。ブラウザ設定で許可してください', 'error');
+        } else {
+          showToast('画像コピー失敗: ' + (err.message || err), 'error');
+        }
+      }
+    });
+  }
+
+  // テンプレ変更・変数変更で再生成
+  if (aiTemplateSelect) {
+    aiTemplateSelect.addEventListener('change', regenerateAIPrompt);
+    [aiVarTitle, aiVarMain, aiVarSub, aiVarMood].forEach(el => {
+      el && el.addEventListener('input', () => {
+        if (aiTemplateSelect.value !== 'custom') regenerateAIPrompt();
+      });
+    });
+    // 初回ロード時、プロンプトが空ならデフォルトテンプレ（ブログアイキャッチ）で初期化
+    if (aiPrompt && !aiPrompt.value.trim()) {
+      regenerateAIPrompt();
+    }
+  }
+
+  // 🔍 リサーチプロンプト生成ボタン（上部ヘルパー）
+  const btnResearchHelper = $('btn-research-helper');
+  if (btnResearchHelper) {
+    btnResearchHelper.addEventListener('click', () => copyResearchPromptForCurrent('helper'));
+  }
+
+  // 「📋 プロンプトをコピー」
+  if (btnAiCopy) {
+    btnAiCopy.addEventListener('click', async () => {
+      const text = aiPrompt.value;
+      if (!text.trim()) {
+        showToast('プロンプトが空です', 'error');
+        return;
+      }
+      try {
+        await navigator.clipboard.writeText(text);
+        showToast('プロンプトをコピーしました', 'success');
+        navigator.vibrate && navigator.vibrate(20);
+      } catch (e) {
+        // フォールバック
+        aiPrompt.select();
+        document.execCommand('copy');
+        showToast('プロンプトをコピーしました', 'success');
+      }
+    });
+  }
+
+  // 直近で開いたAI窓を engine 別に保持（プロンプト変更時に閉じて開き直す）
+  const lastAIWindows = { chatgpt: null, gemini: null };
+  function openFreshAI(engine, url, features) {
+    // 既存窓があれば閉じる（古いプロンプトURLを残さないため）
+    const prev = lastAIWindows[engine];
+    if (prev && !prev.closed) {
+      try { prev.close(); } catch (_) {}
+    }
+    const w = window.open(url, '_blank', features);
+    if (w) lastAIWindows[engine] = w;
+    return w;
+  }
+
+  // 「🚀 ChatGPTで開く」 → 新規ウィンドウで chatgpt.com を開く
+  if (btnAiOpen) {
+    btnAiOpen.addEventListener('click', async () => {
+      const text = aiPrompt.value;
+      if (!text.trim()) {
+        showToast('プロンプトが空です', 'error');
+        return;
+      }
+      try { await navigator.clipboard.writeText(text); } catch (e) {}
+      const url = buildAIUrl('chatgpt', text);
+      const w = openFreshAI('chatgpt', url, 'width=900,height=900,scrollbars=yes,resizable=yes');
+      if (!w) window.open(url, '_blank');
+      showToast('✨ ChatGPTを開きました。プロンプトは自動入力済み → 送信するだけ', 'success');
+    });
+  }
+
+  // 「🍌 Geminiで開く（ナノバナナ2）」
+  const btnAiOpenGemini = $('btn-ai-open-gemini');
+  if (btnAiOpenGemini) {
+    btnAiOpenGemini.addEventListener('click', async () => {
+      const text = aiPrompt.value;
+      if (!text.trim()) {
+        showToast('プロンプトが空です', 'error');
+        return;
+      }
+      try { await navigator.clipboard.writeText(text); } catch (e) {}
+      const url = buildAIUrl('gemini', text);
+      const w = openFreshAI('gemini', url, 'width=1000,height=900,scrollbars=yes,resizable=yes');
+      if (!w) window.open(url, '_blank');
+      showToast('✨ Geminiを開きました。プロンプトは自動入力済み → 送信するだけ（モデルで「ナノバナナ2」/画像生成を選択）', 'success');
+    });
+  }
+
+  // ─── 「📋 クリップボードから貼付」ボタン（明示的トリガー）─────────────────
+  const btnPasteClipboard = $('btn-paste-clipboard');
+  if (btnPasteClipboard) {
+    btnPasteClipboard.addEventListener('click', async () => {
+      try {
+        if (!navigator.clipboard || !navigator.clipboard.read) {
+          showToast('このブラウザはクリップボード読取に未対応', 'error');
+          return;
+        }
+        const clipItems = await navigator.clipboard.read();
+        let added = 0;
+        for (const ci of clipItems) {
+          for (const type of ci.types) {
+            if (!type.startsWith('image/')) continue;
+            const blob = await ci.getType(type);
+            const ext = (type.split('/')[1] || 'png').toLowerCase().replace('jpeg', 'jpg');
+            await addToQueue(blob, type, ext);
+            added++;
+          }
+        }
+        if (added > 0) {
+          showToast(`クリップボードから${added}枚追加`, 'success');
+          navigator.vibrate && navigator.vibrate(30);
+        } else {
+          showToast('クリップボードに画像がありません', 'error');
+        }
+      } catch (err) {
+        if (err && (err.name === 'NotAllowedError' || /denied/i.test(err.message||''))) {
+          showToast('クリップボード読取が拒否されました。ブラウザ設定で許可してください', 'error');
+        } else {
+          showToast('読み込みに失敗: ' + (err.message || err), 'error');
+        }
+        console.error('clipboard.read failed:', err);
+      }
+    });
+  }
+
+  document.addEventListener('paste', async (e) => {
+    const items = (e.clipboardData && e.clipboardData.items) ? Array.from(e.clipboardData.items) : [];
+    const hasImage = items.some(it => it && it.type && it.type.startsWith('image/'));
+    if (!hasImage) return;
+    // 画像が含まれていれば、テキスト入力欄でも横取りして取り込む
+    e.preventDefault();
+    await handlePastedItems(items);
+  });
+
+  // 専用貼付ターゲットのフォーカス管理＋プレースホルダー復元
+  const pasteTarget = document.getElementById('paste-target');
+  if (pasteTarget) {
+    // クリックで自動フォーカス
+    pasteTarget.addEventListener('click', () => pasteTarget.focus());
+    pasteTarget.addEventListener('focus', () => {
+      pasteTarget.classList.add('is-focused');
+    });
+    pasteTarget.addEventListener('blur', () => {
+      pasteTarget.classList.remove('is-focused');
+      // 中身が空になったらプレースホルダー復元
+      if (!pasteTarget.textContent.trim() && !pasteTarget.querySelector('img')) {
+        pasteTarget.innerHTML = '<span class="paste-target-placeholder">⬇ ここをタップしてから Ctrl/⌘+V でスクショを貼付</span>';
+      }
+    });
+    // フォーカス時はプレースホルダーを消す
+    pasteTarget.addEventListener('focusin', () => {
+      const ph = pasteTarget.querySelector('.paste-target-placeholder');
+      if (ph) ph.remove();
+    });
+    // 貼付直後はテキストや画像がDOMに入ることがあるので、即クリア（addToQueue 側で処理済）
+    pasteTarget.addEventListener('paste', () => {
+      setTimeout(() => {
+        pasteTarget.innerHTML = '<span class="paste-target-placeholder">✅ 貼付完了。続けて Ctrl/⌘+V で追加できます</span>';
+        pasteTarget.focus();
+      }, 100);
+    });
+  }
+
+  // ─── ドラッグ&ドロップで画像ファイル取込（PC用） ─────────────────────
+  const dropZone = document.body;
+  let dragCounter = 0;
+  function isFileDrag(e) {
+    return e.dataTransfer && Array.from(e.dataTransfer.types || []).includes('Files');
+  }
+  dropZone.addEventListener('dragenter', (e) => {
+    if (!isFileDrag(e)) return;
+    e.preventDefault();
+    dragCounter++;
+    document.body.classList.add('is-dropping');
+  });
+  dropZone.addEventListener('dragover', (e) => {
+    if (!isFileDrag(e)) return;
+    e.preventDefault();
+  });
+  dropZone.addEventListener('dragleave', (e) => {
+    if (!isFileDrag(e)) return;
+    dragCounter = Math.max(0, dragCounter - 1);
+    if (dragCounter === 0) document.body.classList.remove('is-dropping');
+  });
+  dropZone.addEventListener('drop', async (e) => {
+    if (!isFileDrag(e)) return;
+    e.preventDefault();
+    dragCounter = 0;
+    document.body.classList.remove('is-dropping');
+    const files = Array.from(e.dataTransfer.files || []);
+    let added = 0;
+    for (const f of files) {
+      const ext = (f.name.split('.').pop() || 'bin').toLowerCase();
+      await addToQueue(f, f.type || 'application/octet-stream', ext);
+      added++;
+    }
+    if (added > 0) {
+      showToast(`ファイル${added}件を追加`, 'success');
+      navigator.vibrate && navigator.vibrate(30);
+    }
+  });
+
   // ─── アップロード ─────────────────────
   async function uploadAll() {
     const articleTitle = getSelectedArticleTitle();
-    const articleFolderId = getSelectedArticleFolderId();
+    let articleFolderId = getSelectedArticleFolderId();
     if (!articleTitle && !articleFolderId) {
       showToast('記事を選んでください', 'error');
       return;
     }
     const items = await queueAll();
-    if (items.length === 0) return;
+    // キューが空でもメモがあれば保存だけは走らせる（記事メモ単独編集ケース）
+    if (items.length === 0 && !hasPromptData()) return;
     uploadAllBtn.disabled = true;
+
+    // 先に PROMPT.md を保存（フォルダが新規ならここで作成される）
+    let promptSaved = false;
+    if (hasPromptData()) {
+      try {
+        setStatus('📝 記事メモを保存中…');
+        const pr = await savePromptToDrive(articleTitle, articleFolderId);
+        if (pr.ok && pr.articleFolderId) {
+          articleFolderId = pr.articleFolderId;
+          promptSaved = true;
+        } else if (!pr.ok) {
+          showToast('メモ保存失敗（続行）: ' + (pr.message || ''), 'error');
+        }
+      } catch (e) {
+        console.error('savePrompt error:', e);
+        showToast('メモ保存失敗（続行）: ' + (e.message || e), 'error');
+      }
+    }
+
+    // メモのみ保存ケース：画像転送ループはスキップして完了
+    if (items.length === 0) {
+      uploadAllBtn.disabled = false;
+      setStatus(promptSaved ? '💾 メモのみ保存完了（画像なし）' : '何もすることがありません');
+      showToast(promptSaved ? '💾 メモを保存しました（転送する画像なし）' : '転送する画像がありません', promptSaved ? 'success' : 'warn');
+      if (promptSaved) clearMemoState();
+      return;
+    }
+
+    // 役割（アイキャッチ/セクション/図解 等）が指定された画像は、ファイル名にプレフィックス付与
+    for (const it of items) {
+      const roleKey = normalizeItemRole(it);
+      if (roleKey === 'none') continue;
+      const def = getRoleDef(roleKey);
+      const prefix = def.prefix;
+      if (prefix && !new RegExp('^' + prefix, 'i').test(it.originalName || '')) {
+        it.originalName = prefix + (it.originalName || (roleKey + '.png'));
+        await queuePut(it);
+      }
+    }
+
     let success = 0, skipped = 0, failed = 0;
+    // 役割→[ファイル名+fileId] の記録（PROMPT.mdに反映するため）
+    const roleUploadMap = {};
     for (const item of items) {
       setStatus('転送中 ' + (success + skipped + failed + 1) + '/' + items.length);
       try {
         const result = item.size > SMALL_FILE_LIMIT
           ? await uploadLarge(item, articleTitle, articleFolderId)
           : await uploadSmall(item, articleTitle, articleFolderId);
-        if (result.ok && result.result === 'success') success++;
+        if (result.ok && result.result === 'success') {
+          success++;
+          const roleKey = normalizeItemRole(item);
+          if (roleKey !== 'none') {
+            if (!roleUploadMap[roleKey]) roleUploadMap[roleKey] = [];
+            roleUploadMap[roleKey].push({
+              name: result.fileName || item.originalName,
+              fileId: result.fileId || '',
+            });
+          }
+        }
         else if (result.ok && result.result === 'skipped') skipped++;
         else { failed++; continue; }
         await queueDelete(item.id);
@@ -278,17 +2327,68 @@
         console.error('upload error:', e);
       }
     }
+
+    // 役割ごとの画像参照をメモに追記して再保存（AIが認識するため）
+    const roleKeys = Object.keys(roleUploadMap);
+    if (roleKeys.length > 0 && (articleFolderId || articleTitle)) {
+      try {
+        // 既存の「画像役割:」「アイキャッチ画像:」始まり行を全削除して書き直す
+        memos = memos.filter(m =>
+          !/^(画像役割|アイキャッチ画像|ヒーローバナー|セクション画像|商品\/実機写真|図解\/フロー図|比較\/Before-After|NG集サマリ):/.test(m)
+        );
+        const newNotes = [];
+        for (const def of ROLE_DEFS) {
+          if (def.key === 'none' || !roleUploadMap[def.key]) continue;
+          const list = roleUploadMap[def.key];
+          const desc = list.map(f => f.name + (f.fileId ? ` (fileId: ${f.fileId})` : '')).join(', ');
+          newNotes.push(`${def.label}: ${desc}`);
+        }
+        // 上部に挿入（優先度高い扱い）
+        memos = [...newNotes, ...memos];
+        persistMemoState();
+        renderMemos();
+        await savePromptToDrive(articleTitle, articleFolderId);
+        showToast(`⭐ 画像役割 ${roleKeys.length}種類を PROMPT.md に記録`, 'success');
+      } catch (e) {
+        console.error('role memo save error:', e);
+      }
+    }
     await renderQueue();
     uploadAllBtn.disabled = false;
-    const msg = '✅成功 ' + success + ' / スキップ ' + skipped + ' / 失敗 ' + failed;
+    let msg = '✅成功 ' + success + ' / スキップ ' + skipped + ' / 失敗 ' + failed;
+    if (promptSaved) msg = '📝メモ保存 / ' + msg;
     setStatus(msg);
     showToast(msg, failed > 0 ? 'error' : 'success');
     navigator.vibrate && navigator.vibrate([50, 30, 50]);
+
+    // 成功時はメモをクリア（次の記事用）
+    if (failed === 0 && promptSaved) clearMemoState();
   }
 
   async function uploadSmall(item, articleTitle, articleFolderId) {
     const base64 = await blobToBase64(item.blob);
-    // x-www-form-urlencoded で送れば CORS preflight 不要
+    // 既存ファイル上書きモード（再編集用）
+    if (item.replaceDriveFileId) {
+      const body = new URLSearchParams({
+        token: TOKEN,
+        action: 'replaceFile',
+        fileId: item.replaceDriveFileId,
+        mimeType: item.mimeType,
+        fileDataBase64: base64,
+      });
+      const res = await fetch(GAS_URL, {
+        method: 'POST',
+        body: body.toString(),
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
+      });
+      const json = await res.json();
+      if (json.ok && json.result === 'replaced') {
+        // uploadSmall の戻り値形式に合わせる
+        return { ok: true, result: 'success', fileId: json.newFileId, fileName: json.fileName, articleFolderId: json.articleFolderId };
+      }
+      return json;
+    }
+    // 通常の新規アップロード
     const body = new URLSearchParams({
       token: TOKEN,
       action: 'uploadSmall',
@@ -373,17 +2473,539 @@
   function getSelectedArticleTitle() { return selectedNewArticle || ''; }
   function getSelectedArticleFolderId() { return articleSelect.value || ''; }
 
-  useNewArticleBtn.addEventListener('click', () => {
+  useNewArticleBtn.addEventListener('click', async () => {
     const title = newArticleInput.value.trim();
     if (!title) { showToast('記事名を入力してください', 'error'); return; }
-    selectedNewArticle = title;
-    articleSelect.value = '';
-    showToast('新規記事として使用: ' + title, 'success');
+    // 即時 Drive フォルダ作成（prefix「【記事】」は GAS が自動付与）
+    useNewArticleBtn.disabled = true;
+    const originalLabel = useNewArticleBtn.textContent;
+    useNewArticleBtn.textContent = '作成中…';
+    try {
+      const res = await fetch(GAS_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          token: TOKEN,
+          action: 'createArticle',
+          articleTitle: title,
+        }).toString(),
+      }).then(r => r.json());
+      if (!res || !res.ok) throw new Error((res && res.message) || 'createArticle 失敗');
+
+      // 記事リストを再読込し、新規作成された記事を選択状態に
+      await loadArticleList();
+      articleSelect.value = res.articleFolderId;
+      selectedNewArticle = null; // Drive上に存在する記事として扱う
+      newArticleInput.value = '';
+      // 既存メモ/ファイルがあれば取得（新規ならどちらも空のはず）
+      await loadExistingPrompt(res.articleFolderId, { silent: true });
+      await loadExistingFiles(res.articleFolderId);
+      showToast(`📁 記事「${res.articleFolderName}」を作成しました`, 'success');
+    } catch (err) {
+      console.error('createArticle error:', err);
+      // GAS呼び出し失敗時は従来通り「メモリ内記事」として扱うフォールバック
+      selectedNewArticle = title;
+      articleSelect.value = '';
+      showToast('フォルダ作成失敗（転送時に再試行されます）: ' + (err.message || err), 'warn');
+    } finally {
+      useNewArticleBtn.disabled = false;
+      useNewArticleBtn.textContent = originalLabel;
+      updateCurrentArticleDisplay();
+    }
   });
-  articleSelect.addEventListener('change', () => {
+  const LS_LAST_FOLDER_KEY = 'kiji-meshi:last-article-folder';
+  articleSelect.addEventListener('change', async () => {
     selectedNewArticle = null;
     newArticleInput.value = '';
+    // 既存記事を選んだら PROMPT.md と既存ファイル一覧をDriveから復元
+    const folderId = articleSelect.value;
+    if (folderId) {
+      localStorage.setItem(LS_LAST_FOLDER_KEY, folderId);
+      await loadExistingPrompt(folderId);
+      await loadExistingFiles(folderId);
+    } else {
+      localStorage.removeItem(LS_LAST_FOLDER_KEY);
+      hideExistingFiles();
+    }
+    updateCurrentArticleDisplay();
   });
+
+  // ─── 既存ファイル一覧（再編集用） ────────────────────
+  const existingFilesDetails = $('existing-files-details');
+  const efSummaryStatus = $('ef-summary-status');
+  const efGrid = $('ef-grid');
+  const efEmpty = $('ef-empty');
+  const btnReloadFiles = $('btn-reload-files');
+
+  function hideExistingFiles() {
+    if (existingFilesDetails) existingFilesDetails.hidden = true;
+  }
+
+  async function loadExistingFiles(folderId) {
+    if (!existingFilesDetails) return;
+    existingFilesDetails.hidden = false;
+    efSummaryStatus.textContent = '読込中…';
+    efGrid.innerHTML = '';
+    efEmpty.hidden = true;
+    try {
+      const url = GAS_URL + '?' + new URLSearchParams({
+        token: TOKEN, action: 'listArticleFiles', articleFolderId: folderId,
+      }).toString();
+      const res = await fetch(url).then(r => r.json());
+      if (!res.ok) throw new Error(res.message);
+      const files = res.files || [];
+      efSummaryStatus.textContent = files.length + '件';
+      if (files.length === 0) {
+        efEmpty.hidden = false;
+        return;
+      }
+      for (const f of files) {
+        const card = document.createElement('div');
+        card.className = 'ef-card';
+        card.innerHTML =
+          `<img loading="lazy" src="${f.thumbnailUrl}" alt="${f.name}" referrerpolicy="no-referrer">` +
+          `<div class="ef-name" title="${f.name}">${f.name}</div>` +
+          '<div class="ef-buttons">' +
+            '<button class="ai-edit-btn" data-action="ef-gpt" title="ChatGPTで再編集">🤖</button>' +
+            '<button class="ai-edit-btn ai-edit-gemini" data-action="ef-gem" title="Geminiで再編集">🍌</button>' +
+            '<button class="ai-edit-btn ai-edit-canva" data-action="ef-canva" title="Canvaで仕上げ">🎨</button>' +
+          '</div>';
+        card.querySelector('[data-action="ef-gpt"]').onclick = () => editExistingFile(f, 'chatgpt');
+        card.querySelector('[data-action="ef-gem"]').onclick = () => editExistingFile(f, 'gemini');
+        card.querySelector('[data-action="ef-canva"]').onclick = () => editExistingFile(f, 'canva');
+        efGrid.appendChild(card);
+      }
+    } catch (e) {
+      efSummaryStatus.textContent = 'エラー';
+      showToast('ファイル一覧取得失敗: ' + (e.message || e), 'error');
+    }
+  }
+
+  // Drive 画像を GAS経由でフルサイズ取得 → キューに追加（上書きモード）→ AI 編集起動
+  async function editExistingFile(driveFile, engine) {
+    try {
+      showToast(`「${driveFile.name}」を取込中…`, 'success');
+      // GAS の downloadFile action で base64 取得（CORS回避＆フル解像度維持）
+      const url = GAS_URL + '?' + new URLSearchParams({
+        token: TOKEN,
+        action: 'downloadFile',
+        fileId: driveFile.id,
+      }).toString();
+      const res = await fetch(url).then(r => r.json());
+      if (!res || !res.ok) throw new Error((res && res.message) || 'downloadFile 失敗');
+      // base64 → Blob 変換
+      const bin = atob(res.dataBase64);
+      const len = bin.length;
+      const u8 = new Uint8Array(len);
+      for (let i = 0; i < len; i++) u8[i] = bin.charCodeAt(i);
+      const blob = new Blob([u8], { type: res.mimeType || driveFile.mimeType });
+      const ext = (driveFile.name.split('.').pop() || 'png').toLowerCase();
+      const item = {
+        id: 'edit-' + driveFile.id + '-' + Date.now(),
+        blob: blob,
+        mimeType: blob.type,
+        ext: ext,
+        size: blob.size,
+        originalName: driveFile.name,
+        createdAt: Date.now(),
+        replaceDriveFileId: driveFile.id, // ← 上書き保存マーカー
+      };
+      await queuePut(item);
+      await renderQueue();
+      // 取込んだ item を引数に AI 編集起動
+      await oneClickEdit(item, engine);
+    } catch (e) {
+      showToast('取込失敗: ' + (e.message || e), 'error');
+      console.error('editExistingFile error:', e);
+    }
+  }
+
+  btnReloadFiles && btnReloadFiles.addEventListener('click', async () => {
+    const folderId = articleSelect.value;
+    if (!folderId) { showToast('記事を選択してください', 'warn'); return; }
+    await loadExistingFiles(folderId);
+  });
+
+  const btnMemoReload = $('btn-memo-reload');
+  btnMemoReload && btnMemoReload.addEventListener('click', async () => {
+    const folderId = articleSelect.value;
+    if (!folderId) { showToast('記事を選択してください', 'warn'); return; }
+    await loadExistingPrompt(folderId);
+  });
+
+  const btnMemoSave = $('btn-memo-save');
+  btnMemoSave && btnMemoSave.addEventListener('click', async () => {
+    const folderId = articleSelect.value;
+    const title = getSelectedArticleTitle();
+    if (!folderId && !title) {
+      showToast('記事を選択／作成してください', 'warn');
+      return;
+    }
+    if (!hasPromptData()) {
+      showToast('メモが空です（記事タイプ・ポイントを少なくとも1つ入力してください）', 'warn');
+      return;
+    }
+    const original = btnMemoSave.textContent;
+    btnMemoSave.disabled = true;
+    btnMemoSave.textContent = '保存中…';
+    let saved = false;
+    try {
+      const res = await savePromptToDrive(title, folderId);
+      console.log('[memo save] response:', res);
+      if (!res || (!res.ok && !res.skipped)) {
+        throw new Error((res && res.message) || 'savePrompt 失敗');
+      }
+      if (res.skipped) {
+        showToast('メモが空のため保存スキップ', 'warn');
+      } else {
+        const validCount = getValidMemos().length;
+        const articleTypeVal = articleTypeSelect.value || '(未設定)';
+        showToast(
+          `💾 Driveに保存完了：記事タイプ「${articleTypeVal}」/ メモ${validCount}件 → PROMPT.md`,
+          'success'
+        );
+        saved = true;
+      }
+    } catch (err) {
+      console.error('memo save error:', err);
+      showToast('保存失敗: ' + (err.message || err), 'error');
+    } finally {
+      btnMemoSave.disabled = false;
+      if (saved) {
+        btnMemoSave.textContent = '✅ 保存済';
+        btnMemoSave.classList.add('btn-saved-flash');
+        setTimeout(() => {
+          btnMemoSave.textContent = original;
+          btnMemoSave.classList.remove('btn-saved-flash');
+        }, 2500);
+      } else {
+        btnMemoSave.textContent = original;
+      }
+    }
+  });
+
+  // ─── 現在使用中の記事 表示＆リネーム ────────────────
+  const currentArticleBar = $('current-article-bar');
+  const currentArticleNameEl = $('current-article-name');
+  const currentArticleDisplay = $('current-article-display');
+  const currentArticleEditForm = $('current-article-edit-form');
+  const renameArticleInput = $('rename-article-input');
+  const btnRenameArticle = $('btn-rename-article');
+  const btnSaveRename = $('btn-save-rename');
+  const btnCancelRename = $('btn-cancel-rename');
+
+  function getCurrentArticleName() {
+    if (selectedNewArticle) return selectedNewArticle;
+    const folderId = articleSelect.value;
+    if (folderId) {
+      const opt = Array.from(articleSelect.options).find(o => o.value === folderId);
+      return opt ? opt.textContent : '';
+    }
+    return '';
+  }
+
+  function updateCurrentArticleDisplay() {
+    const name = getCurrentArticleName();
+    if (!name) {
+      currentArticleBar.hidden = true;
+      return;
+    }
+    currentArticleBar.hidden = false;
+    // 表示は prefix を外して見やすく（フル名は title 属性で残す）
+    const displayName = typeof stripArticlePrefix === 'function' ? stripArticlePrefix(name) : name;
+    currentArticleNameEl.textContent = displayName;
+    currentArticleNameEl.title = name;
+    // 編集モードを閉じる
+    currentArticleDisplay.hidden = false;
+    currentArticleEditForm.hidden = true;
+  }
+
+  // 「【記事】」prefix は GAS 側で自動付与されるので、編集UI上は隠して本体だけ見せる
+  const ARTICLE_PREFIX = '【記事】';
+  function stripArticlePrefix(name) {
+    if (!name) return '';
+    while (name.indexOf(ARTICLE_PREFIX) === 0) name = name.substring(ARTICLE_PREFIX.length).trim();
+    return name;
+  }
+
+  btnRenameArticle && btnRenameArticle.addEventListener('click', () => {
+    const cur = getCurrentArticleName();
+    if (!cur) { showToast('記事を選択してから変更してください', 'error'); return; }
+    // prefix を取り除いて見せる
+    renameArticleInput.value = stripArticlePrefix(cur);
+    currentArticleDisplay.hidden = true;
+    currentArticleEditForm.hidden = false;
+    setTimeout(() => { renameArticleInput.focus(); renameArticleInput.select(); }, 50);
+  });
+
+  btnCancelRename && btnCancelRename.addEventListener('click', () => {
+    currentArticleDisplay.hidden = false;
+    currentArticleEditForm.hidden = true;
+  });
+
+  btnSaveRename && btnSaveRename.addEventListener('click', async () => {
+    const newName = renameArticleInput.value.trim();
+    if (!newName) { showToast('記事名を入力してください', 'error'); return; }
+    const folderId = articleSelect.value;
+
+    // 新規記事（まだDrive上に作成されていない）の場合 → ローカル更新のみ
+    if (selectedNewArticle && !folderId) {
+      selectedNewArticle = newName;
+      newArticleInput.value = newName;
+      showToast('記事名を変更: ' + newName, 'success');
+      updateCurrentArticleDisplay();
+      return;
+    }
+
+    // 既存記事（Drive上に存在）の場合 → GAS で renameArticle 呼び出し
+    if (folderId) {
+      btnSaveRename.disabled = true;
+      btnSaveRename.textContent = '変更中…';
+      try {
+        const res = await fetch(GAS_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({
+            token: TOKEN,
+            action: 'renameArticle',
+            articleFolderId: folderId,
+            newName: newName,
+          }).toString(),
+        }).then(r => r.json());
+
+        if (!res || !res.ok) {
+          throw new Error((res && res.message) || 'GAS側に renameArticle が未実装の可能性');
+        }
+
+        // 記事リストを再読み込みして反映
+        await loadArticleList();
+        articleSelect.value = folderId;
+        showToast('記事名を変更: ' + newName, 'success');
+      } catch (err) {
+        console.error('rename failed:', err);
+        showToast('変更失敗: ' + (err.message || err) + '\n（Drive側で手動変更してください）', 'error');
+      } finally {
+        btnSaveRename.disabled = false;
+        btnSaveRename.textContent = '保存';
+        updateCurrentArticleDisplay();
+      }
+      return;
+    }
+
+    showToast('記事を選択してから変更してください', 'error');
+  });
+
+  // Enter で保存
+  renameArticleInput && renameArticleInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); btnSaveRename.click(); }
+    if (e.key === 'Escape') { btnCancelRename.click(); }
+  });
+
+  // 初期表示時にも反映
+  setTimeout(updateCurrentArticleDisplay, 100);
+
+  async function loadExistingPrompt(folderId, opts) {
+    opts = opts || {};
+    try {
+      const url = GAS_URL + '?' + new URLSearchParams({
+        token: TOKEN, action: 'getPrompt', articleFolderId: folderId,
+      }).toString();
+      const res = await fetch(url).then((r) => r.json());
+      if (!res.ok || !res.exists) {
+        if (opts.silent !== true) showToast('この記事にはまだメモがありません', 'warn');
+        return;
+      }
+      // 既存メモ上書きの確認は完全廃止（自動上書き）— 必要なら「↻ メモ再読込」を押す形に
+      articleTypes = Array.from(new Set([
+        ...articleTypes,
+        ...(res.articleType ? [res.articleType] : []),
+      ]));
+      saveArticleTypes();
+      renderArticleTypes();
+      articleTypeSelect.value = res.articleType || '';
+      memos = Array.isArray(res.memos) ? res.memos.slice() : [];
+      persistMemoState();
+      renderMemos();
+      // メモセクションを開く
+      const det = document.getElementById('memo-details');
+      if (det && !det.open) det.open = true;
+      if (opts.silent !== true) showToast('既存メモを読み込みました', 'success');
+    } catch (e) {
+      console.error('loadExistingPrompt error:', e);
+    }
+  }
+
+  // ─── 記事作成メモ（AIへの指示） ─────────────────────
+  const LS_TYPES_KEY = 'kiji-meshi:article-types';
+  const LS_MEMO_STATE_KEY = 'kiji-meshi:memo-state';
+  const DEFAULT_TYPES = ['レビュー', '商品比較', 'ツール紹介'];
+  let articleTypes = loadArticleTypes();
+  let memos = []; // string[]
+
+  function loadArticleTypes() {
+    try {
+      const raw = localStorage.getItem(LS_TYPES_KEY);
+      if (!raw) return DEFAULT_TYPES.slice();
+      const arr = JSON.parse(raw);
+      if (Array.isArray(arr) && arr.length > 0) return arr;
+    } catch (_) {}
+    return DEFAULT_TYPES.slice();
+  }
+  function saveArticleTypes() {
+    localStorage.setItem(LS_TYPES_KEY, JSON.stringify(articleTypes));
+  }
+  function renderArticleTypes() {
+    const current = articleTypeSelect.value;
+    articleTypeSelect.innerHTML = '<option value="">-- 指定なし（従来通り） --</option>';
+    for (const t of articleTypes) {
+      const opt = document.createElement('option');
+      opt.value = t; opt.textContent = t;
+      articleTypeSelect.appendChild(opt);
+    }
+    if (current && articleTypes.includes(current)) articleTypeSelect.value = current;
+    updateMemoStatus();
+  }
+
+  function renderMemos() {
+    memoList.innerHTML = '';
+    memos.forEach((text, i) => {
+      const row = document.createElement('div');
+      row.className = 'memo-item';
+      row.innerHTML =
+        '<div class="memo-item-num">' + (i + 1) + '</div>' +
+        '<textarea class="memo-item-text" rows="1" placeholder="例: バッテリー持続が競合比で1.5倍という点を推したい"></textarea>' +
+        '<div class="memo-item-actions">' +
+          '<button class="memo-item-btn up" type="button" aria-label="上へ"' + (i === 0 ? ' disabled' : '') + '>↑</button>' +
+          '<button class="memo-item-btn down" type="button" aria-label="下へ"' + (i === memos.length - 1 ? ' disabled' : '') + '>↓</button>' +
+          '<button class="memo-item-btn delete" type="button" aria-label="削除">✕</button>' +
+        '</div>';
+      const ta = row.querySelector('textarea');
+      ta.value = text;
+      ta.addEventListener('input', () => {
+        memos[i] = ta.value;
+        persistMemoState();
+        updateMemoStatus();
+      });
+      row.querySelector('.up').addEventListener('click', () => {
+        if (i === 0) return;
+        [memos[i - 1], memos[i]] = [memos[i], memos[i - 1]];
+        persistMemoState();
+        renderMemos();
+      });
+      row.querySelector('.down').addEventListener('click', () => {
+        if (i === memos.length - 1) return;
+        [memos[i], memos[i + 1]] = [memos[i + 1], memos[i]];
+        persistMemoState();
+        renderMemos();
+      });
+      row.querySelector('.delete').addEventListener('click', () => {
+        memos.splice(i, 1);
+        persistMemoState();
+        renderMemos();
+      });
+      memoList.appendChild(row);
+    });
+    updateMemoStatus();
+  }
+
+  function persistMemoState() {
+    const state = {
+      articleType: articleTypeSelect.value || '',
+      memos: memos,
+    };
+    localStorage.setItem(LS_MEMO_STATE_KEY, JSON.stringify(state));
+  }
+  function loadMemoState() {
+    try {
+      const raw = localStorage.getItem(LS_MEMO_STATE_KEY);
+      if (!raw) return;
+      const state = JSON.parse(raw);
+      if (state && Array.isArray(state.memos)) memos = state.memos;
+      if (state && state.articleType) articleTypeSelect.value = state.articleType;
+    } catch (_) {}
+  }
+  function clearMemoState() {
+    memos = [];
+    articleTypeSelect.value = '';
+    localStorage.removeItem(LS_MEMO_STATE_KEY);
+    renderMemos();
+  }
+  function getValidMemos() {
+    return memos.map((m) => (m || '').trim()).filter((m) => m.length > 0);
+  }
+  function hasPromptData() {
+    return !!articleTypeSelect.value || getValidMemos().length > 0;
+  }
+  function updateMemoStatus() {
+    const valid = getValidMemos().length;
+    const type = articleTypeSelect.value;
+    if (!type && valid === 0) {
+      memoSummaryStatus.textContent = '未設定';
+      memoSummaryStatus.classList.remove('active');
+    } else {
+      const parts = [];
+      if (type) parts.push(type);
+      if (valid > 0) parts.push('メモ' + valid + '件');
+      memoSummaryStatus.textContent = parts.join(' / ');
+      memoSummaryStatus.classList.add('active');
+    }
+  }
+
+  addArticleTypeBtn.addEventListener('click', () => {
+    const name = (prompt('追加する記事タイプ名を入力してください（例: 裏話、実験レポート）') || '').trim();
+    if (!name) return;
+    if (articleTypes.includes(name)) { showToast('既に存在します: ' + name, 'error'); return; }
+    articleTypes.push(name);
+    saveArticleTypes();
+    renderArticleTypes();
+    articleTypeSelect.value = name;
+    persistMemoState();
+    showToast('追加: ' + name, 'success');
+  });
+  removeArticleTypeBtn.addEventListener('click', () => {
+    const current = articleTypeSelect.value;
+    if (!current) { showToast('削除するタイプを選んでください', 'error'); return; }
+    if (!confirm('「' + current + '」をタイプ一覧から削除しますか？')) return;
+    articleTypes = articleTypes.filter((t) => t !== current);
+    if (articleTypes.length === 0) articleTypes = DEFAULT_TYPES.slice();
+    saveArticleTypes();
+    articleTypeSelect.value = '';
+    renderArticleTypes();
+    persistMemoState();
+  });
+  articleTypeSelect.addEventListener('change', () => {
+    persistMemoState();
+    updateMemoStatus();
+  });
+  addMemoBtn.addEventListener('click', () => {
+    memos.push('');
+    persistMemoState();
+    renderMemos();
+    const last = memoList.querySelector('.memo-item:last-child textarea');
+    if (last) last.focus();
+  });
+
+  // ─── PROMPT.md 保存（GASへ送信） ─────────────────────
+  async function savePromptToDrive(articleTitle, articleFolderId) {
+    const articleType = articleTypeSelect.value || '';
+    const validMemos = getValidMemos();
+    if (!articleType && validMemos.length === 0) return { ok: true, skipped: true };
+
+    const body = new URLSearchParams({
+      token: TOKEN,
+      action: 'savePrompt',
+      articleTitle: articleTitle || '',
+      articleFolderId: articleFolderId || '',
+      articleType: articleType,
+      memosJson: JSON.stringify(validMemos),
+    });
+    const res = await fetch(GAS_URL, {
+      method: 'POST',
+      body: body.toString(),
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
+    });
+    return res.json();
+  }
 
   // ─── モードタブ切替 ─────────────────────
   document.querySelectorAll('.mode-tab').forEach((btn) => {
@@ -402,6 +3024,27 @@
       }
     });
   });
+
+  // カメラ ON/OFF 電源ボタン（右上）/ OFFマスク（中央のタップで起動ボタン）
+  const cameraPowerBtn = document.getElementById('camera-power');
+  const cameraOnBtn = document.getElementById('camera-on-btn');
+  async function toggleCameraPower(forceOn) {
+    const next = (typeof forceOn === 'boolean') ? forceOn : !isCameraEnabled();
+    setCameraEnabled(next);
+    applyCameraPowerUI();
+    if (next) {
+      await startCamera();
+      showToast('📷 カメラ ON', 'success');
+    } else {
+      stopCamera();
+      setStatus('📷 カメラ OFF（タップで起動）');
+      showToast('🌙 カメラを停止しました', 'success');
+    }
+  }
+  cameraPowerBtn && cameraPowerBtn.addEventListener('click', () => toggleCameraPower());
+  cameraOnBtn && cameraOnBtn.addEventListener('click', () => toggleCameraPower(true));
+  // 初期UI反映
+  applyCameraPowerUI();
 
   // 写真/動画の切替
   document.querySelectorAll('.kind-btn').forEach((btn) => {
@@ -444,8 +3087,21 @@
 
   // ─── 初期化 ─────────────────────
   (async () => {
+    renderArticleTypes();
+    loadMemoState();
+    renderMemos();
     await renderQueue();
     await loadArticleList();
+    // 前回選択していた記事を復元（リロード後もメモ・ファイル一覧が継続）
+    try {
+      const lastFolder = localStorage.getItem(LS_LAST_FOLDER_KEY);
+      if (lastFolder && Array.from(articleSelect.options).some(o => o.value === lastFolder)) {
+        articleSelect.value = lastFolder;
+        await loadExistingPrompt(lastFolder, { silent: true });
+        await loadExistingFiles(lastFolder);
+        updateCurrentArticleDisplay();
+      }
+    } catch (e) { console.warn('restore last article failed:', e); }
     // 初期はライブカメラ
     await startCamera();
     setStatus('準備完了');
