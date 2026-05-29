@@ -180,14 +180,12 @@
 
   <!-- ④ 行動指針 -->
   <section class="block">
-    <div class="sec-label">④ 行動指針（日替わりで1つ）</div>
+    <div class="sec-label">④ 行動指針</div>
     <div class="line toban"><span class="tag toban">当番</span><div class="txt">行動指針</div></div>
     <div class="line zenin">
       <span class="tag zenin">全員</span>
-      <div class="txt" id="koudouToday"></div>
+      <div class="txt">私たちは、クレーム・不良“ゼロ”の重要性を認識し、決められた作業を決められた通りに行い、不具合が生じた時は、直ちに報告することを誓います。</div>
     </div>
-    <div class="note">※ 行動指針は全3項目。本日の1つを唱和します（曜日で自動切替）。</div>
-    <div class="ref" id="koudouRef"></div>
   </section>
 
   <!-- ⑤ 品質十則 -->
@@ -206,13 +204,6 @@
 </div>
 
 <script>
-/* ===== 行動指針（日替わりで1つ） ===== */
-const koudou = [
-  "私たちは、クレーム・不良“ゼロ”の重要性を認識し、決められた作業を決められた通りに行い、不具合が生じた時は、直ちに報告することを誓います。",
-  "私たちは、品質マネジメントシステムと各プロセスにおける改善活動を継続的に行い、より有効なものとし、お客様満足に繋がる品質目標を実現します。",
-  "私たちは、法規制・顧客固有要求事項を最優先に遵守します。"
-];
-
 /* ===== 品質十則データ ===== */
 const tensoku = {
   "月":["作業前　必ず見ます　指図書を","安易な特採　事故のもと"],
@@ -225,14 +216,6 @@ const tensoku = {
 const order = ["月","火","水","木","金","土"];
 const jsToDay = {1:"月",2:"火",3:"水",4:"木",5:"金",6:"土",0:"土"}; // 日曜は土を表示
 const todayKey = jsToDay[new Date().getDay()];
-
-/* 行動指針：曜日で 0→1→2 を巡回（月=0, 火=1, 水=2, 木=0 …） */
-const koudouIdxByDay = {"月":0,"火":1,"水":2,"木":0,"金":1,"土":2};
-const kIdx = koudouIdxByDay[todayKey];
-document.getElementById("koudouToday").innerHTML = "（"+(kIdx+1)+"）"+koudou[kIdx];
-document.getElementById("koudouRef").innerHTML =
-  "<b>他の行動指針</b><br>" +
-  koudou.map((t,i)=>(i+1)+"．"+t).filter((_,i)=>i!==kIdx).join("<br>");
 
 /* ===== 品質十則タブ描画 ===== */
 const daysEl=document.getElementById("days");
