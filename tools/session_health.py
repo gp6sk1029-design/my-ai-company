@@ -42,8 +42,39 @@ THRESHOLDS = {
 }
 
 
+def session_from_hook_stdin() -> Path | None:
+    """Claude Codeがhookのstdinに渡すJSONから現在セッションの正確なパスを取得。
+
+    hookは {"session_id":..., "transcript_path":..., ...} をstdinに渡す。
+    これが「現在のセッション」の唯一正確な情報源。
+    端末から手動実行した場合（stdinがTTY）はブロックせず None を返す。
+    """
+    import select
+    try:
+        # stdinに即読めるデータがある時だけ読む（TTYならタイムアウト0で空＝Noneへ）
+        if not select.select([sys.stdin], [], [], 0.0)[0]:
+            return None
+        raw = sys.stdin.read()
+        if not raw.strip():
+            return None
+        d = json.loads(raw)
+        tp = d.get("transcript_path") or d.get("transcriptPath")
+        if tp:
+            p = Path(tp).expanduser()
+            if p.exists():
+                return p
+    except Exception:
+        pass
+    return None
+
+
 def find_current_session() -> Path | None:
-    """現プロジェクトの最新セッションjsonlを推定。"""
+    """フォールバック：現プロジェクトの最新セッションjsonlを推定。
+
+    ⚠️ これは推測（mtime順）であり、hookのtranscript_pathが取れない場合の
+    最終手段。新セッション起動直後は自分のファイルが空で、前セッションの
+    大きいファイルを誤検出しうる（だからhook stdinを優先する）。
+    """
     # ~/.claude/projects/<encoded-path>/*.jsonl
     cwd = Path.cwd().resolve()
     encoded = "-" + str(cwd).replace("/", "-").lstrip("-")
@@ -191,13 +222,24 @@ def main() -> int:
     parser.add_argument("--session", type=Path, help="特定セッションを指定")
     args = parser.parse_args()
 
-    jsonl = args.session if args.session else find_current_session()
+    # 優先順位: ①--session明示指定 ②hookのstdin(transcript_path＝正確) ③mtime推測(最終手段)
+    source = "arg"
+    if args.session:
+        jsonl = args.session
+    else:
+        jsonl = session_from_hook_stdin()
+        if jsonl:
+            source = "hook"
+        else:
+            jsonl = find_current_session()
+            source = "guess"
     if not jsonl or not jsonl.exists():
         if not args.quiet:
             print("⚠️  セッションファイルが見つかりません", file=sys.stderr)
         return 0  # quietモードでは終了コード0で抜ける（hookを止めない）
 
     metrics = analyze_session(jsonl)
+    metrics["detect_source"] = source
     evaluation = evaluate(metrics)
 
     if args.json:
@@ -207,7 +249,13 @@ def main() -> int:
     if args.quiet and evaluation["overall"] == "OK":
         return 0  # 静かに終了
 
-    print(format_report(metrics, evaluation))
+    report = format_report(metrics, evaluation)
+    if source == "guess":
+        report += (
+            "\n   ⚠️ 注意: 現在セッションを特定できず"
+            "『最新更新ファイル』で推測表示しています（hook経由なら正確）。"
+        )
+    print(report)
     return 0
 
 
