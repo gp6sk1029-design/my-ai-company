@@ -8,7 +8,6 @@
       "port": 8080
     },
     {
-<<<<<<< HEAD
       "name": "plc-client",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev"],
@@ -20,8 +19,9 @@
       "runtimeExecutable": "python",
       "runtimeArgs": ["-m", "http.server", "8090"],
       "port": 8090,
-      "cwd": "ime-policy"
-=======
+      "cwd": "ime-policy/public"
+    },
+    {
       "name": "life-plan",
       "runtimeExecutable": "python3",
       "runtimeArgs": ["-c", "import os; from http.server import HTTPServer, SimpleHTTPRequestHandler; from functools import partial; print('[life-plan] http://localhost:8791'); HTTPServer(('0.0.0.0', 8791), partial(SimpleHTTPRequestHandler, directory='/Users/shoheikoda/Documents/my-ai-company/tools/life-plan/public')).serve_forever()"],
@@ -44,7 +44,6 @@
       "runtimeExecutable": "python3",
       "runtimeArgs": ["-c", "from http.server import HTTPServer, SimpleHTTPRequestHandler; from functools import partial; print('[ootanisatan-preview] http://localhost:8793'); HTTPServer(('0.0.0.0', 8793), partial(SimpleHTTPRequestHandler, directory='/Users/shoheikoda/Documents/my-ai-company/blog/cloudflare-preview')).serve_forever()"],
       "port": 8793
->>>>>>> 9911465614d102cb42310e9ee2d5c2b875befa9d
     }
   ]
 }
