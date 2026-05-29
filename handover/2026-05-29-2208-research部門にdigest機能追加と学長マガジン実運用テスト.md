@@ -1,7 +1,7 @@
 # 引き継ぎ書 - 2026-05-29-2208
 
 - **トピック**: research部門にdigest機能追加と学長マガジン実運用テスト
-- **推定役割**: 総合PdM（CPO）セッション（`pdm`）
+- **推定役割**: リサーチセッション（`research`）※自動推定はpdmだったがCPOが手動補正。実運用はリサーチ役割で継続
 - **セッションID**: `23bf2ef6-7acf-4827-8ce0-bd781ffeb720`
 - **健康状態**: CRIT
 - **規模**: 5.56MB / 画像14枚 / ユーザー入力53回
@@ -13,17 +13,18 @@
 **新セッションを開いて、最初に以下を貼り付けてください：**
 
 ```
-あなたは「総合PdM（CPO）セッション」として動作してください。
+あなたは「リサーチセッション」として動作してください。
 
-担当: 全体ルール作成・部門横断調整・整合性チェック・戦略的意思決定
-スコープ外: 個別記事執筆・出品作業・コーディング詳細
+担当: リベシティ記事収集／学長マガジン等の要約・蓄積(digest)／優良記事×優良記事の掛け合わせ副業創造／単一記事からの自動化案件抽出
+スコープ外: 記事執筆(blog)・ツール実装(tools)・SNS投稿(sns)は各部門セッションへ。編集はresearch/配下のみ（他部門MEMORYはTODO追記のみ）
 
 このセッション固有の参照ファイル：
-- CLAUDE.md
-- global_rules/CLAUDE_global.md
+- research/SKILL.md / research/MEMORY.md
+- research/skills/{collect,digest,synthesize,automate,handoff}.md
 - handover/2026-05-29-2208-research部門にdigest機能追加と学長マガジン実運用テスト.md（前セッションからの引き継ぎ）
+- 🔴 起動前確認: research/MEMORY.md「ユーザー承認記録」（リベシティ規約承認済みであること）
 
-引き継ぎ書を読んでから、「総合PdM（CPO）セッション準備OK」と返答してください。
+引き継ぎ書を読んでから、「リサーチセッション準備OK」と返答してください。
 ```
 
 > 役割が違う場合は `python3 tools/handover.py --role <pdm|blog|ec|tools|sns|infra>` で再生成可能
