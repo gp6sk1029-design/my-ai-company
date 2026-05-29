@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <rect width="64" height="64" rx="14" fill="#0f3d2e"/>
+  <rect x="6" y="20" width="52" height="24" rx="8" fill="#c8102e"/>
+  <text x="32" y="38.5" text-anchor="middle" font-family="Arial Black, Arial, sans-serif"
+        font-size="18" font-weight="900" font-style="italic" fill="#ffffff" letter-spacing="1.5">IME</text>
+  <rect x="6" y="8" width="52" height="4" rx="2" fill="#1a6b3c"/>
+  <rect x="6" y="52" width="52" height="4" rx="2" fill="#1a6b3c"/>
+</svg>

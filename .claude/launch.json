@@ -6,6 +6,20 @@
       "runtimeExecutable": "python3",
       "runtimeArgs": ["/Users/shoheikoda/Documents/my-ai-company/ec/scripts/web_server.py"],
       "port": 8080
+    },
+    {
+      "name": "plc-client",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 5173,
+      "cwd": "plc-debugger/client"
+    },
+    {
+      "name": "ime-policy",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "http.server", "8090"],
+      "port": 8090,
+      "cwd": "ime-policy"
     }
   ]
 }
