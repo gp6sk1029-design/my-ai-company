@@ -1,0 +1,13 @@
+{
+  // IME 2026経営方針 ── 静的配信（Cloudflare Workers Static Assets）
+  "name": "ime-policy",
+  "compatibility_date": "2026-05-29",
+
+  // 静的ファイルの置き場所
+  "assets": {
+    "directory": "./public"
+  },
+
+  // ★社内ルール：プレビューURLは無効（Access認証バイパス防止）
+  "preview_urls": false
+}

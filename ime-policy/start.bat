@@ -28,7 +28,7 @@ for /f "tokens=5" %%a in ('netstat -ano ^| findstr ":%PORT%" ^| findstr "LISTENI
 )
 
 echo ローカルサーバーを起動中... (ポート %PORT%)
-start "IME-policy-server" /min python -m http.server %PORT%
+start "IME-policy-server" /min python -m http.server %PORT% --directory "%~dp0public"
 
 REM ── サーバー起動を少し待ってからブラウザを開く
 timeout /t 1 /nobreak >nul

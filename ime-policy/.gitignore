@@ -1,0 +1,12 @@
+# Cloudflare / wrangler
+.wrangler/
+.dev.vars
+
+# Node.js
+node_modules/
+dist/
+
+# OS / エディタ
+.DS_Store
+Thumbs.db
+.vscode/
