@@ -2299,6 +2299,62 @@ ${COMMON_GUARDS}`,
       }
     }
 
+    // 🔑 ユニーク役割（アイキャッチ/ヒーロー/NG集サマリ）の重複検出 → ユーザーに「上書き or コピー」を選ばせる
+    if (articleFolderId) {
+      try {
+        const url = GAS_URL + '?' + new URLSearchParams({
+          token: TOKEN, action: 'listArticleFiles', articleFolderId: articleFolderId,
+        }).toString();
+        const listRes = await fetch(url).then(r => r.json());
+        if (listRes.ok && Array.isArray(listRes.files)) {
+          const existingFiles = listRes.files;
+          const conflicts = []; // {item, def, existing}
+          for (const it of items) {
+            if (it.replaceDriveFileId) continue; // すでに明示的に上書き対象が決まっている
+            const roleKey = normalizeItemRole(it);
+            if (roleKey === 'none') continue;
+            const def = getRoleDef(roleKey);
+            if (!def.unique || !def.prefix) continue;
+            const matched = existingFiles.filter(f =>
+              new RegExp('^' + def.prefix, 'i').test(f.name || '')
+            );
+            if (matched.length > 0) {
+              matched.sort((a, b) => (b.modifiedTime || '').localeCompare(a.modifiedTime || ''));
+              conflicts.push({ item: it, def, existing: matched[0] });
+            }
+          }
+          if (conflicts.length > 0) {
+            // ユーザーに確認：上書き or 新規コピー
+            const msg = `以下の画像が既存のDriveファイルと役割が同じです：\n\n` +
+              conflicts.map(c =>
+                `  ${c.def.emoji} ${c.def.label}\n` +
+                `    新画像: ${c.item.originalName}\n` +
+                `    既存:   ${c.existing.name}`
+              ).join('\n\n') +
+              `\n\n──────────────\n` +
+              `[OK]    既存ファイルを「上書き保存」\n` +
+              `[キャンセル]  「新規コピー」として追加（既存も残る）`;
+            const wantOverwrite = window.confirm(msg);
+            for (const c of conflicts) {
+              if (wantOverwrite) {
+                c.item.replaceDriveFileId = c.existing.id;
+                await queuePut(c.item);
+                console.log(`[overwrite] ${c.def.label}: ${c.existing.name} ← ${c.item.originalName}`);
+              } else {
+                console.log(`[new copy] ${c.def.label}: ${c.item.originalName} (既存 ${c.existing.name} は残置)`);
+              }
+            }
+            setStatus(wantOverwrite
+              ? `🔄 ${conflicts.length}件を上書き保存で転送中...`
+              : `➕ ${conflicts.length}件を新規コピーで転送中...`);
+            await renderQueue(); // バッジを反映（上書きモードの↻バッジ表示）
+          }
+        }
+      } catch (e) {
+        console.warn('unique role conflict check failed:', e);
+      }
+    }
+
     let success = 0, skipped = 0, failed = 0;
     // 役割→[ファイル名+fileId] の記録（PROMPT.mdに反映するため）
     const roleUploadMap = {};
