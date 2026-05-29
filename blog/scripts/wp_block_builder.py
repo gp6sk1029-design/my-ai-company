@@ -354,6 +354,22 @@ def markdown_to_blocks(md_text: str) -> str:
             blocks.append(block_list(items))
             continue
 
+        # --- 既存のGutenbergブロックをパススルー（wp:image など） ---
+        m_block = re.match(r'^<!--\s*wp:(\w+)', line)
+        if m_block:
+            block_type = m_block.group(1)
+            end_marker = f'<!-- /wp:{block_type} -->'
+            block_lines = [line]
+            i += 1
+            while i < len(lines):
+                block_lines.append(lines[i])
+                if end_marker in lines[i]:
+                    i += 1
+                    break
+                i += 1
+            blocks.append('\n'.join(block_lines))
+            continue
+
         # --- 空行・コメントスキップ ---
         if not line.strip() or line.startswith('<!--'):
             i += 1; continue

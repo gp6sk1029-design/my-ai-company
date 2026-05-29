@@ -32,6 +32,10 @@ SwitchBot（スイッチボット）が展開する後付けスマートロッ�
 
 **ポイントは「賃貸でも全部できる」こと**。ドアに穴を開けず、両面テープで本体をくっつけ、サムターン（内側のつまみ）をモーターで回転させる仕組み。だから退去時は剥がすだけで、原状回復で揉めるリスクがゼロ。「持ち家じゃないからスマートロックは無理」と諦めていた人にこそ、最初に検討してほしい1台だ。
 
+<!-- wp:image {"id":911,"sizeSlug":"large","linkDestination":"none"} -->
+<figure class="wp-block-image size-large"><img src="https://www.ootanisatan.com/wp-content/uploads/2026/05/switchbot-door-before.jpg" alt="賃貸ドアの取付前 ── サムターンと既存の補助ロック" class="wp-image-911"/><figcaption class="wp-element-caption">賃貸ドアの取付前 ── サムターンと既存の補助ロック</figcaption></figure>
+<!-- /wp:image -->
+
 ---
 
 ## 取り付けは本当に賃貸でもOK？→ 15分で完了する物理的な理由
@@ -50,9 +54,17 @@ SwitchBot（スイッチボット）が展開する後付けスマートロッ�
 
 私自身の体験で言うと、**つまずいたのは手順1の採寸だけ**だった。最初スペーサーなしで貼ったらサムターンとモーター軸の高さが合わず、空回りした。スペーサーを1枚噛ませたら一発で噛み合った。**「採寸を面倒がらずに最初にやる」**——これが15分で終わるか30分かかるかの分岐点だ。
 
+<!-- wp:image {"id":914,"sizeSlug":"large","linkDestination":"none"} -->
+<figure class="wp-block-image size-large"><img src="https://www.ootanisatan.com/wp-content/uploads/2026/05/switchbot-screwdriver-fix.jpg" alt="ドライバーでアダプターを固定 ── 手順3「サムターン固定」" class="wp-image-914"/><figcaption class="wp-element-caption">ドライバーでアダプターを固定 ── 手順3「サムターン固定」</figcaption></figure>
+<!-- /wp:image -->
+
 **タナカ[驚き]：** 「えっ、両面テープって…落ちません? 重力で。地震とかでドカンと落ちて、家に入れなくなったら困るんですけど」
 
 **オオタニ所長[通常]：** 「僕も最初それを疑った。だから採用されてるのが3M製の超強力VHBテープ。剥離紙を剥がして24時間圧着すれば、工具なしじゃまず剥がせない強度になる。本体重量は200g台で、テープの保持力はその数十倍。**"重さで落ちた" 事例は公式コミュニティ・SNSを総当たりしても見つからなかった**。むしろ退去時に剥がすほうが一苦労だ」
+
+<!-- wp:image {"id":913,"sizeSlug":"large","linkDestination":"none"} -->
+<figure class="wp-block-image size-large"><img src="https://www.ootanisatan.com/wp-content/uploads/2026/05/switchbot-3m-vhb-tape.jpg" alt="本体裏面の 3M VHB™ テープ（赤） ── 産業用の超強力両面テープ" class="wp-image-913"/><figcaption class="wp-element-caption">本体裏面の 3M VHB™ テープ（赤） ── 産業用の超強力両面テープ</figcaption></figure>
+<!-- /wp:image -->
 
 ### 99.9% の鍵に対応する設計思想
 
@@ -60,11 +72,19 @@ SwitchBot（スイッチボット）が展開する後付けスマートロッ�
 
 競合の Qrio Lock や SESAME も同じ後付け方式だが、**ロックLiteの強みは "セット価格の安さ" と "SwitchBotエコシステム"**。すでに SwitchBot のハブや温湿度計を使っている家なら、同じアプリで一元管理できる。「自分の家の鍵は古い／変わってる」と諦めかけている人ほど、**まず公式の対応ドア確認ページで自分の鍵の形を確認してほしい**。8割の人が「これ普通に使えるじゃん」となる。
 
+<!-- wp:image {"id":912,"sizeSlug":"large","linkDestination":"none"} -->
+<figure class="wp-block-image size-large"><img src="https://www.ootanisatan.com/wp-content/uploads/2026/05/switchbot-install-done.jpg" alt="取付完了状態 ── 賃貸ドアに違和感なく溶け込む本体" class="wp-image-912"/><figcaption class="wp-element-caption">取付完了状態 ── 賃貸ドアに違和感なく溶け込む本体</figcaption></figure>
+<!-- /wp:image -->
+
 ---
 
 ## 鍵から解放される瞬間：指紋・スマホ・Suica が「鍵」になる
 
 ここからが本題。**この製品の本当の価値は「物理鍵を持ち歩かなくていい」こと**だ。
+
+<!-- wp:image {"id":915,"sizeSlug":"large","linkDestination":"none"} -->
+<figure class="wp-block-image size-large"><img src="https://www.ootanisatan.com/wp-content/uploads/2026/05/switchbot-fingerpad-installed.jpg" alt="指紋認証パッドを玄関外側に設置 ── 既存の鍵穴はそのまま使える" class="wp-image-915"/><figcaption class="wp-element-caption">指紋認証パッドを玄関外側に設置 ── 既存の鍵穴はそのまま使える</figcaption></figure>
+<!-- /wp:image -->
 
 ### 解錠方法5パターンと、それぞれの実使用感
 
@@ -73,6 +93,10 @@ SwitchBot（スイッチボット）が展開する後付けスマートロッ�
 3. **NFCカード（Suica/PASMO）**：パッドにかざすだけ。**毎日持ち歩く通勤定期がそのまま家の鍵になる**——この体験が地味に効く。財布をかざすだけで開く
 4. **スマホ Bluetooth**：アプリで施解錠。家族に遠隔で解錠権限を共有でき、子どもが学校から帰ったらスマホで開けてあげられる
 5. **音声アシスタント**：「アレクサ、玄関開けて」（暗証番号認証付きで安全）
+
+<!-- wp:image {"id":916,"sizeSlug":"large","linkDestination":"none"} -->
+<figure class="wp-block-image size-large"><img src="https://www.ootanisatan.com/wp-content/uploads/2026/05/switchbot-fingerpad-keypad.jpg" alt="テンキー＋指紋センサー一体型の認証パッド" class="wp-image-916"/><figcaption class="wp-element-caption">テンキー＋指紋センサー一体型の認証パッド</figcaption></figure>
+<!-- /wp:image -->
 
 特筆すべきは**3のNFC解錠**。仕組みとしては、指紋認証パッドが Suica の FeliCa チップの固有IDを読み取り、登録済みIDと照合している。**指紋が濡れて反応しない雨の日でも、Suicaなら確実**——この冗長性が「結局いつでも開けられる」という安心につながる。
 

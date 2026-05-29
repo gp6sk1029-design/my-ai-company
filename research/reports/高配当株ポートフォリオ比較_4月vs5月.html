@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>高配当株モデルポートフォリオ 4月→5月 比較</title>
+<style>
+  :root{
+    --bg:#0f172a; --card:#1e293b; --card2:#243449; --line:#334155;
+    --text:#e2e8f0; --muted:#94a3b8;
+    --accent:#fbbf24; --blue:#38bdf8; --ok:#34d399; --warn:#f87171; --add:#34d399; --del:#f87171;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{background:linear-gradient(160deg,#0b1220 0%,#0f172a 100%); color:var(--text);
+    font-family:"Hiragino Kaku Gothic ProN","Yu Gothic",-apple-system,sans-serif; line-height:1.7; padding:32px 18px; -webkit-font-smoothing:antialiased;}
+  .wrap{max-width:1040px; margin:0 auto;}
+  header{text-align:center; margin-bottom:24px;}
+  header .badge{display:inline-block; font-size:12px; letter-spacing:2px; color:var(--accent); border:1px solid var(--accent); border-radius:999px; padding:4px 14px; margin-bottom:14px;}
+  header h1{font-size:26px; font-weight:800;}
+  header h1 span{color:var(--accent);}
+  header .sub{color:var(--muted); font-size:13.5px; margin-top:8px;}
+
+  .disclaimer{background:rgba(248,113,113,.1); border:1px solid var(--warn); border-radius:12px; padding:13px 16px; margin:0 0 26px; color:#fecaca; font-size:13px;}
+  .disclaimer b{color:var(--warn);}
+
+  /* 結論バナー */
+  .verdict{background:linear-gradient(135deg,#134e2e,#0f3d24); border:1px solid var(--ok); border-radius:16px; padding:22px 24px; margin-bottom:24px; text-align:center;}
+  .verdict .big{font-size:30px; font-weight:900; color:#6ee7b7; letter-spacing:1px;}
+  .verdict .big small{font-size:15px; color:#a7f3d0; font-weight:600;}
+  .verdict .desc{font-size:13.5px; color:#bbf7d0; margin-top:6px;}
+
+  /* 集計比較 */
+  .metrics{display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin-bottom:28px;}
+  .metric{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:16px; text-align:center;}
+  .metric .name{font-size:12px; color:var(--muted); margin-bottom:8px;}
+  .metric .vals{display:flex; align-items:center; justify-content:center; gap:8px; font-weight:800;}
+  .metric .apr{color:var(--muted); font-size:17px;}
+  .metric .arrow{color:var(--accent); font-size:15px;}
+  .metric .may{color:var(--blue); font-size:22px;}
+  .metric .diff{margin-top:6px; font-size:12px; color:var(--ok); font-weight:700;}
+
+  .section-title{display:flex; align-items:center; gap:10px; font-size:18px; font-weight:700; margin:6px 0 14px; padding-bottom:9px; border-bottom:2px solid var(--line);}
+  .section-title .count{margin-left:auto; font-size:12px; color:var(--muted); background:var(--card); border:1px solid var(--line); border-radius:999px; padding:3px 12px; font-weight:500;}
+
+  /* 入替サマリ */
+  .change-row{display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:26px;}
+  .change-box{background:var(--card); border:1px solid var(--line); border-radius:12px; padding:14px 16px;}
+  .change-box.add{border-left:4px solid var(--add);}
+  .change-box.del{border-left:4px solid var(--del);}
+  .change-box .h{font-weight:700; font-size:14px; margin-bottom:6px;}
+  .change-box.add .h{color:#6ee7b7;} .change-box.del .h{color:#fca5a5;}
+  .change-box .b{font-size:13.5px; color:var(--muted);}
+
+  /* 銘柄テーブル */
+  table{width:100%; border-collapse:collapse; background:var(--card); border-radius:12px; overflow:hidden; font-size:13px;}
+  th,td{padding:7px 10px; text-align:left; border-bottom:1px solid var(--line);}
+  th{background:var(--card2); color:var(--muted); font-size:12px; font-weight:600;}
+  td.code{color:var(--blue); font-variant-numeric:tabular-nums;}
+  td.w{text-align:right; color:var(--accent); font-variant-numeric:tabular-nums;}
+  tr:last-child td{border-bottom:none;}
+  .sec-tag{display:inline-block; font-size:10.5px; color:var(--muted); border:1px solid var(--line); border-radius:5px; padding:0 6px; margin-left:6px;}
+  .same{display:inline-block; font-size:10px; color:var(--ok); border:1px solid var(--ok); border-radius:5px; padding:0 6px;}
+
+  .note{background:var(--card); border:1px solid var(--line); border-left:4px solid var(--blue); border-radius:10px; padding:13px 16px; margin:24px 0; font-size:13px; color:#cbd5e1;}
+  .note b{color:var(--blue);}
+  footer{text-align:center; color:var(--muted); font-size:12px; margin-top:24px; padding-top:18px; border-top:1px solid var(--line);}
+  @media(max-width:640px){ .metrics{grid-template-columns:1fr;} .change-row{grid-template-columns:1fr;} header h1{font-size:21px;} }
+  @media print{ body{background:#fff;color:#111;} }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="badge">PORTFOLIO COMPARE</div>
+    <h1>高配当株モデルポートフォリオ <span>4月 → 5月 比較</span></h1>
+    <div class="sub">学長高配当株マガジン　第110回（2026/04/07）→ 第113回（2026/05/06）　|　日本株高配当ポートフォリオ</div>
+  </header>
+
+  <div class="disclaimer">
+    🚨 <b>これは投資助言ではありません。</b>「学長がマガジンでこう示した」という事実の記録であり、売買推奨ではありません。最終判断はご自身で。<br>
+    ※ 学長の図解画像は転載せず、内容を読み取って当方が独自に作図。私的利用限定・blog/SNS送出不可。
+  </div>
+
+  <div class="verdict">
+    <div class="big">銘柄の入れ替え 0件 <small>（追加 0・除外 0）</small></div>
+    <div class="desc">4月と5月でモデルポートフォリオの構成34銘柄は完全に同一。変わったのは利回り等の数値のみ。</div>
+  </div>
+
+  <div class="metrics">
+    <div class="metric">
+      <div class="name">構成銘柄数</div>
+      <div class="vals"><span class="apr">34</span><span class="arrow">→</span><span class="may">34</span></div>
+      <div class="diff">変更なし</div>
+    </div>
+    <div class="metric">
+      <div class="name">ポートフォリオ配当利回り</div>
+      <div class="vals"><span class="apr">4.03%</span><span class="arrow">→</span><span class="may">4.16%</span></div>
+      <div class="diff">+0.13pt</div>
+    </div>
+    <div class="metric">
+      <div class="name">年間配当（元本30万円想定）</div>
+      <div class="vals"><span class="apr">12,096円</span><span class="arrow">→</span><span class="may">12,492円</span></div>
+      <div class="diff">+396円</div>
+    </div>
+  </div>
+
+  <div class="change-row">
+    <div class="change-box add">
+      <div class="h">＋ 追加された銘柄</div>
+      <div class="b">なし（0件）</div>
+    </div>
+    <div class="change-box del">
+      <div class="h">− 除外された銘柄</div>
+      <div class="b">なし（0件）</div>
+    </div>
+  </div>
+
+  <h2 class="section-title">構成銘柄一覧（4月・5月 共通）<span class="count">全34銘柄</span></h2>
+  <table>
+    <thead><tr><th>#</th><th>コード</th><th>銘柄名</th><th>セクター</th><th>4月→5月</th></tr></thead>
+    <tbody>
+      <tr><td>1</td><td class="code">9986</td><td>蔵王産業</td><td>卸売</td><td><span class="same">同一</span></td></tr>
+      <tr><td>2</td><td class="code">3076</td><td>あい ホールディングス</td><td>卸売</td><td><span class="same">同一</span></td></tr>
+      <tr><td>3</td><td class="code">8130</td><td>サンゲツ</td><td>卸売</td><td><span class="same">同一</span></td></tr>
+      <tr><td>4</td><td class="code">2659</td><td>サンエー</td><td>小売</td><td><span class="same">同一</span></td></tr>
+      <tr><td>5</td><td class="code">3333</td><td>あさひ</td><td>小売</td><td><span class="same">同一</span></td></tr>
+      <tr><td>6</td><td class="code">4008</td><td>住友精化</td><td>化学</td><td><span class="same">同一</span></td></tr>
+      <tr><td>7</td><td class="code">4042</td><td>東ソー</td><td>化学</td><td><span class="same">同一</span></td></tr>
+      <tr><td>8</td><td class="code">4097</td><td>高圧ガス工業</td><td>化学</td><td><span class="same">同一</span></td></tr>
+      <tr><td>9</td><td class="code">4958</td><td>長谷川香料</td><td>化学</td><td><span class="same">同一</span></td></tr>
+      <tr><td>10</td><td class="code">8309</td><td>三井住友トラストグループ</td><td>銀行</td><td><span class="same">同一</span></td></tr>
+      <tr><td>11</td><td class="code">8725</td><td>MS&AD インシュアランス</td><td>保険</td><td><span class="same">同一</span></td></tr>
+      <tr><td>12</td><td class="code">8584</td><td>ジャックス</td><td>その他金融</td><td><span class="same">同一</span></td></tr>
+      <tr><td>13</td><td class="code">6785</td><td>鈴木</td><td>電気機器</td><td><span class="same">同一</span></td></tr>
+      <tr><td>14</td><td class="code">7722</td><td>国際計測器</td><td>精密機器</td><td><span class="same">同一</span></td></tr>
+      <tr><td>15</td><td class="code">3231</td><td>野村不動産ホールディングス</td><td>不動産</td><td><span class="same">同一</span></td></tr>
+      <tr><td>16</td><td class="code">3003</td><td>ヒューリック</td><td>不動産</td><td><span class="same">同一</span></td></tr>
+      <tr><td>17</td><td class="code">2169</td><td>CDS</td><td>サービス</td><td><span class="same">同一</span></td></tr>
+      <tr><td>18</td><td class="code">9757</td><td>船井総研ホールディングス</td><td>サービス</td><td><span class="same">同一</span></td></tr>
+      <tr><td>19</td><td class="code">9769</td><td>学究社</td><td>サービス</td><td><span class="same">同一</span></td></tr>
+      <tr><td>20</td><td class="code">4641</td><td>アルプス技研</td><td>サービス</td><td><span class="same">同一</span></td></tr>
+      <tr><td>21</td><td class="code">3817</td><td>SRA ホールディングス</td><td>情報・通信</td><td><span class="same">同一</span></td></tr>
+      <tr><td>22</td><td class="code">3901</td><td>マークラインズ</td><td>情報・通信</td><td><span class="same">同一</span></td></tr>
+      <tr><td>23</td><td class="code">4674</td><td>クレスコ</td><td>情報・通信</td><td><span class="same">同一</span></td></tr>
+      <tr><td>24</td><td class="code">4746</td><td>東計電算</td><td>情報・通信</td><td><span class="same">同一</span></td></tr>
+      <tr><td>25</td><td class="code">2003</td><td>日東富士製粉</td><td>食料品</td><td><span class="same">同一</span></td></tr>
+      <tr><td>26</td><td class="code">1928</td><td>積水ハウス</td><td>建設</td><td><span class="same">同一</span></td></tr>
+      <tr><td>27</td><td class="code">6345</td><td>アイチコーポレーション</td><td>機械</td><td><span class="same">同一</span></td></tr>
+      <tr><td>28</td><td class="code">9364</td><td>上組</td><td>倉庫・運輸関連</td><td><span class="same">同一</span></td></tr>
+      <tr><td>29</td><td class="code">9381</td><td>エーアイテイー</td><td>倉庫・運輸関連</td><td><span class="same">同一</span></td></tr>
+      <tr><td>30</td><td class="code">7989</td><td>立川ブラインド工業</td><td>金属製品</td><td><span class="same">同一</span></td></tr>
+      <tr><td>31</td><td class="code">7820</td><td>ニホンフラッシュ</td><td>その他製品</td><td><span class="same">同一</span></td></tr>
+      <tr><td>32</td><td class="code">7994</td><td>オカムラ</td><td>その他製品</td><td><span class="same">同一</span></td></tr>
+      <tr><td>33</td><td class="code">4540</td><td>ツムラ</td><td>医薬品</td><td><span class="same">同一</span></td></tr>
+      <tr><td>34</td><td class="code">1343</td><td>NF・J-REIT ETF</td><td>J-REIT市場</td><td><span class="same">同一</span></td></tr>
+    </tbody>
+  </table>
+
+  <div class="note">
+    💡 <b>補足</b><br>
+    ・1銘柄あたりの投資割合は概ね <b>2〜3%</b>、J-REIT ETF（1343）のみ <b>13%</b>（合計100%・投資元本30万円想定）。この配分も4月・5月で実質同じ。<br>
+    ・学長は5月号で「新しくポートフォリオに入れたい候補銘柄はあるが、決算を控える企業が多いので<b>様子見</b>」とコメント → 無変更と整合。<br>
+    ・別枠の「今月の注目1銘柄」は <b>サカタインクス（4633・第114回 5/22）</b>。これは紹介であり、上の34銘柄の入れ替えではありません。<br>
+    ・各銘柄の配当利回りは株価変動で毎月少し動きます（個別の数値は図解の通り）。
+  </div>
+
+  <footer>
+    出典：リベシティ「学長高配当株マガジンチャット」第110回・第113回　|　図は図解を読み取り当方が独自作成　|　私的利用限定　|　2026-05-30
+  </footer>
+
+</div>
+</body>
+</html>
