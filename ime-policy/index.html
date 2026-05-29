@@ -37,7 +37,7 @@
     -webkit-text-size-adjust:100%;
     padding:0 0 env(safe-area-inset-bottom);
   }
-  .wrap{max-width:680px;margin:0 auto;padding:14px 14px 90px;}
+  .wrap{max-width:680px;margin:0 auto;padding:14px 14px 30px;}
 
   /* ヘッダー */
   header{
@@ -113,44 +113,6 @@
   .rules li:last-child{border-bottom:none;}
   .rules li .n{color:var(--ime-red);font-weight:900;flex:none;}
 
-  /* 唱和モード起動ボタン */
-  .cta{
-    position:fixed;left:0;right:0;bottom:0;padding:12px 14px calc(12px + env(safe-area-inset-bottom));
-    background:linear-gradient(180deg,rgba(244,242,236,0),var(--bg) 40%);
-  }
-  .cta button{
-    width:100%;max-width:680px;margin:0 auto;display:block;
-    padding:16px;border:none;border-radius:14px;cursor:pointer;
-    background:var(--ime-green);color:#fff;font-size:18px;font-weight:900;letter-spacing:.06em;
-    box-shadow:0 6px 18px rgba(26,107,60,.4);
-  }
-  .cta button:active{transform:translateY(1px);}
-
-  /* 唱和オーバーレイ */
-  .overlay{
-    position:fixed;inset:0;z-index:50;display:none;
-    background:var(--ime-green-dark);color:#fff;
-    flex-direction:column;
-  }
-  .overlay.on{display:flex;}
-  .ov-top{display:flex;justify-content:space-between;align-items:center;padding:14px 16px calc(14px);}
-  .ov-top .step{font-size:14px;opacity:.7;font-weight:700;}
-  .ov-close{background:rgba(255,255,255,.15);border:none;color:#fff;width:40px;height:40px;border-radius:50%;font-size:20px;cursor:pointer;}
-  .ov-stage{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:20px 22px;}
-  .ov-label{font-size:16px;font-weight:800;color:#9fe0bb;letter-spacing:.1em;margin-bottom:18px;}
-  .ov-text{font-size:clamp(26px,8.5vw,44px);font-weight:900;line-height:1.5;letter-spacing:.03em;}
-  .ov-ctrl{display:flex;gap:10px;padding:16px 16px calc(20px + env(safe-area-inset-bottom));}
-  .ov-ctrl button{
-    flex:1;padding:16px;border:none;border-radius:14px;font-size:17px;font-weight:900;cursor:pointer;
-  }
-  .ov-prev{background:rgba(255,255,255,.16);color:#fff;}
-  .ov-next{background:#fff;color:var(--ime-green-dark);}
-  .ov-voice{
-    display:flex;align-items:center;justify-content:center;gap:8px;
-    padding:0 16px 8px;font-size:14px;
-  }
-  .ov-voice label{display:flex;align-items:center;gap:6px;opacity:.85;cursor:pointer;}
-
   footer{text-align:center;color:var(--ink-soft);font-size:12px;margin-top:18px;}
 </style>
 </head>
@@ -207,30 +169,6 @@
   <footer>IME 2026経営方針 ／ 毎日の唱和でゼロ災・ゼロ不良を</footer>
 </div>
 
-<!-- 唱和モード起動 -->
-<div class="cta">
-  <button id="startShoka">🗣 唱和モードをはじめる</button>
-</div>
-
-<!-- 唱和オーバーレイ -->
-<div class="overlay" id="overlay">
-  <div class="ov-top">
-    <span class="step" id="ovStep"></span>
-    <button class="ov-close" id="ovClose" aria-label="閉じる">✕</button>
-  </div>
-  <div class="ov-stage">
-    <div class="ov-label" id="ovLabel"></div>
-    <div class="ov-text" id="ovText"></div>
-  </div>
-  <div class="ov-voice">
-    <label><input type="checkbox" id="ovVoice" checked> 音声で読み上げる</label>
-  </div>
-  <div class="ov-ctrl">
-    <button class="ov-prev" id="ovPrev">◀ 戻る</button>
-    <button class="ov-next" id="ovNext">次へ ▶</button>
-  </div>
-</div>
-
 <script>
 /* ===== 品質十則データ ===== */
 const tensoku = {
@@ -265,60 +203,6 @@ order.forEach(d=>{
   daysEl.appendChild(b);
 });
 renderRules(todayKey);
-
-/* ===== 唱和モード ===== */
-// 唱和する全文（順番）
-const shoka=[
-  {label:"2026年度 経営方針",text:"質を高める"},
-  {label:"経営方針",text:"全社員が幸せであるために 私達は、品質・技術・人間性を磨き 存在価値のある100億円企業を創ります。"},
-  {label:"品質方針",text:"品質は企業の命"},
-  {label:"品質方針",text:"安心・安全を届ける使命を自覚しよう"},
-  {label:"行動指針 一",text:"私たちは、クレーム・不良ゼロの重要性を認識し、決められた作業を決められた通りに行い、不具合が生じた時は、直ちに報告することを誓います。"},
-  {label:"行動指針 二",text:"私たちは、品質マネジメントシステムと各プロセスにおける改善活動を継続的に行い、より有効なものとし、お客様満足に繋がる品質目標を実現します。"},
-  {label:"行動指針 三",text:"私たちは、法規制・顧客固有要求事項を最優先に遵守します。"},
-  // 今日の品質十則
-  {label:"本日（"+todayKey+"）の品質十則 一",text:tensoku[todayKey][0].replace(/　/g,"、")},
-  {label:"本日（"+todayKey+"）の品質十則 二",text:tensoku[todayKey][1].replace(/　/g,"、")},
-];
-
-const overlay=document.getElementById("overlay");
-const ovLabel=document.getElementById("ovLabel");
-const ovText=document.getElementById("ovText");
-const ovStep=document.getElementById("ovStep");
-const ovVoice=document.getElementById("ovVoice");
-let idx=0;
-
-function speak(t){
-  if(!ovVoice.checked) return;
-  if(!("speechSynthesis"in window)) return;
-  window.speechSynthesis.cancel();
-  const u=new SpeechSynthesisUtterance(t);
-  u.lang="ja-JP";u.rate=0.9;u.pitch=1;
-  window.speechSynthesis.speak(u);
-}
-function showStep(){
-  const s=shoka[idx];
-  ovLabel.textContent=s.label;
-  ovText.textContent=s.text;
-  ovStep.textContent=(idx+1)+" / "+shoka.length;
-  speak(s.text);
-}
-function openShoka(){idx=0;overlay.classList.add("on");showStep();}
-function closeShoka(){overlay.classList.remove("on");if("speechSynthesis"in window)window.speechSynthesis.cancel();}
-
-document.getElementById("startShoka").onclick=openShoka;
-document.getElementById("ovClose").onclick=closeShoka;
-document.getElementById("ovNext").onclick=()=>{
-  if(idx<shoka.length-1){idx++;showStep();}else{closeShoka();}
-};
-document.getElementById("ovPrev").onclick=()=>{if(idx>0){idx--;showStep();}};
-overlay.addEventListener("click",e=>{ if(e.target===overlay) {} });
-document.addEventListener("keydown",e=>{
-  if(!overlay.classList.contains("on"))return;
-  if(e.key==="ArrowRight"||e.key===" ")document.getElementById("ovNext").click();
-  if(e.key==="ArrowLeft")document.getElementById("ovPrev").click();
-  if(e.key==="Escape")closeShoka();
-});
 </script>
 </body>
 </html>
