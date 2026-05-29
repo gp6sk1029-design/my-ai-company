@@ -12,7 +12,7 @@
 <meta name="apple-mobile-web-app-title" content="IME 2026経営方針">
 <meta name="mobile-web-app-capable" content="yes">
 
-<!-- ファビコン：IMEロゴ風（赤バッジ×白IME） -->
+<!-- ファビコン -->
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="favicon.svg">
 
@@ -26,150 +26,193 @@
     --ink:#1c2120;
     --ink-soft:#4a534f;
     --line:#d9d4c7;
+    --toban-bg:#fdecef;   /* 当番ライン背景（薄赤） */
+    --zenin-bg:#e9f5ee;   /* 全員ライン背景（薄緑） */
   }
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
   html,body{margin:0;padding:0;}
   body{
     font-family:"Hiragino Kaku Gothic ProN","Yu Gothic",YuGothic,Meiryo,system-ui,sans-serif;
-    background:var(--bg);
-    color:var(--ink);
-    line-height:1.7;
-    -webkit-text-size-adjust:100%;
-    padding:0 0 env(safe-area-inset-bottom);
+    background:var(--bg);color:var(--ink);line-height:1.7;
+    -webkit-text-size-adjust:100%;padding:0 0 env(safe-area-inset-bottom);
   }
-  .wrap{max-width:680px;margin:0 auto;padding:14px 14px 30px;}
+  .wrap{max-width:680px;margin:0 auto;padding:14px 14px 36px;}
 
   /* ヘッダー */
   header{
-    text-align:center;
-    background:linear-gradient(180deg,#ffffff,#f7f5ef);
-    border:2px solid var(--ime-green);
-    border-radius:16px;
-    padding:18px 14px 20px;
-    margin-top:10px;
-    position:relative;
-    overflow:hidden;
+    text-align:center;background:linear-gradient(180deg,#ffffff,#f7f5ef);
+    border:2px solid var(--ime-green);border-radius:16px;padding:16px 14px 18px;
+    margin-top:10px;position:relative;overflow:hidden;
   }
   header::before,header::after{
     content:"";position:absolute;left:8%;right:8%;height:5px;border-radius:4px;
     background:linear-gradient(90deg,var(--ime-green) 0 33%,#fff 33% 66%,var(--ime-red) 66% 100%);
   }
   header::before{top:6px;} header::after{bottom:6px;}
-  .badge{
-    display:inline-flex;align-items:center;gap:8px;
-    font-weight:800;color:var(--ime-red);font-size:15px;letter-spacing:.04em;
-  }
-  .badge .mark{
-    display:inline-grid;place-items:center;
-    width:34px;height:24px;border-radius:8px;background:var(--ime-red);
-    color:#fff;font-style:italic;font-weight:900;font-size:13px;letter-spacing:1px;
-    box-shadow:0 2px 5px rgba(200,16,46,.35);
-  }
-  .year{font-weight:800;font-size:17px;margin-top:6px;color:var(--ink);}
-  .hero{
-    font-size:clamp(40px,13vw,64px);font-weight:900;letter-spacing:.18em;
-    margin:10px 0 2px;color:var(--ime-green-dark);
-  }
-  .hero-en{font-size:16px;font-weight:800;font-style:italic;color:var(--ime-red);}
-  .hero-sub{font-size:15px;color:var(--ink-soft);margin-top:12px;}
+  .h-year{font-weight:800;font-size:15px;color:var(--ink);margin-top:4px;}
+  .h-sub{font-size:14px;color:var(--ime-red);font-weight:800;margin-top:2px;}
+  .h-title{font-size:22px;font-weight:900;color:var(--ime-green-dark);margin-top:8px;letter-spacing:.06em;}
 
-  /* カード */
-  .card{
+  /* 使い方（注釈） */
+  .howto{
+    background:#fffdf6;border:1.5px solid var(--line);border-radius:14px;
+    padding:13px 14px;margin-top:14px;font-size:14px;color:var(--ink-soft);
+  }
+  .howto .h{font-weight:900;color:var(--ink);font-size:15px;margin-bottom:8px;}
+  .howto .leg{display:flex;gap:8px;align-items:center;margin:6px 0;}
+  .chip{flex:none;font-size:12px;font-weight:900;color:#fff;padding:4px 10px;border-radius:999px;}
+  .chip.toban{background:var(--ime-red);}
+  .chip.zenin{background:var(--ime-green);}
+
+  /* 唱和ブロック */
+  .block{
     background:var(--card);border:1px solid var(--line);border-radius:16px;
-    padding:18px 16px;margin-top:14px;box-shadow:0 2px 8px rgba(0,0,0,.04);
+    padding:8px 12px 12px;margin-top:14px;box-shadow:0 2px 8px rgba(0,0,0,.04);overflow:hidden;
   }
-  .card.green{border-color:var(--ime-green);}
-  .ttl{
-    display:flex;align-items:center;gap:8px;
-    font-size:19px;font-weight:900;margin:0 0 10px;
+  .sec-label{
+    font-size:13px;font-weight:900;color:var(--ime-green);
+    padding:8px 4px 4px;letter-spacing:.04em;
   }
-  .ttl .pin{
-    display:inline-grid;place-items:center;width:26px;height:26px;border-radius:7px;
-    background:var(--ime-green);color:#fff;font-size:15px;flex:none;
+  .line{
+    display:flex;gap:10px;align-items:flex-start;
+    border-radius:12px;padding:12px;margin-top:8px;
   }
-  .ttl.red .pin{background:var(--ime-red);}
-  .big{font-size:clamp(26px,8vw,34px);font-weight:900;color:var(--ime-green-dark);margin:2px 0 4px;text-align:center;}
-  .mid{font-size:17px;font-weight:800;text-align:center;color:var(--ink);margin-bottom:10px;}
-  .body{font-size:15px;color:var(--ink-soft);}
-  .poem{font-size:15.5px;text-align:center;color:var(--ink);}
-  .poem b{display:block;font-weight:900;color:var(--ime-green);margin-top:8px;}
-  ol.guide{margin:8px 0 0;padding-left:1.2em;}
-  ol.guide li{margin:8px 0;font-size:15px;}
+  .line.toban{background:var(--toban-bg);border-left:5px solid var(--ime-red);}
+  .line.zenin{background:var(--zenin-bg);border-left:5px solid var(--ime-green);}
+  .tag{
+    flex:none;font-size:12px;font-weight:900;color:#fff;
+    padding:5px 0;width:54px;text-align:center;border-radius:8px;line-height:1.2;
+  }
+  .tag.toban{background:var(--ime-red);}
+  .tag.zenin{background:var(--ime-green);}
+  .txt{flex:1;font-size:16px;font-weight:700;}
+  .line.toban .txt{color:#9b0c22;}
+  .line.zenin .txt{color:var(--ime-green-dark);}
 
-  /* 品質十則 */
-  .days{display:flex;gap:6px;overflow-x:auto;padding:2px 0 6px;margin:-4px 0 6px;scrollbar-width:none;}
+  /* 経営方針ブロックの大見出し */
+  .hero{font-size:clamp(34px,11vw,52px);font-weight:900;letter-spacing:.16em;margin:6px 0 2px;color:var(--ime-red);}
+  .hero-en{font-size:15px;font-weight:800;font-style:italic;color:var(--ime-red);}
+  .lead{font-size:14px;font-weight:800;margin-bottom:2px;}
+
+  /* 品質方針の大見出し */
+  .big{font-size:clamp(24px,7.5vw,32px);font-weight:900;}
+  .mid{font-size:16px;font-weight:800;margin-top:2px;}
+
+  /* 品質十則 曜日タブ */
+  .days{display:flex;gap:6px;overflow-x:auto;padding:4px 0;margin:8px 0 0;scrollbar-width:none;}
   .days::-webkit-scrollbar{display:none;}
   .day-btn{
-    flex:none;min-width:52px;padding:10px 0;border-radius:12px;border:1.5px solid var(--line);
-    background:#fff;font-size:16px;font-weight:800;color:var(--ink-soft);cursor:pointer;
+    flex:none;min-width:50px;padding:9px 0;border-radius:11px;border:1.5px solid var(--line);
+    background:#fff;font-size:15px;font-weight:800;color:var(--ink-soft);cursor:pointer;
   }
   .day-btn.active{background:var(--ime-green);color:#fff;border-color:var(--ime-green);}
   .day-btn.today::after{content:"今日";display:block;font-size:9px;font-weight:700;margin-top:-2px;}
   .rules{list-style:none;margin:0;padding:0;}
-  .rules li{
-    display:flex;gap:10px;align-items:flex-start;
-    padding:13px 4px;border-bottom:1px dashed var(--line);font-size:16.5px;font-weight:700;
-  }
-  .rules li:last-child{border-bottom:none;}
+  .rules li{display:flex;gap:8px;align-items:flex-start;padding:6px 0;font-size:16px;font-weight:800;}
   .rules li .n{color:var(--ime-red);font-weight:900;flex:none;}
 
-  footer{text-align:center;color:var(--ink-soft);font-size:12px;margin-top:18px;}
+  /* 補足（行動指針の他項目など） */
+  .note{font-size:12.5px;color:var(--ink-soft);margin-top:8px;padding:0 4px;}
+  .ref{font-size:13px;color:var(--ink-soft);margin-top:6px;padding:8px 10px;background:#faf8f1;border-radius:10px;}
+  .ref b{color:var(--ink);}
+
+  footer{text-align:center;color:var(--ink-soft);font-size:12px;margin-top:20px;}
 </style>
 </head>
 <body>
 <div class="wrap">
 
   <header>
-    <div class="badge">2026年度</div>
-    <div class="year">IMEグループ 経営方針</div>
-    <div class="hero">質を高める</div>
-    <div class="hero-en">"Improve the Quality."</div>
-    <div class="hero-sub">
-      全社員が幸せであるために<br>
-      私達は、品質・技術・人間性を磨き<br>
-      存在価値のある100億円企業を創ります。
-    </div>
+    <div class="h-year">2026年度</div>
+    <div class="h-sub">IMEグループ 経営方針</div>
+    <div class="h-title">朝会 唱和ボード</div>
   </header>
 
-  <!-- 安全のことば -->
-  <section class="card">
-    <h2 class="ttl"><span class="pin">＋</span>安全のことば</h2>
-    <p class="poem">
-      きのうが、そうであったように<br>きょうも幸福な一日であれ<br>
-      幸福は、安全とともに<br>そして、安全はいつも<br>
-      心うちこむ職場の中の<br>規律正しい作業の上に
-      <b>IMEグループ 安全衛生委員会</b>
-    </p>
+  <!-- 使い方の注釈 -->
+  <div class="howto">
+    <div class="h">📢 唱和のしかた</div>
+    <div class="leg"><span class="chip toban">当番</span><span>朝会当番のときに読むところ（赤）</span></div>
+    <div class="leg"><span class="chip zenin">全員</span><span>全員で声をそろえて唱和するところ（緑）</span></div>
+    <div style="margin-top:8px;">当番の人は<b style="color:var(--ime-red)">赤</b>を読み上げ、続けて<b style="color:var(--ime-green)">緑</b>を全員で唱和します。上から順に進めてください。</div>
+  </div>
+
+  <!-- ① 経営方針 -->
+  <section class="block">
+    <div class="sec-label">① 経営方針</div>
+    <div class="line toban">
+      <span class="tag toban">当番</span>
+      <div class="txt">
+        2026年度　IMEグループ 経営方針
+        <div class="hero">質を高める</div>
+        <div class="hero-en">"Improve the Quality."</div>
+        全社員が幸せであるために
+      </div>
+    </div>
+    <div class="line zenin">
+      <span class="tag zenin">全員</span>
+      <div class="txt">私達は、品質・技術・人間性を磨き、存在価値のある100億円企業を創ります。</div>
+    </div>
   </section>
 
-  <!-- 品質方針 -->
-  <section class="card green">
-    <h2 class="ttl green"><span class="pin">品</span>IMEグループ 品質方針</h2>
-    <div class="big">品質は企業の命</div>
-    <div class="mid">安心・安全を届ける使命を自覚しよう</div>
-    <p class="body">
-      IMEグループは、地域社会と共に永続的発展を続け、品質最優先でお客様から信頼され安心していただける
-      モノづくり・品質システムの構築を目指します。
-    </p>
-    <h3 style="font-size:16px;font-weight:900;color:var(--ime-green);margin:14px 0 2px;">【行動指針】</h3>
-    <ol class="guide">
-      <li>私たちは、クレーム・不良“ゼロ”の重要性を認識し、決められた作業を決められた通りに行い、不具合が生じた時は、直ちに報告することを誓います。</li>
-      <li>私たちは、品質マネジメントシステムと各プロセスにおける改善活動を継続的に行い、より有効なものとし、お客様満足に繋がる品質目標を実現します。</li>
-      <li>私たちは、法規制・顧客固有要求事項を最優先に遵守します。</li>
-    </ol>
+  <!-- ② 安全のことば -->
+  <section class="block">
+    <div class="sec-label">② 安全のことば</div>
+    <div class="line toban"><span class="tag toban">当番</span><div class="txt">安全のことば</div></div>
+    <div class="line zenin">
+      <span class="tag zenin">全員</span>
+      <div class="txt">
+        きのうが、そうであったように きょうも幸福な一日であれ<br>
+        幸福は、安全とともに そして、安全はいつも<br>
+        心うちこむ職場の中の 規律正しい作業の上に
+      </div>
+    </div>
   </section>
 
-  <!-- 品質十則 -->
-  <section class="card">
-    <h2 class="ttl red"><span class="pin">十</span>品質十則</h2>
+  <!-- ③ 品質方針 -->
+  <section class="block">
+    <div class="sec-label">③ 品質方針</div>
+    <div class="line toban"><span class="tag toban">当番</span><div class="txt">IMEグループ 品質方針</div></div>
+    <div class="line zenin">
+      <span class="tag zenin">全員</span>
+      <div class="txt"><span class="big">品質は企業の命</span><div class="mid">安心・安全を届ける使命を自覚しよう</div></div>
+    </div>
+  </section>
+
+  <!-- ④ 行動指針 -->
+  <section class="block">
+    <div class="sec-label">④ 行動指針（日替わりで1つ）</div>
+    <div class="line toban"><span class="tag toban">当番</span><div class="txt">行動指針</div></div>
+    <div class="line zenin">
+      <span class="tag zenin">全員</span>
+      <div class="txt" id="koudouToday"></div>
+    </div>
+    <div class="note">※ 行動指針は全3項目。本日の1つを唱和します（曜日で自動切替）。</div>
+    <div class="ref" id="koudouRef"></div>
+  </section>
+
+  <!-- ⑤ 品質十則 -->
+  <section class="block">
+    <div class="sec-label">⑤ 品質十則（日替わり）</div>
+    <div class="line toban"><span class="tag toban">当番</span><div class="txt">品質十則</div></div>
     <div class="days" id="days"></div>
-    <ul class="rules" id="rules"></ul>
+    <div class="line zenin">
+      <span class="tag zenin">全員</span>
+      <div class="txt"><ul class="rules" id="rules"></ul></div>
+    </div>
+    <div class="note">※ 曜日タブで他の日も確認できます（初期表示は本日）。</div>
   </section>
 
   <footer>IME 2026経営方針 ／ 毎日の唱和でゼロ災・ゼロ不良を</footer>
 </div>
 
 <script>
+/* ===== 行動指針（日替わりで1つ） ===== */
+const koudou = [
+  "私たちは、クレーム・不良“ゼロ”の重要性を認識し、決められた作業を決められた通りに行い、不具合が生じた時は、直ちに報告することを誓います。",
+  "私たちは、品質マネジメントシステムと各プロセスにおける改善活動を継続的に行い、より有効なものとし、お客様満足に繋がる品質目標を実現します。",
+  "私たちは、法規制・顧客固有要求事項を最優先に遵守します。"
+];
+
 /* ===== 品質十則データ ===== */
 const tensoku = {
   "月":["作業前　必ず見ます　指図書を","安易な特採　事故のもと"],
@@ -180,8 +223,16 @@ const tensoku = {
   "土":["品質は一人ひとりの心がけ","たった一つの不良品　お客様は　許さない"]
 };
 const order = ["月","火","水","木","金","土"];
-const jsToDay = {1:"月",2:"火",3:"水",4:"木",5:"金",6:"土",0:"土"}; // 日曜は土の内容を表示
+const jsToDay = {1:"月",2:"火",3:"水",4:"木",5:"金",6:"土",0:"土"}; // 日曜は土を表示
 const todayKey = jsToDay[new Date().getDay()];
+
+/* 行動指針：曜日で 0→1→2 を巡回（月=0, 火=1, 水=2, 木=0 …） */
+const koudouIdxByDay = {"月":0,"火":1,"水":2,"木":0,"金":1,"土":2};
+const kIdx = koudouIdxByDay[todayKey];
+document.getElementById("koudouToday").innerHTML = "（"+(kIdx+1)+"）"+koudou[kIdx];
+document.getElementById("koudouRef").innerHTML =
+  "<b>他の行動指針</b><br>" +
+  koudou.map((t,i)=>(i+1)+"．"+t).filter((_,i)=>i!==kIdx).join("<br>");
 
 /* ===== 品質十則タブ描画 ===== */
 const daysEl=document.getElementById("days");
