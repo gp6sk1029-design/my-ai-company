@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>学長メソッド研究まとめ - Research Digest</title>
+<style>
+  :root{
+    --bg:#0f172a; --card:#1e293b; --line:#334155;
+    --text:#e2e8f0; --muted:#94a3b8;
+    --accent:#38bdf8; --accent2:#fbbf24; --ok:#34d399; --warn:#f87171;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{
+    background:linear-gradient(160deg,#0b1220 0%,#0f172a 100%);
+    color:var(--text);
+    font-family:"Hiragino Kaku Gothic ProN","Yu Gothic",-apple-system,sans-serif;
+    line-height:1.7; padding:32px 18px; -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1080px; margin:0 auto;}
+
+  /* ヘッダー */
+  header{text-align:center; margin-bottom:36px;}
+  header .badge{
+    display:inline-block; font-size:12px; letter-spacing:2px;
+    color:var(--accent); border:1px solid var(--accent);
+    border-radius:999px; padding:4px 14px; margin-bottom:14px;
+  }
+  header h1{font-size:28px; font-weight:800; letter-spacing:1px;}
+  header h1 span{color:var(--accent);}
+  header .sub{color:var(--muted); font-size:14px; margin-top:8px;}
+
+  /* 注意バナー */
+  .disclaimer{
+    background:rgba(248,113,113,.1); border:1px solid var(--warn);
+    border-radius:12px; padding:14px 18px; margin:0 0 32px;
+    color:#fecaca; font-size:13.5px;
+  }
+  .disclaimer b{color:var(--warn);}
+
+  /* セクション見出し */
+  .section-title{
+    display:flex; align-items:center; gap:10px;
+    font-size:20px; font-weight:700; margin:8px 0 18px;
+    padding-bottom:10px; border-bottom:2px solid var(--line);
+  }
+  .section-title .emoji{font-size:24px;}
+  .section-title .count{
+    margin-left:auto; font-size:12px; color:var(--muted);
+    background:var(--card); border:1px solid var(--line);
+    border-radius:999px; padding:3px 12px; font-weight:500;
+  }
+
+  /* カード */
+  .grid{display:grid; gap:18px; margin-bottom:40px;}
+  .card{
+    background:var(--card); border:1px solid var(--line);
+    border-radius:16px; padding:20px 22px;
+    box-shadow:0 8px 24px rgba(0,0,0,.25);
+  }
+  .card-head{display:flex; align-items:center; gap:12px; margin-bottom:14px;}
+  .num{
+    flex:none; width:34px; height:34px; border-radius:10px;
+    display:flex; align-items:center; justify-content:center;
+    font-weight:800; font-size:15px; color:#0f172a;
+    background:linear-gradient(135deg,var(--accent),#0ea5e9);
+  }
+  .num.gold{background:linear-gradient(135deg,var(--accent2),#f59e0b);}
+  .card-head .topic{font-weight:700; font-size:16px;}
+  .card-head .date{margin-left:auto; font-size:12px; color:var(--muted); white-space:nowrap;}
+  .tag{
+    display:inline-block; font-size:11px; color:var(--accent2);
+    border:1px solid var(--accent2); border-radius:6px;
+    padding:1px 8px; margin-bottom:10px;
+  }
+
+  /* 中身の行 */
+  .row{display:grid; grid-template-columns:120px 1fr; gap:14px; padding:9px 0; border-top:1px dashed var(--line);}
+  .row:first-of-type{border-top:none;}
+  .row .label{color:var(--muted); font-size:13px; font-weight:600;}
+  .row .val{font-size:14px;}
+  .row.warn .val{color:#fca5a5;}
+  .row .val .qnum{color:var(--accent); font-weight:700;}
+
+  .src{margin-top:12px; font-size:11px; color:var(--muted);}
+
+  footer{text-align:center; color:var(--muted); font-size:12px; margin-top:24px; padding-top:18px; border-top:1px solid var(--line);}
+
+  @media (max-width:640px){
+    .row{grid-template-columns:1fr; gap:3px;}
+    header h1{font-size:22px;}
+  }
+  @media print{
+    body{background:#fff; color:#111;}
+    .card,.disclaimer{box-shadow:none;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="badge">RESEARCH DIGEST</div>
+    <h1>学長メソッド<span>研究まとめ</span></h1>
+    <div class="sub">リベシティ学長マガジン／高配当株マガジンの要点蓄積　|　取得日 2026-05-28</div>
+  </header>
+
+  <div class="disclaimer">
+    🚨 <b>これは投資助言ではありません。</b>「学長がこう考えている」という事実の記録であり、個別銘柄の売買推奨ではありません。最終判断はご自身で行ってください。<br>
+    ※ 私的利用限定・本文転載なし（自分の言葉で要約）・ブログ／SNSへの転載は不可。
+  </div>
+
+  <!-- ① 学長マガジン -->
+  <h2 class="section-title">
+    <span class="emoji">📰</span>学長マガジン Q&A まとめ
+    <span class="count">2件</span>
+  </h2>
+  <div class="grid">
+
+    <div class="card">
+      <div class="card-head">
+        <div class="num">1</div>
+        <div class="topic">5/28 ライブQ&A（全10問・取得完了）</div>
+        <div class="date">取得 2026-05-28</div>
+      </div>
+      <span class="tag">学長マガジン</span>
+      <div class="row"><div class="label">要点（10問）</div><div class="val">
+        <span class="qnum">①</span>AIは普段Sonnet／難タスクはOpus
+        <span class="qnum">②</span>専門資格×人の生（助産師等）の起業はAI代替されにくい・資格より顧客
+        <span class="qnum">③</span>確定拠出年金も資産・オルカンは株枠
+        <span class="qnum">④</span>車庫証明手数料は交渉可
+        <span class="qnum">⑤</span>FP2級は目的次第・趣味なら資格マニア注意
+        <span class="qnum">⑥</span>インボイス簡易課税は税理士へ
+        <span class="qnum">⑦</span>車検は必須／任意を分け説明する工場を
+        <span class="qnum">⑧</span>TikTok拡大は広告振り切り or 自社商品
+        <span class="qnum">⑨</span>Google AI検索でSEOアフィリは厳しく
+        <span class="qnum">⑩</span>工業高校の科選びは本人がワクワクするものを
+      </div></div>
+      <div class="row"><div class="label">副業への示唆</div><div class="val">専門スキル×起業／SNS収益化2モデル／<b>AI検索時代のSEOアフィリ転換</b>（blog部門に重要）</div></div>
+      <div class="src">出典：President-Tweet</div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <div class="num">2</div>
+        <div class="topic">5/19 ライブQ&A（参考・9日前）</div>
+        <div class="date">取得 2026-05-28</div>
+      </div>
+      <span class="tag">学長マガジン</span>
+      <div class="row"><div class="label">要点</div><div class="val">
+        法人保険の節税は課税繰延で筋悪／不動産の「投資元本」＝自己資金／AIは“使い方を知らない”だけ・月20ドルで試す／60歳出口は定率5%取崩＋現金補填／個人国債の買替は中途換金コストで非推奨
+      </div></div>
+      <div class="row"><div class="label">副業への示唆</div><div class="val">AI活用の裾野を広げる／副業＝人間関係と収入の自由</div></div>
+      <div class="src">出典：President-Tweet</div>
+    </div>
+
+  </div>
+
+  <!-- ② 高配当株 -->
+  <h2 class="section-title">
+    <span class="emoji">💰</span>高配当株メソッド（考え方の記録）
+    <span class="count">3件</span>
+  </h2>
+  <div class="grid">
+
+    <div class="card">
+      <div class="card-head">
+        <div class="num gold">1</div>
+        <div class="topic">5/06 第113回 相場解説</div>
+        <div class="date">取得 2026-05-28</div>
+      </div>
+      <span class="tag">高配当株マガジン</span>
+      <div class="row"><div class="label">考え方の要点</div><div class="val">月初は相場感を共有。2026年4月の日本株急騰・日経平均6万円台・実質賃金2ヶ月連続プラス。TOPIXと日経平均の構成の違い（歪み）を図解。</div></div>
+      <div class="row"><div class="label">基準／数値</div><div class="val">日本株 年初来 約+7.2%／1ドル160円が当面の天井か／日銀は金利維持</div></div>
+      <div class="row warn"><div class="label">注意・リスク</div><div class="val">米国高配当株は好成績も「欲しい利回り」ではない／中東リスク・原油高継続</div></div>
+      <div class="src">出典：President-investment-magazine</div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <div class="num gold">2</div>
+        <div class="topic">5/22 第114回 銘柄紹介</div>
+        <div class="date">取得 2026-05-28</div>
+      </div>
+      <span class="tag">高配当株マガジン</span>
+      <div class="row"><div class="label">考え方の要点</div><div class="val">「もし学長が今投資するなら」の観点で毎回1銘柄を図解紹介。今回は<b>サカタインクス</b>（印刷用インキ）。</div></div>
+      <div class="row"><div class="label">基準／数値</div><div class="val">詳細数値は図解画像にあり（未取得）</div></div>
+      <div class="row warn"><div class="label">注意・リスク</div><div class="val">個別銘柄の紹介＝買い推奨ではない・最終判断は自分</div></div>
+      <div class="src">出典：President-investment-magazine</div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <div class="num gold">3</div>
+        <div class="topic">紹介銘柄の通史（第105〜114回）</div>
+        <div class="date">取得 2026-05-28</div>
+      </div>
+      <span class="tag">高配当株マガジン</span>
+      <div class="row"><div class="label">考え方の要点</div><div class="val">学長がマガジンで取り上げた銘柄の記録：船井総研HD／マークラインズ／日本ゼオン／クレスコ／東計電算／長谷川香料／サカタインクス（第107・110・113回は相場解説で銘柄紹介なし）。</div></div>
+      <div class="row"><div class="label">基準／数値</div><div class="val">配分％・利回りは各回の図解画像（未取得）</div></div>
+      <div class="row warn"><div class="label">注意・リスク</div><div class="val">これは学長の紹介記録であり買い推奨ではない・最終判断は自分</div></div>
+      <div class="src">出典：President-investment-magazine</div>
+    </div>
+
+  </div>
+
+  <footer>
+    出典データ：research/MEMORY.md（学長メソッド蓄積台帳／高配当株メソッド台帳）　|　生成：総合PdM（CPO）セッション　|　2026-05-29
+  </footer>
+
+</div>
+</body>
+</html>
