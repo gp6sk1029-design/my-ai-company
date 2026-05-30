@@ -44,6 +44,12 @@
       "runtimeExecutable": "python3",
       "runtimeArgs": ["-c", "from http.server import HTTPServer, SimpleHTTPRequestHandler; from functools import partial; print('[ootanisatan-preview] http://localhost:8793'); HTTPServer(('0.0.0.0', 8793), partial(SimpleHTTPRequestHandler, directory='/Users/shoheikoda/Documents/my-ai-company/blog/cloudflare-preview')).serve_forever()"],
       "port": 8793
+    },
+    {
+      "name": "blog-preview",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["/Users/shoheikoda/Documents/my-ai-company/blog/scripts/preview_server.py", "--port", "8794"],
+      "port": 8794
     }
   ]
 }

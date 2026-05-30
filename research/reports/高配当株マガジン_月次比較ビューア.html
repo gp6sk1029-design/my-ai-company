@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>高配当株マガジン 月次比較ビューア</title>
+<style>
+  :root{
+    --navy:#1e3a5f; --navy2:#27496d; --bg:#f4f6f8; --card:#ffffff; --line:#e2e8f0;
+    --text:#1f2937; --muted:#6b7280; --accent:#2563eb; --gold:#d97706;
+    --ok:#059669; --okbg:#ecfdf5; --del:#dc2626; --delbg:#fef2f2; --warnbg:#fffbeb; --warn:#b45309;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  body{background:var(--bg); color:var(--text); font-family:"Hiragino Kaku Gothic ProN","Yu Gothic",-apple-system,sans-serif; line-height:1.6;}
+  .topbar{background:var(--navy); color:#fff; padding:14px 22px; display:flex; align-items:baseline; gap:14px;}
+  .topbar h1{font-size:18px; font-weight:800;}
+  .topbar .sub{font-size:12px; color:#cbd5e1;}
+  .wrap{max-width:1080px; margin:0 auto; padding:20px 18px 50px;}
+
+  .disclaimer{background:var(--warnbg); border:1px solid #fcd34d; border-radius:10px; padding:11px 15px; margin-bottom:18px; color:#92400e; font-size:12.5px;}
+  .disclaimer b{color:var(--del);}
+
+  .tabs{display:flex; gap:8px; margin-bottom:18px; border-bottom:2px solid var(--line);}
+  .tab{padding:10px 18px; cursor:pointer; font-weight:700; font-size:14px; color:var(--muted); border-bottom:3px solid transparent; margin-bottom:-2px;}
+  .tab.active{color:var(--navy); border-bottom-color:var(--navy);}
+  .panel{display:none;} .panel.active{display:block;}
+
+  .controls{display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:18px; background:var(--card); border:1px solid var(--line); border-radius:10px; padding:12px 14px;}
+  .controls label{font-size:13px; color:var(--muted); font-weight:600;}
+  select{padding:6px 10px; border:1px solid var(--line); border-radius:7px; font-size:14px; background:#fff; color:var(--text);}
+  .arrow{color:var(--accent); font-weight:800;}
+
+  .metrics{display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin-bottom:20px;}
+  .metric{background:var(--card); border:1px solid var(--line); border-radius:12px; padding:15px; text-align:center;}
+  .metric .name{font-size:12px; color:var(--muted); margin-bottom:7px;}
+  .metric .vals{display:flex; align-items:center; justify-content:center; gap:8px; font-weight:800;}
+  .metric .a{color:var(--muted); font-size:16px;} .metric .b{color:var(--navy); font-size:21px;}
+  .metric .diff{margin-top:5px; font-size:12px; font-weight:700;}
+  .metric .diff.up{color:var(--ok);} .metric .diff.flat{color:var(--muted);} .metric .diff.down{color:var(--del);}
+
+  .buckets{display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:20px;}
+  .bucket{border-radius:10px; padding:13px 15px; border:1px solid var(--line); background:var(--card);}
+  .bucket.add{border-left:4px solid var(--ok); background:var(--okbg);}
+  .bucket.del{border-left:4px solid var(--del); background:var(--delbg);}
+  .bucket .h{font-weight:700; font-size:13.5px; margin-bottom:7px;}
+  .bucket.add .h{color:var(--ok);} .bucket.del .h{color:var(--del);}
+  .bucket ul{list-style:none; font-size:13px;} .bucket li{padding:2px 0;}
+  .bucket .none{color:var(--muted); font-size:13px;}
+  .chip-code{display:inline-block; font-variant-numeric:tabular-nums; color:var(--accent); width:42px;}
+
+  table{width:100%; border-collapse:collapse; background:var(--card); border:1px solid var(--line); border-radius:10px; overflow:hidden; font-size:13px;}
+  th,td{padding:6px 10px; text-align:left; border-bottom:1px solid var(--line);}
+  th{background:#f1f5f9; color:var(--muted); font-size:12px;}
+  td.code{color:var(--accent); font-variant-numeric:tabular-nums;}
+  tr:last-child td{border-bottom:none;}
+  .st{font-size:11px; border-radius:5px; padding:1px 7px; font-weight:700;}
+  .st.same{color:var(--muted); border:1px solid var(--line);}
+  .st.same2{color:var(--navy); border:1px solid var(--navy);}
+  .st.add{color:var(--ok); border:1px solid var(--ok);}
+  .st.del{color:var(--del); border:1px solid var(--del);}
+
+  .sech{font-weight:700; font-size:14px; margin:18px 0 10px; color:var(--navy);}
+  .threecol{display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px;}
+  .col{background:var(--card); border:1px solid var(--line); border-radius:10px; padding:12px 14px;}
+  .col .ch{font-weight:700; font-size:13px; margin-bottom:4px;}
+  .col .cnt{font-size:24px; font-weight:900; margin-bottom:8px;}
+  .col.want{border-top:3px solid var(--gold);} .col.want .ch{color:var(--gold);} .col.want .cnt{color:var(--gold);}
+  .col.both{border-top:3px solid var(--navy);} .col.both .ch{color:var(--navy);} .col.both .cnt{color:var(--navy);}
+  .col.mine{border-top:3px solid var(--muted);} .col.mine .ch{color:var(--muted);}
+  .col ul{list-style:none; font-size:12.5px; max-height:420px; overflow:auto;} .col li{padding:2px 0; border-bottom:1px dashed var(--line);}
+
+  .updater{margin-top:20px; background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px;}
+  .updater .h{font-weight:700; font-size:13px; margin-bottom:6px;}
+  .updater textarea{width:100%; height:90px; border:1px solid var(--line); border-radius:7px; padding:8px; font-size:12px; font-family:monospace;}
+  .updater button{margin-top:8px; background:var(--navy); color:#fff; border:0; border-radius:7px; padding:8px 16px; font-weight:700; cursor:pointer;}
+  .small{font-size:12px; color:var(--muted);}
+  footer{margin-top:30px; padding-top:16px; border-top:1px solid var(--line); color:var(--muted); font-size:11.5px; text-align:center;}
+  @media(max-width:680px){ .metrics,.buckets,.threecol{grid-template-columns:1fr;} }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <h1>📊 高配当株マガジン 月次比較ビューア</h1>
+  <span class="sub">学長モデルポートフォリオの月次推移 ／ 自分の保有との差分</span>
+</div>
+<div class="wrap">
+
+  <div class="disclaimer">
+    🚨 <b>これは投資助言ではありません。</b>「学長がマガジンでこう示した」という事実の記録と、自分の保有との差分の可視化です。売買推奨ではなく、最終判断はご自身で。図解画像は転載せず内容を読み取って当方が独自にデータ化。私的利用限定。
+  </div>
+
+  <div class="tabs">
+    <div class="tab active" data-t="t1" onclick="switchTab('t1')">① マガジン 月次比較</div>
+    <div class="tab" data-t="t2" onclick="switchTab('t2')">② 自分の保有 vs マガジン</div>
+  </div>
+
+  <!-- Tab1 -->
+  <div class="panel active" id="t1">
+    <div class="controls">
+      <label>比較する2か月：</label>
+      <select id="mFrom"></select>
+      <span class="arrow">→</span>
+      <select id="mTo"></select>
+    </div>
+    <div class="metrics" id="t1metrics"></div>
+    <div class="buckets">
+      <div class="bucket add"><div class="h">＋ 追加された銘柄</div><div id="addedList"></div></div>
+      <div class="bucket del"><div class="h">− 除外された銘柄</div><div id="removedList"></div></div>
+    </div>
+    <div class="sech">構成銘柄一覧</div>
+    <table><thead><tr><th>コード</th><th>銘柄名</th><th>セクター</th><th>状態</th></tr></thead><tbody id="t1table"></tbody></table>
+  </div>
+
+  <!-- Tab2 -->
+  <div class="panel" id="t2">
+    <div class="controls">
+      <label>マガジン月：</label>
+      <select id="mPick"></select>
+      <span class="small">　自分の保有スナップショット：<b id="holdDate"></b>（<span id="holdCount"></span>銘柄）</span>
+    </div>
+    <div class="threecol">
+      <div class="col want"><div class="ch">学長PFにあり・自分は未保有</div><div class="cnt" id="cWant">-</div><ul id="lWant"></ul></div>
+      <div class="col both"><div class="ch">共通保有（学長PF∩自分）</div><div class="cnt" id="cBoth">-</div><ul id="lBoth"></ul></div>
+      <div class="col mine"><div class="ch">自分のみ保有（マガジン外）</div><div class="cnt" id="cMine">-</div><ul id="lMine"></ul></div>
+    </div>
+    <div class="updater">
+      <div class="h">🔄 保有銘柄を更新（任意）</div>
+      <div class="small">l-haitouツールの保有が変わったら、ここに「コード:銘柄名」を1行ずつ貼って再計算。（コードだけでもOK）</div>
+      <textarea id="holdInput" placeholder="例)&#10;2914:日本たばこ産業&#10;9433:KDDI"></textarea>
+      <button onclick="applyHoldings()">この内容で再計算</button>
+    </div>
+  </div>
+
+  <footer>
+    出典：リベシティ「学長高配当株マガジンチャット」モデルポートフォリオ図解（第110回・第113回）を読み取り当方データ化　|　保有データ：l-haitouツール（楽天・SBI）より　|　私的利用限定・blog/SNS送出不可
+  </footer>
+</div>
+
+<script>
+// ===== データ定義（毎月ここに追記すれば自動で選択肢に出る） =====
+// 学長モデルポートフォリオ構成（コード:[銘柄名, セクター]）。4月・5月は同一構成。
+const PF_2026 = {
+  "9986":["蔵王産業","卸売"], "3076":["あいHD","卸売"], "8130":["サンゲツ","卸売"],
+  "2659":["サンエー","小売"], "3333":["あさひ","小売"],
+  "4008":["住友精化","化学"], "4042":["東ソー","化学"], "4097":["高圧ガス工業","化学"], "4958":["長谷川香料","化学"],
+  "8309":["三井住友トラストG","銀行"], "8725":["MS&AD","保険"], "8584":["ジャックス","その他金融"],
+  "6785":["鈴木","電気機器"], "7722":["国際計測器","精密機器"],
+  "3231":["野村不動産HD","不動産"], "3003":["ヒューリック","不動産"],
+  "2169":["CDS","サービス"], "9757":["船井総研HD","サービス"], "9769":["学究社","サービス"], "4641":["アルプス技研","サービス"],
+  "3817":["SRA HD","情報・通信"], "3901":["マークラインズ","情報・通信"], "4674":["クレスコ","情報・通信"], "4746":["東計電算","情報・通信"],
+  "2003":["日東富士製粉","食料品"], "1928":["積水ハウス","建設"], "6345":["アイチコーポレーション","機械"],
+  "9364":["上組","倉庫・運輸"], "9381":["エーアイテイー","倉庫・運輸"],
+  "7989":["立川ブラインド工業","金属製品"], "7820":["ニホンフラッシュ","その他製品"], "7994":["オカムラ","その他製品"],
+  "4540":["ツムラ","医薬品"], "1343":["NF・J-REIT ETF","J-REIT"]
+};
+// 月ごとのモデルPF（codes配列＋メタ）。構成が変わった月だけcodesを差し替える。
+const MAGAZINE = {
+  "2026-04": { label:"2026年4月（第110回）", codes:Object.keys(PF_2026), yield:4.03, dividend:12096 },
+  "2026-05": { label:"2026年5月（第113回）", codes:Object.keys(PF_2026), yield:4.16, dividend:12492 }
+};
+// 自分の保有スナップショット（l-haitouツールより, 2026-05-31時点・日本株のみ）
+const HOLD_DATE = "2026-05-31";
+const HOLDINGS_DEFAULT = {
+"1343":"NF J-REIT","1414":"ショーボンドHD","1928":"積水ハウス","1951":"エクシオグループ","2003":"日東富士製粉","2169":"CDS","2296":"伊藤ハム米久HD","2393":"日本ケアサプライ","2659":"サンエー","2914":"日本たばこ産業","3003":"ヒューリック","3076":"あいホールディングス","3231":"野村不動産HD","3333":"あさひ","3817":"SRA HD","3834":"朝日ネット","3901":"マークラインズ","4008":"住友精化","4042":"東ソー","4097":"高圧ガス","4205":"日本ゼオン","4220":"リケンテクノス","4248":"竹本容器","4452":"花王","4503":"アステラス製薬","4523":"エーザイ","4540":"ツムラ","4578":"大塚HD","4633":"サカタインクス","4641":"アルプス技研","4674":"クレスコ","4719":"アルファシステムズ","4752":"昭和システム","5108":"ブリヂストン","5388":"クニミネ工業","6073":"アサンテ","6301":"小松製作所","6326":"クボタ","6345":"アイチコーポレーション","6381":"アネスト岩田","6432":"竹内製作所","6458":"新晃工業","6539":"MS-Japan","6785":"鈴木","7203":"トヨタ自","7483":"ドウシシャ","7723":"愛知時計","7820":"ニホンフラッシュ","7989":"立川ブラインド","7994":"オカムラ","8001":"伊藤忠","8031":"三井物産","8058":"三菱商事","8130":"サンゲツ","8306":"三菱UFJ","8309":"三井住友トラストG","8316":"三井住友","8584":"ジャックス","8593":"三菱HCキャピタル","8697":"JPX","8725":"MS&AD","8766":"東京海上","9057":"遠州トラック","9069":"センコーHD","9303":"住友倉","9304":"渋沢倉","9364":"上組","9381":"エーアイテイー","9432":"NTT","9433":"KDDI","9513":"Jパワー","9757":"船井総研HD","9769":"学究社","9795":"ステップ","9986":"蔵王産業"
+};
+let HOLDINGS = {...HOLDINGS_DEFAULT};
+
+// ===== ロジック =====
+function switchTab(t){
+  document.querySelectorAll('.tab').forEach(e=>e.classList.toggle('active', e.dataset.t===t));
+  document.querySelectorAll('.panel').forEach(e=>e.classList.toggle('active', e.id===t));
+}
+function pfName(code){ return (PF_2026[code]||HOLDINGS[code]||[code])[0] || code; }
+function diffCls(v){ return v>0?'up':(v<0?'down':'flat'); }
+function sign(v){ return (v>0?'+':'')+v; }
+
+function renderT1(){
+  const from=MAGAZINE[mFrom.value], to=MAGAZINE[mTo.value];
+  const sf=new Set(from.codes), st=new Set(to.codes);
+  const added=to.codes.filter(c=>!sf.has(c));
+  const removed=from.codes.filter(c=>!st.has(c));
+  // metrics
+  const dN=to.codes.length-from.codes.length, dY=Math.round((to.yield-from.yield)*100)/100, dD=to.dividend-from.dividend;
+  t1metrics.innerHTML = metric('構成銘柄数', from.codes.length, to.codes.length, (dN===0?'変更なし':sign(dN)+'銘柄'), diffCls(dN))
+    + metric('PF配当利回り', from.yield+'%', to.yield+'%', sign(dY)+'pt', diffCls(dY))
+    + metric('年間配当(元本30万想定)', from.dividend.toLocaleString()+'円', to.dividend.toLocaleString()+'円', sign(dD)+'円', diffCls(dD));
+  addedList.innerHTML = added.length? '<ul>'+added.map(c=>`<li><span class="chip-code">${c}</span>${pfName(c)}</li>`).join('')+'</ul>' : '<div class="none">なし（0件）</div>';
+  removedList.innerHTML = removed.length? '<ul>'+removed.map(c=>`<li><span class="chip-code">${c}</span>${pfName(c)}</li>`).join('')+'</ul>' : '<div class="none">なし（0件）</div>';
+  // table（今月基準＋除外も末尾に）
+  let rows = to.codes.map(c=>{
+    const isNew=!sf.has(c);
+    return tr(c, isNew?'new':'same');
+  }).join('');
+  rows += removed.map(c=>tr(c,'del')).join('');
+  t1table.innerHTML = rows;
+}
+function metric(name,a,b,diff,cls){
+  return `<div class="metric"><div class="name">${name}</div><div class="vals"><span class="a">${a}</span><span class="arrow">→</span><span class="b">${b}</span></div><div class="diff ${cls}">${diff}</div></div>`;
+}
+function tr(code, status){
+  const info = PF_2026[code]||[code,'-'];
+  const stMap={same:['同一','same'], new:['＋追加','add'], del:['−除外','del']};
+  const s=stMap[status];
+  return `<tr><td class="code">${code}</td><td>${info[0]}</td><td>${info[1]}</td><td><span class="st ${s[1]}">${s[0]}</span></td></tr>`;
+}
+
+function renderT2(){
+  const mag=MAGAZINE[mPick.value];
+  const magSet=new Set(mag.codes);
+  const holdSet=new Set(Object.keys(HOLDINGS));
+  const want=mag.codes.filter(c=>!holdSet.has(c));            // 学長にあり自分なし
+  const both=mag.codes.filter(c=>holdSet.has(c));             // 共通
+  const mine=Object.keys(HOLDINGS).filter(c=>!magSet.has(c)).sort(); // 自分のみ
+  cWant.textContent=want.length; cBoth.textContent=both.length; cMine.textContent=mine.length;
+  holdDate.textContent=HOLD_DATE; holdCount.textContent=Object.keys(HOLDINGS).length;
+  lWant.innerHTML = want.map(c=>`<li><span class="chip-code">${c}</span>${pfName(c)}</li>`).join('') || '<li class="small">なし</li>';
+  lBoth.innerHTML = both.map(c=>`<li><span class="chip-code">${c}</span>${pfName(c)}</li>`).join('');
+  lMine.innerHTML = mine.map(c=>`<li><span class="chip-code">${c}</span>${HOLDINGS[c]||''}</li>`).join('');
+}
+function applyHoldings(){
+  const txt=document.getElementById('holdInput').value.trim();
+  if(!txt){ HOLDINGS={...HOLDINGS_DEFAULT}; renderT2(); return; }
+  const map={};
+  txt.split(/\n+/).forEach(line=>{
+    const m=line.match(/(\d{4})\s*[:,\t ]?\s*(.*)/);
+    if(m) map[m[1]]=(m[2]||'').trim();
+  });
+  if(Object.keys(map).length){ HOLDINGS=map; renderT2(); }
+}
+
+// 初期化
+(function init(){
+  const keys=Object.keys(MAGAZINE);
+  keys.forEach(k=>{ mFrom.add(new Option(MAGAZINE[k].label,k)); mTo.add(new Option(MAGAZINE[k].label,k)); mPick.add(new Option(MAGAZINE[k].label,k)); });
+  mFrom.value=keys[keys.length-2]||keys[0]; mTo.value=keys[keys.length-1]; mPick.value=keys[keys.length-1];
+  mFrom.onchange=mTo.onchange=renderT1; mPick.onchange=renderT2;
+  renderT1(); renderT2();
+})();
+</script>
+</body>
+</html>

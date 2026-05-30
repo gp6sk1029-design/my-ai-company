@@ -4,6 +4,23 @@
 ## 自己改善ループ（CLAUDE.mdに準拠）
 タスク完了のたびに振り返りレポートを出力し、SKILL.mdとMEMORY.mdを更新し続ける。
 
+### 記事修正からの学習（3段昇格・2026-05-31新設）
+記事を修正したら **必ず `edit_logger.py` で生ログを残す**（git diff だけでは「なぜ直したか」が残らないため）。
+```
+python3 blog/scripts/edit_logger.py --slug <slug> --reason "<理由>" --learning "<学び>" --tag <種別>
+```
+- ① 生ログ = `blog/edits/_log.md`（粒度細かい）
+- ② 同じ種別タグが2回以上 → `blog/MEMORY.md`「失敗パターン」表 or「進化ログ」へ昇格（edit_logger が警告を出す）
+- ③ 全社普遍ルール → `CLAUDE.md` / 本SKILL.md へ昇格
+- 昇格済みルールは `~/.claude/projects/.../memory/feedback_blog.md`（執筆前に参照）
+
+### ローカルプレビュー（実物を見ながら修正・2026-05-31新設）
+記事の見た目（吹き出し・水色下線・ROIテーブル・画像）を本番JIN:R風に即確認できる。
+```
+python3 blog/scripts/preview_server.py   # → http://localhost:8794/preview/<slug>
+```
+mdを直してブラウザ自動リロード（WP往復なし）。装飾修正・画像配置の確認に使う。
+
 ---
 
 ## クイックリファレンス（毎回必ず確認）

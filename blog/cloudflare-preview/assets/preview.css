@@ -1,0 +1,280 @@
+/* ============================================================
+   ローカル記事プレビュー用 CSS（本番 JIN:R 風）
+   preview_server.py / build.py が吐く軽量クラス専用。
+   本番ミラーCSS（assets/css/*.css）の色・余白を参照して寄せている。
+   水色アンダーラインは wp_block_builder.py と一致：#56CCF2 3px
+   ============================================================ */
+
+:root {
+  --accent: #2e8bc0;          /* JIN:R 風アクセント青 */
+  --accent-deep: #1d4ed8;
+  --emph-line: #56CCF2;       /* 水色アンダーライン */
+  --orange: #f97316;
+  --text: #333a40;
+  --text-sub: #6b7280;
+  --border: #e5e7eb;
+  --bg: #f5f7fa;
+  --bubble-bg: #f0f4f8;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: 'Noto Sans JP', -apple-system, BlinkMacSystemFont, 'Hiragino Kaku Gothic ProN', sans-serif;
+  color: var(--text);
+  background: var(--bg);
+  line-height: 1.9;
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* プレビューバー */
+.jinr-preview-bar {
+  background: #1f2937;
+  color: #fff;
+  padding: 8px 16px;
+  font-size: 13px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+.jinr-preview-bar a { color: #93c5fd; text-decoration: none; }
+.jinr-preview-bar a:hover { text-decoration: underline; }
+
+/* 記事コンテナ */
+.jinr-article {
+  max-width: 740px;
+  margin: 24px auto 80px;
+  background: #fff;
+  padding: 40px 36px 60px;
+  border-radius: 12px;
+  box-shadow: 0 2px 16px rgba(0,0,0,0.06);
+}
+
+/* 見出し */
+.jinr-h1 {
+  font-size: 28px;
+  font-weight: 800;
+  line-height: 1.5;
+  margin: 0 0 28px;
+  padding-bottom: 18px;
+  border-bottom: 3px solid var(--accent);
+}
+.jinr-h2 {
+  font-size: 23px;
+  font-weight: 800;
+  margin: 56px 0 22px;
+  padding: 14px 18px;
+  background: linear-gradient(0deg, #eef4f9, #f7fafc);
+  border-left: 6px solid var(--accent);
+  border-radius: 4px;
+  line-height: 1.5;
+}
+.jinr-h3 {
+  font-size: 19px;
+  font-weight: 700;
+  margin: 40px 0 16px;
+  padding-left: 12px;
+  border-left: 4px solid var(--orange);
+  line-height: 1.5;
+}
+
+/* 段落 */
+.jinr-article p { margin: 0 0 22px; }
+
+/* 水色アンダーライン強調 */
+.jinr-emph {
+  font-weight: 700;
+  background: linear-gradient(transparent 60%, var(--emph-line) 60%);
+  padding: 0 1px;
+}
+.jinr-article strong { font-weight: 700; }
+.jinr-article em { font-style: normal; color: var(--orange); font-weight: 700; }
+
+/* 吹き出し */
+.jinr-fukidashi {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  margin: 28px 0;
+}
+.jinr-fukidashi-right { flex-direction: row-reverse; }
+.jinr-chara {
+  flex: 0 0 76px;
+  text-align: center;
+  font-size: 11px;
+  color: var(--text-sub);
+}
+.jinr-chara img {
+  width: 76px;
+  height: 76px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--border);
+  background: #fff;
+  display: block;
+  margin: 0 auto 4px;
+}
+.jinr-chara span { display: block; font-weight: 600; }
+.jinr-bubble {
+  position: relative;
+  background: var(--bubble-bg);
+  border: 1px solid #dbe4ec;
+  border-radius: 14px;
+  padding: 14px 18px;
+  max-width: 520px;
+  font-size: 15px;
+  line-height: 1.8;
+}
+.jinr-bubble strong { font-weight: 700; }
+/* しっぽ */
+.jinr-fukidashi-left .jinr-bubble::before {
+  content: '';
+  position: absolute;
+  left: -16px; top: 22px;
+  border: 8px solid transparent;
+  border-right-color: var(--bubble-bg);
+}
+.jinr-fukidashi-right .jinr-bubble::after {
+  content: '';
+  position: absolute;
+  right: -16px; top: 22px;
+  border: 8px solid transparent;
+  border-left-color: var(--bubble-bg);
+}
+
+/* テーブル */
+.jinr-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 24px 0;
+  font-size: 14.5px;
+}
+.jinr-table th, .jinr-table td {
+  border: 1px solid var(--border);
+  padding: 10px 12px;
+  text-align: left;
+  vertical-align: top;
+}
+.jinr-table th {
+  background: var(--accent);
+  color: #fff;
+  font-weight: 700;
+}
+.jinr-table tbody tr:nth-child(even) { background: #f7fafc; }
+
+/* 引用 */
+.jinr-quote {
+  margin: 24px 0;
+  padding: 16px 20px;
+  background: #fffbe9;
+  border-left: 5px solid #fbbf24;
+  border-radius: 4px;
+  color: #5b4a17;
+  font-size: 15px;
+}
+
+/* リスト */
+.jinr-list, .jinr-check {
+  margin: 20px 0;
+  padding-left: 0;
+  list-style: none;
+}
+.jinr-list li {
+  position: relative;
+  padding-left: 26px;
+  margin: 10px 0;
+}
+.jinr-list li::before {
+  content: '';
+  position: absolute;
+  left: 6px; top: 12px;
+  width: 8px; height: 8px;
+  background: var(--accent);
+  border-radius: 50%;
+}
+.jinr-check li {
+  position: relative;
+  padding-left: 30px;
+  margin: 10px 0;
+}
+.jinr-check li::before {
+  content: '✓';
+  position: absolute;
+  left: 4px; top: 0;
+  color: #16a34a;
+  font-weight: 800;
+}
+
+/* 画像 */
+.jinr-image {
+  margin: 28px 0;
+  text-align: center;
+}
+.jinr-image img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 10px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.1);
+}
+.jinr-image figcaption {
+  margin-top: 8px;
+  font-size: 13px;
+  color: var(--text-sub);
+}
+
+/* コード */
+.jinr-code {
+  background: #1e293b;
+  color: #e2e8f0;
+  padding: 16px 18px;
+  border-radius: 8px;
+  overflow-x: auto;
+  font-size: 13.5px;
+  line-height: 1.6;
+  margin: 22px 0;
+}
+
+/* 区切り */
+.jinr-sep {
+  border: 0;
+  border-top: 1px dashed var(--border);
+  margin: 40px 0;
+}
+
+/* 記事一覧 */
+.jinr-index {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.jinr-index li {
+  padding: 14px 0;
+  border-bottom: 1px solid var(--border);
+}
+.jinr-index a {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--accent-deep);
+  text-decoration: none;
+}
+.jinr-index a:hover { text-decoration: underline; }
+.jinr-index .slug {
+  display: inline-block;
+  margin-left: 10px;
+  font-size: 12px;
+  color: var(--text-sub);
+  background: #eef2f6;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+/* レスポンシブ */
+@media (max-width: 600px) {
+  .jinr-article { margin: 12px; padding: 24px 18px 40px; }
+  .jinr-h1 { font-size: 23px; }
+  .jinr-h2 { font-size: 20px; }
+  .jinr-chara { flex-basis: 56px; }
+  .jinr-chara img { width: 56px; height: 56px; }
+}
