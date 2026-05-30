@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ノウハウ図書館 人気記事ピックアップ</title>
+<style>
+  :root{
+    --bg:#f6f8fb; --card:#fff; --line:#e6ebf1; --text:#1f2937; --muted:#6b7280;
+    --navy:#1f5fa6; --navy2:#2b75c9;
+    --job:#0f9d58; --jobbg:#e9f7ef; --deal:#d9822b; --dealbg:#fdf3e7; --ai:#6d4ed6; --aibg:#f1ecfc; --etc:#64748b; --etcbg:#eef2f6;
+    --like:#e0556b; --bm:#2b75c9;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--bg);color:var(--text);font-family:"Hiragino Kaku Gothic ProN","Yu Gothic",-apple-system,sans-serif;line-height:1.6;}
+  .topbar{background:linear-gradient(100deg,#1f5fa6,#2b75c9);color:#fff;padding:15px 22px;}
+  .topbar h1{font-size:18px;font-weight:800;}
+  .topbar .sub{font-size:12px;color:#dbeafe;margin-top:3px;}
+  .wrap{max-width:1080px;margin:0 auto;padding:18px 16px 50px;}
+
+  .disclaimer{background:#fffbeb;border:1px solid #fcd34d;border-radius:10px;padding:10px 14px;margin-bottom:16px;color:#92400e;font-size:12px;}
+  .disclaimer b{color:#b45309;}
+
+  .bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:14px;}
+  .filters{display:flex;gap:6px;flex-wrap:wrap;}
+  .fbtn{border:1px solid var(--line);background:#fff;border-radius:999px;padding:6px 13px;font-size:13px;font-weight:700;cursor:pointer;color:var(--muted);}
+  .fbtn.active{background:var(--navy);color:#fff;border-color:var(--navy);}
+  .sortwrap{margin-left:auto;display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);}
+  select{padding:5px 9px;border:1px solid var(--line);border-radius:7px;font-size:13px;background:#fff;}
+  .count{font-size:12px;color:var(--muted);margin-bottom:10px;}
+
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:13px 15px;display:flex;gap:12px;box-shadow:0 2px 6px rgba(20,40,80,.04);}
+  .rank{flex:none;width:30px;height:30px;border-radius:8px;background:#eef2f7;color:var(--navy);font-weight:800;font-size:14px;display:flex;align-items:center;justify-content:center;}
+  .rank.top{background:linear-gradient(135deg,#f6c14b,#e0a020);color:#fff;}
+  .body{flex:1;min-width:0;}
+  .tags{display:flex;gap:6px;align-items:center;margin-bottom:5px;flex-wrap:wrap;}
+  .bucket{font-size:10.5px;font-weight:700;border-radius:5px;padding:1px 7px;}
+  .b-job{color:var(--job);background:var(--jobbg);} .b-deal{color:var(--deal);background:var(--dealbg);} .b-ai{color:var(--ai);background:var(--aibg);} .b-etc{color:var(--etc);background:var(--etcbg);}
+  .cat{font-size:10.5px;color:var(--muted);border:1px solid var(--line);border-radius:5px;padding:1px 7px;}
+  .ttl{font-size:14px;font-weight:700;line-height:1.45;margin-bottom:6px;}
+  .ttl a{color:var(--text);text-decoration:none;} .ttl a:hover{color:var(--navy2);text-decoration:underline;}
+  .meta{display:flex;gap:14px;align-items:center;font-size:12px;color:var(--muted);flex-wrap:wrap;}
+  .meta .m{font-variant-numeric:tabular-nums;font-weight:700;}
+  .meta .like{color:var(--like);} .meta .bm{color:var(--bm);}
+  .meta .auth{color:var(--muted);font-weight:400;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:160px;}
+
+  .note{margin-top:18px;background:#fff;border:1px solid var(--line);border-left:4px solid var(--navy);border-radius:10px;padding:12px 15px;font-size:12.5px;color:#374151;}
+  .note b{color:var(--navy);}
+  footer{margin-top:24px;padding-top:14px;border-top:1px solid var(--line);color:var(--muted);font-size:11px;text-align:center;}
+  @media(max-width:680px){ .grid{grid-template-columns:1fr;} }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <h1>📚 ノウハウ図書館 人気記事ピックアップ</h1>
+  <div class="sub">リベシティ ノウハウ図書館の人気記事を、副業・お得・スキルで仕分け　|　月間ランキング（2026年5月時点・保存数順）</div>
+</div>
+<div class="wrap">
+
+  <div class="disclaimer">
+    🔖 これはリベシティ ノウハウ図書館の<b>人気記事へのリンク集（タイトル・反応数のみ）</b>です。記事本文は転載していません。各記事は元ページで読んでください（リベシティ会員ログインが必要）。私的利用限定・blog/SNSへの無断転載は不可。
+  </div>
+
+  <div class="bar">
+    <div class="filters" id="filters"></div>
+    <div class="sortwrap">
+      並び替え：
+      <select id="sort">
+        <option value="bm">🔖 保存数が多い順</option>
+        <option value="likes">👍 いいねが多い順</option>
+        <option value="date">🆕 新しい順</option>
+      </select>
+    </div>
+  </div>
+  <div class="count" id="count"></div>
+  <div class="grid" id="grid"></div>
+
+  <div class="note">
+    💡 <b>使い方</b>：上のボタンで「💼副業・稼ぐ」「💰お得・節約」「🛠スキル・AI」「🤝交流・その他」に絞り込み、保存数／いいね／新着で並び替えできます。タイトルをクリックすると元記事が開きます。<br>
+    🔄 <b>更新</b>：来月以降は research セッションで図書館の月間ランキングを再取得し、下の <code>ARTICLES</code> に差し替えれば最新化できます（仕分けは自動）。
+  </div>
+  <footer>
+    出典：リベシティ ノウハウ図書館（library.libecity.com）月間ランキング／sort=保存数　|　取得 2026-05-31　|　タイトル＋反応数のみ・本文転載なし・私的利用限定
+  </footer>
+</div>
+
+<script>
+// ===== 人気記事データ（月間ランキング・2026-05-31取得）。来月は再取得してここを差し替え =====
+const ARTICLES = [
+ {id:"01KRXNGBB50HFK26Q4X77WKMX9", t:"【YouTubeで月220万円】コツコツが一番のコツ。最後まで立っていた者が勝者。", cat:"YouTube", likes:621, bm:1523, date:"2026/05/19", auth:"せいじぃ@今年は稼ぐぜぃ"},
+ {id:"01KRBJ6J0Z9RR1RR37P0BRDAHM", t:"ドラッグ不要！\"ここからここまで\"を一瞬で選択する小ワザ💻", cat:"ITリテラシー", likes:427, bm:595, date:"2026/05/11", auth:"ぽて@カメラマン×ストックフォト"},
+ {id:"01KQQ8BG8CX09MC2NSPMMJS340", t:"朝の学長動画から1ヶ月、電気工事士が Claude で約190万円を、泥臭く稼いだ話", cat:"副業全般", likes:794, bm:1809, date:"2026/05/04", auth:"ゆう@電気のひらでん"},
+ {id:"01KQZNM5P5271SHPSY3S57YK6M", t:"⭐️特典追加【リベオススメ副業19選｜2026年版】適性診断アプリを作ってみた！", cat:"ITリテラシー", likes:574, bm:1487, date:"2026/05/07", auth:"うめちゃんパパ@店舗・電脳せどり"},
+ {id:"01KRQXV5AE3Q743NQBW1CVJAMC", t:"LINEのAIバーを消す方法２選", cat:"ITリテラシー", likes:246, bm:218, date:"2026/05/16", auth:"ヘマ@ovice案内人"},
+ {id:"01KSEZ7GB98EFP8FG4QXM7736G", t:"副業から独立へ！僕が17年間で学んだ戦略と行動・失敗と成功例を公開", cat:"副業全般", likes:190, bm:445, date:"2026/05/26", auth:"キラ@YouTuber＆ブロガー"},
+ {id:"01KRMZBJPXS0G5VQ94AZ5K0MWA", t:"【YouTube BGM】初心者必見！「まずは100本投稿」の時に注意すべき点", cat:"YouTube", likes:165, bm:525, date:"2026/05/23", auth:"さっしー@YouTube集客&BGM"},
+ {id:"01KQHAZJKDBSY2SEKXKRTGA7C2", t:"【速報❗今だけ】GPT Imageが1か月無料かも！？キャンペーンの確認方法【ChatGPT】", cat:"ITリテラシー", likes:169, bm:299, date:"2026/05/01", auth:"Nao@あなたの夢を叶えるFP"},
+ {id:"01KQPCKJJ5DPSQ32WKAYMN75WW", t:"3年間の結果発表｜コツコツ積み上げたものは、ちゃんとつながってた話", cat:"その他稼ぐ力", likes:287, bm:277, date:"2026/05/03", auth:"Kaorii@オンライン秘書＆YT"},
+ {id:"01KSC5Q7JZDXRJEH9SMYPW3DD6", t:"オフ会に通い続けたら、AI自動化サポートで月10万円稼げるようになった話", cat:"人に会う・オフ会", likes:233, bm:333, date:"2026/05/24", auth:"さしー＠業務整理×自動化サポート"},
+ {id:"01KR92220Z05NKHPW1MMZ18TSA", t:"ブログ初心者がClaudeCodeを使っても稼げない3つの理由｜正しい使い方とは", cat:"ブログ・アフィリエイト", likes:259, bm:717, date:"2026/05/11", auth:"やましょ＠年内月300万"},
+ {id:"01KR0D4WDFF812VTE6NRJ062T9", t:"【YouTube】BGM始めて82日後に100万円達成。実際にやってる『地味だけど効く』小技17選", cat:"YouTube", likes:219, bm:1394, date:"2026/05/09", auth:"さっしー@YouTube集客&BGM"},
+ {id:"01KQY3BG9D2G3NJVHCKE9EG0CS", t:"Suno×DistroKidで本当に稼げる？ AI音楽配信10ヶ月で約125万円のリアル全公開🌟", cat:"コンテンツ販売", likes:276, bm:1017, date:"2026/05/06", auth:"おもちサラダ@YouTube×BGM"},
+ {id:"01KSGCV09KXWNERMKZ41G49VGW", t:"初副業で初ブログに挑戦した私の1年4ヶ月のリアル挑戦記", cat:"ブログ・アフィリエイト", likes:133, bm:153, date:"2026/05/27", auth:"おかなこ＠ブログ🐻"},
+ {id:"01KRANXGM4BHTMAMPJ9HAX03TJ", t:"肺がん手術「自己負担11万円」の衝撃。医療保険は本当に必要か？", cat:"事故・病気", likes:165, bm:201, date:"2026/05/11", auth:"えるる@LINE構築xISD個性心理"},
+ {id:"01KS55VBR7GN5AH8G7X9V1R552", t:"47歳の誕生日に、子どもたちからのお手紙。｜父親としての在り方", cat:"寄付・プレゼント", likes:122, bm:107, date:"2026/05/21", auth:""},
+ {id:"01KS0Y7KQH4NTGFMMY4F5HJGMG", t:"【活用術】Googleカレンダー、そのまま使ってない？設定5分で一気に使いやすく📅", cat:"ITリテラシー", likes:163, bm:419, date:"2026/05/20", auth:""},
+ {id:"01KQRNQ1ERRCGA6Q203XH9P5P9", t:"【プロンプトあり】ストファイ結果をチャッピーでかわいくする方法", cat:"AIクリエイター", likes:95, bm:219, date:"2026/05/04", auth:"まな＠伝わる導線を作るデザイナー"},
+ {id:"01KSH6M3DW552RK89FK215MEJ9", t:"【見直し推奨】リベシティで「交流が広がる」プロフィールの3つのポイント", cat:"人に会う・オフ会", likes:161, bm:284, date:"2026/05/26", auth:"とうふ□@会社員で副業8年継続×行動"},
+ {id:"01KRCQ5AK7260N4VEVKD1S49KM", t:"転職しなくていい！？「転籍×昇進の合わせ技」で年収400万上げたサラリーマンの話", cat:"転職", likes:74, bm:80, date:"2026/05/14", auth:""},
+ {id:"01KR60701PP6W13VKDFW5G3TNB", t:"家事按分がきっかけ！クロコと作った「超かわいい在宅管理アプリ」🐱", cat:"AI基礎", likes:74, bm:137, date:"2026/05/09", auth:"ねこやん🐱@初心者さんサポート"},
+ {id:"01KRZJ15543Y7N9CMW902R5CWR", t:"パソコン初心者🔰の私がブログを始めて変わったこと", cat:"ITリテラシー", likes:85, bm:135, date:"2026/05/22", auth:""},
+ {id:"01KQ4ATQRV29NBJE8ZKNG3TY2G", t:"楽天ROOM 15か月で累計60万円稼いだ私の全記録【月別データあり】", cat:"ブログ・アフィリエイト", likes:100, bm:185, date:"2026/05/01", auth:""},
+ {id:"01KRWH7MR7RBB1AK6QFNV7YPZ6", t:"LINEスタンプ・絵文字の面倒な作業をアプリで一撃変換、収益化しよう！", cat:"コンテンツ販売", likes:91, bm:453, date:"2026/05/18", auth:"Kaz@初心者AIサポーター"}
+];
+
+// ===== キーワード自動仕分け（新しい記事を足しても自動分類） =====
+function classify(a){
+  const s=a.cat+" "+a.t;
+  // お得・節約・お金を守る（保険/医療/値上げ等）を先に判定（「万円」誤検知を避けるため副業より前）
+  if(/無料|お得|節約|ポイ活|ポイント還元|ポイントサイト|割引|保険|医療費|ふるさと納税|固定費|電気代|光熱費|安く|キャンペーン|セール|還元|値上げ|市場価格|自己負担/.test(s)) return "deal";
+  if(/副業|稼[ぐげい]|収益|月\d+万|円稼|独立|フリーランス|せどり|物販|ブログ|アフィリ|YouTube|BGM|配信|販売|ROOM|転職|転籍|年収|稼ぐ力/.test(s)) return "job";
+  if(/Claude|ChatGPT|チャッピー|クロコ|AI|プロンプト|時短|小ワザ|活用術|活用|設定|カレンダー|アプリ|自動化|効率|選択|消す方法/.test(s)) return "ai";
+  return "etc";
+}
+const BUCKETS = {
+  all:{label:"すべて",cls:""},
+  job:{label:"💼 副業・稼ぐ",cls:"b-job"},
+  deal:{label:"💰 お得・節約",cls:"b-deal"},
+  ai:{label:"🛠 スキル・AI",cls:"b-ai"},
+  etc:{label:"🤝 交流・その他",cls:"b-etc"}
+};
+ARTICLES.forEach(a=>a.bucket=classify(a));
+
+let curFilter="all";
+function render(){
+  const sort=document.getElementById('sort').value;
+  let list=ARTICLES.filter(a=>curFilter==="all"||a.bucket===curFilter);
+  list.sort((x,y)=> sort==="date" ? (y.date.localeCompare(x.date)) : (y[sort]-x[sort]));
+  document.getElementById('count').textContent = `${list.length}件を表示${curFilter!=="all"?`（${BUCKETS[curFilter].label}）`:""}　／　全${ARTICLES.length}件`;
+  document.getElementById('grid').innerHTML = list.map((a,i)=>{
+    const b=BUCKETS[a.bucket];
+    return `<div class="card">
+      <div class="rank ${i<3?'top':''}">${i+1}</div>
+      <div class="body">
+        <div class="tags"><span class="bucket ${b.cls}">${b.label}</span><span class="cat">${a.cat}</span></div>
+        <div class="ttl"><a href="https://library.libecity.com/articles/${a.id}" target="_blank" rel="noopener">${a.t}</a></div>
+        <div class="meta">
+          <span class="m bm">🔖 ${a.bm.toLocaleString()}</span>
+          <span class="m like">👍 ${a.likes.toLocaleString()}</span>
+          <span>${a.date}</span>
+          ${a.auth?`<span class="auth">${a.auth}</span>`:""}
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+// フィルタボタン生成
+document.getElementById('filters').innerHTML = Object.keys(BUCKETS).map(k=>{
+  const n=k==="all"?ARTICLES.length:ARTICLES.filter(a=>a.bucket===k).length;
+  return `<button class="fbtn ${k==="all"?"active":""}" data-k="${k}">${BUCKETS[k].label} <span style="opacity:.7">${n}</span></button>`;
+}).join('');
+document.querySelectorAll('.fbtn').forEach(btn=>btn.onclick=()=>{
+  curFilter=btn.dataset.k;
+  document.querySelectorAll('.fbtn').forEach(b=>b.classList.toggle('active',b===btn));
+  render();
+});
+document.getElementById('sort').onchange=render;
+render();
+</script>
+</body>
+</html>
