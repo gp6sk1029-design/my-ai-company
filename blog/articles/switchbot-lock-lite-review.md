@@ -60,7 +60,7 @@ SwitchBot（スイッチボット）が展開する後付けスマートロッ�
 
 **タナカ[驚き]：** 「えっ、両面テープって…落ちません? 重力で。地震とかでドカンと落ちて、家に入れなくなったら困るんですけど」
 
-**オオタニ所長[通常]：** 「僕も最初それを疑った。でも採用されてるのは3M製の超強力VHBテープで、しっかり圧着すれば200g台の本体くらい余裕で支えられる強度になる。実際、**"重さで落ちた" 事例は公式コミュニティ・SNSを総当たりしても見つからなかった**。むしろ退去時に剥がすほうが一苦労なくらいだよ」
+**オオタニ所長[通常]：** 「僕も最初それを疑った。でも採用されてるのは3M製の超強力VHBテープで、しっかり圧着すれば200g台の本体くらい余裕で支えられる強度になる。実際、**"重さで落ちた" 事例は公式コミュニティ・SNSを総当たりしても見つからなかった**よ」
 
 <!-- wp:image {"id":913,"sizeSlug":"large","linkDestination":"none"} -->
 <figure class="wp-block-image size-large"><img src="https://www.ootanisatan.com/wp-content/uploads/2026/05/switchbot-3m-vhb-tape.jpg" alt="本体裏面の 3M VHB™ テープ（赤） ── 産業用の超強力両面テープ" class="wp-image-913"/><figcaption class="wp-element-caption">本体裏面の 3M VHB™ テープ（赤） ── 産業用の超強力両面テープ</figcaption></figure>
