@@ -55,12 +55,12 @@ SwitchBot（スイッチボット）が展開する後付けスマートロッ�
 私自身の体験で言うと、**つまずいたのは手順1の採寸だけ**だった。最初スペーサーなしで貼ったらサムターンとモーター軸の高さが合わず、空回りした。スペーサーを1枚噛ませたら一発で噛み合った。**「採寸を面倒がらずに最初にやる」**——これが15分で終わるか30分かかるかの分岐点だ。
 
 <!-- wp:image {"id":914,"sizeSlug":"large","linkDestination":"none"} -->
-<figure class="wp-block-image size-large"><img src="https://www.ootanisatan.com/wp-content/uploads/2026/05/switchbot-screwdriver-fix.jpg" alt="ドライバーでアダプターを固定 ── 手順3「サムターン固定」" class="wp-image-914"/><figcaption class="wp-element-caption">ドライバーでアダプターを固定 ── 手順3「サムターン固定」</figcaption></figure>
+<figure class="wp-block-image size-large"><img src="https://www.ootanisatan.com/wp-content/uploads/2026/05/switchbot-screwdriver-fix.jpg" alt="取り付け高さを調整しているところ ── 手順1「採寸・高さ合わせ」" class="wp-image-914"/><figcaption class="wp-element-caption">取り付け高さを調整しているところ ── 手順1「採寸・高さ合わせ」</figcaption></figure>
 <!-- /wp:image -->
 
 **タナカ[驚き]：** 「えっ、両面テープって…落ちません? 重力で。地震とかでドカンと落ちて、家に入れなくなったら困るんですけど」
 
-**オオタニ所長[通常]：** 「僕も最初それを疑った。だから採用されてるのが3M製の超強力VHBテープ。剥離紙を剥がして24時間圧着すれば、工具なしじゃまず剥がせない強度になる。本体重量は200g台で、テープの保持力はその数十倍。**"重さで落ちた" 事例は公式コミュニティ・SNSを総当たりしても見つからなかった**。むしろ退去時に剥がすほうが一苦労だ」
+**オオタニ所長[通常]：** 「僕も最初それを疑った。でも採用されてるのは3M製の超強力VHBテープで、しっかり圧着すれば200g台の本体くらい余裕で支えられる強度になる。実際、**"重さで落ちた" 事例は公式コミュニティ・SNSを総当たりしても見つからなかった**。むしろ退去時に剥がすほうが一苦労なくらいだよ」
 
 <!-- wp:image {"id":913,"sizeSlug":"large","linkDestination":"none"} -->
 <figure class="wp-block-image size-large"><img src="https://www.ootanisatan.com/wp-content/uploads/2026/05/switchbot-3m-vhb-tape.jpg" alt="本体裏面の 3M VHB™ テープ（赤） ── 産業用の超強力両面テープ" class="wp-image-913"/><figcaption class="wp-element-caption">本体裏面の 3M VHB™ テープ（赤） ── 産業用の超強力両面テープ</figcaption></figure>
