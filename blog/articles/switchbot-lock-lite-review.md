@@ -98,7 +98,7 @@ SwitchBot（スイッチボット）が展開する後付けスマートロッ�
 <figure class="wp-block-image size-large"><img src="https://www.ootanisatan.com/wp-content/uploads/2026/05/switchbot-fingerpad-keypad.jpg" alt="テンキー＋指紋センサー一体型の認証パッド" class="wp-image-916"/><figcaption class="wp-element-caption">テンキー＋指紋センサー一体型の認証パッド</figcaption></figure>
 <!-- /wp:image -->
 
-特筆すべきは**3のNFC解錠**。仕組みとしては、指紋認証パッドが Suica の FeliCa チップの固有IDを読み取り、登録済みIDと照合している。**指紋が濡れて反応しない雨の日でも、Suicaなら確実**——この冗長性が「結局いつでも開けられる」という安心につながる。
+特筆すべきは**3のNFC解錠**。仕組みとしては、指紋認証パッドが Suica の FeliCa チップの固有IDを読み取り、登録済みIDと照合している。**指紋が濡れて反応しない雨の日でも、Suicaなら確実**——こうして開ける手段がいくつも用意されていることが、「結局いつでも開けられる」という安心につながる。
 
 ### 「鍵を出す」動作が消える時短効果
 
