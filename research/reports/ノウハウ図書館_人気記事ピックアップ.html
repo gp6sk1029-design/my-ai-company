@@ -37,6 +37,8 @@
   .tags{display:flex;gap:6px;align-items:center;margin-bottom:5px;flex-wrap:wrap;}
   .bucket{font-size:10.5px;font-weight:700;border-radius:5px;padding:1px 7px;}
   .b-job{color:var(--job);background:var(--jobbg);} .b-deal{color:var(--deal);background:var(--dealbg);} .b-ai{color:var(--ai);background:var(--aibg);} .b-etc{color:var(--etc);background:var(--etcbg);}
+  .auto{font-size:10.5px;font-weight:700;border-radius:5px;padding:1px 7px;cursor:help;}
+  .auto-go{color:#0f7b3f;background:#e3f6ea;border:1px solid #9ad9b4;} .auto-part{color:#9a6a00;background:#fdf3da;border:1px solid #ecd08a;} .auto-no{color:#7b8794;background:#eef1f5;border:1px solid #d6dde6;}
   .cat{font-size:10.5px;color:var(--muted);border:1px solid var(--line);border-radius:5px;padding:1px 7px;}
   .ttl{font-size:14px;font-weight:700;line-height:1.45;margin-bottom:6px;}
   .ttl a{color:var(--text);text-decoration:none;} .ttl a:hover{color:var(--navy2);text-decoration:underline;}
@@ -72,6 +74,10 @@
         <option value="date">🆕 新しい順</option>
       </select>
     </div>
+  </div>
+  <div class="bar" style="margin-top:-4px">
+    <span style="font-size:12px;color:var(--muted);font-weight:700;">🤖 Claude Code自動化：</span>
+    <div class="filters" id="autofilters"></div>
   </div>
   <div class="count" id="count"></div>
   <div class="grid" id="grid"></div>
@@ -143,10 +149,40 @@ const BUCKETS = {
 };
 ARTICLES.forEach(a=>a.bucket=classify(a));
 
-let curFilter="all";
+// ===== Claude Code 自動化判定（automate.md 4ゲース基準で手動判定。go=ツール化向き/part=一部自動化可/no=不向き） =====
+const AUTO = {
+ "01KRXNGBB50HFK26Q4X77WKMX9":["no","体験談・コツ。自動化する定型作業ではない"],
+ "01KRBJ6J0Z9RR1RR37P0BRDAHM":["no","PC操作の単発tip。OS標準機能で完結"],
+ "01KQQ8BG8CX09MC2NSPMMJS340":["no","体験談（Claude活用の好例だが記事自体は読み物）"],
+ "01KQZNM5P5271SHPSY3S57YK6M":["go","適性診断アプリ＝Claude Codeで作れる典型。ツール化向き"],
+ "01KRQXV5AE3Q743NQBW1CVJAMC":["no","単発の設定tip。自動化不要"],
+ "01KSEZ7GB98EFP8FG4QXM7736G":["no","独立までのマインド・体験談"],
+ "01KRMZBJPXS0G5VQ94AZ5K0MWA":["part","BGM生成・投稿の一部を半自動化可。記事は心構え寄り"],
+ "01KQHAZJKDBSY2SEKXKRTGA7C2":["no","お得情報。自動化対象なし"],
+ "01KQPCKJJ5DPSQ32WKAYMN75WW":["no","3年間の振り返り・マインド"],
+ "01KSC5Q7JZDXRJEH9SMYPW3DD6":["part","\"AI自動化サポート\"自体がClaude Code案件。記事は体験談"],
+ "01KR92220Z05NKHPW1MMZ18TSA":["no","心構え記事（Claude Code関連の学びはあり）"],
+ "01KR0D4WDFF812VTE6NRJ062T9":["part","BGM制作・サムネ・概要欄の一部を自動化可"],
+ "01KQY3BG9D2G3NJVHCKE9EG0CS":["go","AI音楽生成→配信をパイプライン化しやすい（Suno+API）"],
+ "01KSGCV09KXWNERMKZ41G49VGW":["no","初ブログの体験談"],
+ "01KRANXGM4BHTMAMPJ9HAX03TJ":["no","お金の判断・情報。自動化対象なし"],
+ "01KS55VBR7GN5AH8G7X9V1R552":["no","家族・マインドの読み物"],
+ "01KS0Y7KQH4NTGFMMY4F5HJGMG":["no","単発の設定tip"],
+ "01KQRNQ1ERRCGA6Q203XH9P5P9":["part","プロンプト定型化→画像生成バッチに乗せられる（半自動）"],
+ "01KSH6M3DW552RK89FK215MEJ9":["no","交流のコツ。自動化対象なし"],
+ "01KRCQ5AK7260N4VEVKD1S49KM":["no","キャリアの体験談"],
+ "01KR60701PP6W13VKDFW5G3TNB":["go","在宅管理アプリ＝Claude Codeで作る事例そのもの"],
+ "01KRZJ15543Y7N9CMW902R5CWR":["no","PC初心者の体験談"],
+ "01KQ4ATQRV29NBJE8ZKNG3TY2G":["part","商品選定・投稿の一部を半自動化可（楽天ROOM規約に注意）"],
+ "01KRWH7MR7RBB1AK6QFNV7YPZ6":["go","画像一括変換アプリ＝Claude Codeで作れる収益化ツール"]
+};
+ARTICLES.forEach(a=>{ const x=AUTO[a.id]||["no",""]; a.autoLv=x[0]; a.autoWhy=x[1]; });
+const AUTO_LABEL = {go:"🟢 ツール化向き", part:"🟡 一部自動化可", no:"⚪ 自動化不向き"};
+
+let curFilter="all", autoFilter="all";
 function render(){
   const sort=document.getElementById('sort').value;
-  let list=ARTICLES.filter(a=>curFilter==="all"||a.bucket===curFilter);
+  let list=ARTICLES.filter(a=>(curFilter==="all"||a.bucket===curFilter)&&(autoFilter==="all"||a.autoLv===autoFilter));
   list.sort((x,y)=> sort==="date" ? (y.date.localeCompare(x.date)) : (y[sort]-x[sort]));
   document.getElementById('count').textContent = `${list.length}件を表示${curFilter!=="all"?`（${BUCKETS[curFilter].label}）`:""}　／　全${ARTICLES.length}件`;
   document.getElementById('grid').innerHTML = list.map((a,i)=>{
@@ -154,7 +190,7 @@ function render(){
     return `<div class="card">
       <div class="rank ${i<3?'top':''}">${i+1}</div>
       <div class="body">
-        <div class="tags"><span class="bucket ${b.cls}">${b.label}</span><span class="cat">${a.cat}</span></div>
+        <div class="tags"><span class="auto auto-${a.autoLv}" title="${a.autoWhy}">${AUTO_LABEL[a.autoLv]}</span><span class="bucket ${b.cls}">${b.label}</span><span class="cat">${a.cat}</span></div>
         <div class="ttl"><a href="https://library.libecity.com/articles/${a.id}" target="_blank" rel="noopener" onclick="return openArt(event, this.href)">${a.t}</a></div>
         <div class="meta">
           <span class="m bm">🔖 ${a.bm.toLocaleString()}</span>
@@ -171,9 +207,20 @@ document.getElementById('filters').innerHTML = Object.keys(BUCKETS).map(k=>{
   const n=k==="all"?ARTICLES.length:ARTICLES.filter(a=>a.bucket===k).length;
   return `<button class="fbtn ${k==="all"?"active":""}" data-k="${k}">${BUCKETS[k].label} <span style="opacity:.7">${n}</span></button>`;
 }).join('');
-document.querySelectorAll('.fbtn').forEach(btn=>btn.onclick=()=>{
+document.querySelectorAll('#filters .fbtn').forEach(btn=>btn.onclick=()=>{
   curFilter=btn.dataset.k;
-  document.querySelectorAll('.fbtn').forEach(b=>b.classList.toggle('active',b===btn));
+  document.querySelectorAll('#filters .fbtn').forEach(b=>b.classList.toggle('active',b===btn));
+  render();
+});
+// 自動化フィルタ生成
+const AUTO_FILTERS={all:"すべて", go:"🟢 ツール化向き", part:"🟡 一部自動化可", no:"⚪ 不向き"};
+document.getElementById('autofilters').innerHTML = Object.keys(AUTO_FILTERS).map(k=>{
+  const n=k==="all"?ARTICLES.length:ARTICLES.filter(a=>a.autoLv===k).length;
+  return `<button class="fbtn ${k==="all"?"active":""}" data-a="${k}">${AUTO_FILTERS[k]} <span style="opacity:.7">${n}</span></button>`;
+}).join('');
+document.querySelectorAll('#autofilters .fbtn').forEach(btn=>btn.onclick=()=>{
+  autoFilter=btn.dataset.a;
+  document.querySelectorAll('#autofilters .fbtn').forEach(b=>b.classList.toggle('active',b===btn));
   render();
 });
 document.getElementById('sort').onchange=render;
