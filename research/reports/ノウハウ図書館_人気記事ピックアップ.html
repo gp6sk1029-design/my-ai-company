@@ -86,6 +86,17 @@
 </div>
 
 <script>
+// リンクを確実に開く：新規タブ→ブロックされたら最上位フレーム→それも不可なら同フレームで遷移
+function openArt(e, url){
+  if(e) e.preventDefault();
+  try{
+    var w = window.open(url, '_blank', 'noopener');
+    if(w){ return false; }            // 新規タブで開けた
+  }catch(_){}
+  try{ window.top.location.href = url; return false; }  // 埋め込み枠を抜けて遷移
+  catch(_){ window.location.href = url; return false; } // 同フレームで遷移
+}
+
 // ===== 人気記事データ（月間ランキング・2026-05-31取得）。来月は再取得してここを差し替え =====
 const ARTICLES = [
  {id:"01KRXNGBB50HFK26Q4X77WKMX9", t:"【YouTubeで月220万円】コツコツが一番のコツ。最後まで立っていた者が勝者。", cat:"YouTube", likes:621, bm:1523, date:"2026/05/19", auth:"せいじぃ@今年は稼ぐぜぃ"},
@@ -144,7 +155,7 @@ function render(){
       <div class="rank ${i<3?'top':''}">${i+1}</div>
       <div class="body">
         <div class="tags"><span class="bucket ${b.cls}">${b.label}</span><span class="cat">${a.cat}</span></div>
-        <div class="ttl"><a href="https://library.libecity.com/articles/${a.id}" target="_blank" rel="noopener">${a.t}</a></div>
+        <div class="ttl"><a href="https://library.libecity.com/articles/${a.id}" target="_blank" rel="noopener" onclick="return openArt(event, this.href)">${a.t}</a></div>
         <div class="meta">
           <span class="m bm">🔖 ${a.bm.toLocaleString()}</span>
           <span class="m like">👍 ${a.likes.toLocaleString()}</span>
