@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>リベ関係まとめ ポータル｜できることリスト</title>
+<style>
+  :root{
+    --bg:#f5f7fb; --card:#fff; --line:#e5eaf1; --text:#1f2937; --muted:#667085;
+    --navy:#1f5fa6; --navy2:#2b75c9;
+    --c1:#2563eb; --c1b:#eaf1fd; --c2:#d9822b; --c2b:#fdf3e7; --c3:#0f9d58; --c3b:#e9f7ef; --c4:#6d4ed6; --c4b:#f1ecfc;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--bg);color:var(--text);font-family:"Hiragino Kaku Gothic ProN","Yu Gothic",-apple-system,sans-serif;line-height:1.65;}
+  .topbar{background:linear-gradient(100deg,#1f5fa6,#2b75c9);color:#fff;padding:18px 24px;}
+  .topbar h1{font-size:20px;font-weight:800;}
+  .topbar .sub{font-size:12.5px;color:#dbeafe;margin-top:4px;}
+  .wrap{max-width:1000px;margin:0 auto;padding:20px 16px 50px;}
+
+  .hint{background:#fffbeb;border:1px solid #fcd34d;border-radius:10px;padding:10px 14px;margin-bottom:18px;color:#92400e;font-size:12.5px;}
+  .hint b{color:#b45309;}
+
+  .summary{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin-bottom:22px;}
+  .summary h2{font-size:15px;color:var(--navy);margin-bottom:10px;}
+  .summary ul{list-style:none;display:grid;grid-template-columns:1fr 1fr;gap:8px 18px;}
+  .summary li{font-size:13px;padding-left:22px;position:relative;}
+  .summary li::before{content:"✅";position:absolute;left:0;}
+
+  .sec{font-size:13px;color:var(--muted);font-weight:700;margin:6px 0 12px;}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+  .tool{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;display:flex;flex-direction:column;box-shadow:0 2px 8px rgba(20,40,80,.05);}
+  .tool .top{display:flex;align-items:center;gap:12px;margin-bottom:10px;}
+  .ic{flex:none;width:46px;height:46px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:24px;}
+  .i1{background:var(--c1b);} .i2{background:var(--c2b);} .i3{background:var(--c3b);} .i4{background:var(--c4b);}
+  .tool h3{font-size:15.5px;font-weight:800;}
+  .tool .tagrow{margin-top:3px;}
+  .tag{font-size:10.5px;font-weight:700;border-radius:5px;padding:1px 8px;}
+  .t1{color:var(--c1);background:var(--c1b);} .t2{color:var(--c2);background:var(--c2b);} .t3{color:var(--c3);background:var(--c3b);} .t4{color:var(--c4);background:var(--c4b);}
+  .tool .desc{font-size:13px;color:#374151;margin-bottom:10px;}
+  .tool ul{list-style:none;margin-bottom:14px;}
+  .tool li{font-size:12.5px;padding:2px 0 2px 18px;position:relative;color:#374151;}
+  .tool li::before{content:"▸";position:absolute;left:2px;color:var(--navy2);}
+  .tool .foot{margin-top:auto;display:flex;align-items:center;gap:10px;}
+  .open{background:var(--navy);color:#fff;text-decoration:none;border-radius:8px;padding:8px 16px;font-weight:700;font-size:13px;}
+  .open:hover{background:var(--navy2);}
+  .when{font-size:11px;color:var(--muted);}
+
+  .note{margin-top:22px;background:var(--card);border:1px solid var(--line);border-left:4px solid var(--navy);border-radius:10px;padding:13px 16px;font-size:12.5px;color:#374151;}
+  .note b{color:var(--navy);}
+  .disc{font-size:11.5px;color:var(--muted);margin-top:10px;}
+  footer{margin-top:24px;padding-top:14px;border-top:1px solid var(--line);color:var(--muted);font-size:11px;text-align:center;}
+  @media(max-width:680px){ .grid,.summary ul{grid-template-columns:1fr;} }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <h1>🦁 リベ関係まとめ ポータル</h1>
+  <div class="sub">リベシティ関連で作ったツール・まとめの入口。今できることの一覧</div>
+</div>
+<div class="wrap">
+
+  <div class="hint">
+    💡 各ツールの「<b>開く</b>」やリンクは、<b>このファイルをChromeで開いて</b>使ってください（IDEのプレビュー枠では外部移動がブロックされます）。
+  </div>
+
+  <div class="summary">
+    <h2>📋 今できるようになったこと</h2>
+    <ul>
+      <li>学長マガジンの要点（Q&A・高配当株の考え方）を蓄積・閲覧</li>
+      <li>学長の高配当株モデルPFを月ごとに比較（入れ替え・利回り）</li>
+      <li>自分の保有銘柄と学長モデルPFの差分を確認</li>
+      <li>ノウハウ図書館の人気記事を副業・お得・スキルで仕分け</li>
+      <li>人気記事が Claude Code で自動化・ツール化できるか判定</li>
+      <li>気になった記事は元ページへワンクリックで移動</li>
+    </ul>
+  </div>
+
+  <div class="sec">🛠 作ったツール・まとめ（4本）</div>
+  <div class="grid" id="grid"></div>
+
+  <div class="note">
+    🗂 <b>裏側のデータ・ルール</b>（自動で参照）：学長メソッド台帳／高配当株メソッド台帳／自動化判定は <code>research/MEMORY.md</code> に、収集手順は <code>research/skills/collect.md・digest.md</code> に記録済み。毎月の更新もこの仕組みで再現できます。
+    <div class="disc">🚨 すべて私的利用限定。学長の図解・記事本文は転載せず要約／タイトル＋リンクのみ。投資助言ではなく事実の記録です。最終判断はご自身で。</div>
+  </div>
+
+  <footer>リベ関係まとめポータル｜生産技術ガジェット研究所 リサーチ部門｜2026-06-02</footer>
+</div>
+
+<script>
+function openArt(e, url){
+  if(e) e.preventDefault();
+  try{ var w=window.open(url,'_blank','noopener'); if(w){ return false; } }catch(_){}
+  try{ window.top.location.href=url; return false; }catch(_){ window.location.href=url; return false; }
+}
+const TOOLS = [
+ {ic:"📰", ick:"1", tag:"学長マガジン", tagk:"1", title:"学長メソッド研究まとめ",
+  file:"学長メソッド研究まとめ.html", when:"随時更新",
+  desc:"学長マガジンのQ&Aと、高配当株マガジンの『考え方』を自分の言葉で要約・蓄積した読み物。",
+  feats:["5/28ライブQ&A 全10問をジャンル別に整理","高配当株の相場観・判断基準の記録","投資助言ではなく事実の記録"]},
+ {ic:"💰", ick:"2", tag:"高配当株", tagk:"2", title:"高配当株ポートフォリオ比較（4月→5月）",
+  file:"高配当株ポートフォリオ比較_4月vs5月.html", when:"単発レポート",
+  desc:"学長モデルポートフォリオの4月→5月の変化をまとめた比較レポート。",
+  feats:["構成34銘柄の入れ替え（今回は0件）","PF配当利回り 4.03%→4.16%","年間配当の増減を可視化"]},
+ {ic:"📊", ick:"3", tag:"月次・保有比較", tagk:"3", title:"高配当株マガジン 月次比較ビューア",
+  file:"高配当株マガジン_月次比較ビューア.html", when:"毎月更新できる",
+  desc:"モデルPFの月次推移と、自分の保有との差分を切り替えて見られるビューア。",
+  feats:["①任意の2か月を選んで構成・利回りを比較","②自分の保有75銘柄 vs 学長PF（未保有/共通/自分のみ）","保有を貼り付けて再計算もできる"]},
+ {ic:"📚", ick:"4", tag:"人気記事＋自動化判定", tagk:"4", title:"ノウハウ図書館 人気記事ピックアップ",
+  file:"ノウハウ図書館_人気記事ピックアップ.html", when:"毎月更新できる",
+  desc:"ノウハウ図書館の人気記事を仕分けし、Claude Codeで自動化できるかも判定。",
+  feats:["人気24記事を 副業/お得/スキル/交流 で絞り込み","🤖 Claude Code自動化：🟢ツール化向き4・🟡一部5・⚪不向き15","保存数・いいね・新着で並び替え／元記事へリンク"]}
+];
+document.getElementById('grid').innerHTML = TOOLS.map(t=>`
+  <div class="tool">
+    <div class="top">
+      <div class="ic i${t.ick}">${t.ic}</div>
+      <div>
+        <h3>${t.title}</h3>
+        <div class="tagrow"><span class="tag t${t.tagk}">${t.tag}</span></div>
+      </div>
+    </div>
+    <div class="desc">${t.desc}</div>
+    <ul>${t.feats.map(f=>`<li>${f}</li>`).join('')}</ul>
+    <div class="foot">
+      <a class="open" href="./${encodeURIComponent(t.file)}" target="_blank" rel="noopener" onclick="return openArt(event,this.href)">開く ↗</a>
+      <span class="when">${t.when}</span>
+    </div>
+  </div>`).join('');
+</script>
+</body>
+</html>

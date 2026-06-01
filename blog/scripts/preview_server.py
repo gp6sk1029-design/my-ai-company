@@ -70,7 +70,7 @@ TANAKA_IMG = {
     10: "新人タナカ ドヤ顔.png",
 }
 OOTANI_EXPR = {'通常': 1, 'ドヤ顔': 2, '悩む': 3, '焦り': 4, '恥ずかしい': 5}
-TANAKA_EXPR = {'通常': 6, '驚き': 7, '絶望': 8, '怪しげ': 9, 'ドヤ顔': 10}
+TANAKA_EXPR = {'通常': 6, '驚き': 7, '絶望': 8, '怪しげ': 9, 'ニヤ顔': 9, 'ドヤ顔': 10}
 
 
 def choose_ootani_expression(text: str) -> int:
@@ -198,7 +198,7 @@ def render_body(md: str) -> tuple[str, str]:
             flush_list(); flush_check()
             out.append(ootani_bubble(OOTANI_EXPR[m.group(1)], m.group(2)))
             i += 1; continue
-        m = re.match(r'\*\*タナカ\[(通常|驚き|絶望|怪しげ|ドヤ顔)\][：:]\*\*\s*[「\s]*(.*?)[」]?\s*$', line)
+        m = re.match(r'\*\*タナカ\[(通常|驚き|絶望|怪しげ|ニヤ顔|ドヤ顔)\][：:]\*\*\s*[「\s]*(.*?)[」]?\s*$', line)
         if m:
             flush_list(); flush_check()
             out.append(tanaka_bubble(TANAKA_EXPR[m.group(1)], m.group(2)))
