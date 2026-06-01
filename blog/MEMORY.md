@@ -60,7 +60,7 @@
 | 2 | huawei-gt-runner2-review.md | 【10km実走データ】HUAWEI GT Runner 2 | 703 | - | 2026/04/21 | 下書き |
 | 3 | keychron-k1max-jis-setup-guide.md | Keychron K1 Max 設定編｜1台で4配列を切替する完全ガイド｜年21万円の時短 | 836 | https://www.ootanisatan.com/?p=836 | 2026/05/11 | **公開**（カテゴリ：ガジェット研究室+時短ツール研究室／アイキャッチmedia_id=837） |
 | 4 | mx-ergo-s-settings-guide.md | MX ERGO S 設定編｜Logi Options+ で年6万円の時短を生むカスタマイズ術 | 873 | https://www.ootanisatan.com/mx-ergo-s-settings-guide/ | 2026/05/17 | **公開**（カテゴリ：ガジェット研究室+時短ツール研究室／アイキャッチmedia_id=877 ChatGPT生成版／実機スクショ7枚埋込／時給950円基準ROI） |
-| 5 | switchbot-lock-lite-review.md | SwitchBot ロックLite 使用レビュー｜賃貸でも15分で取付完了、家中の鍵から解放される魔法 | 894 | https://www.ootanisatan.com/switchbot-lock-lite-review/ | 2026/05/26 | **公開**（カテゴリ：ガジェット研究室+時短ツール研究室／アイキャッチ media_id=896 Canva生成版／時給950円基準ROI 7ヶ月回収・5年で+10.25万円／Canva 2点：アイキャッチ DAHKxgUj4Oo・ROI流れ図 DAHKxrZu-Y0／Drive素材49枚・記事めしPWA経由で AI 編集予定／Markdown残骸0件） |
+| 5 | switchbot-lock-lite-review.md | SwitchBot ロックLite レビュー｜賃貸OK、鍵を持ち歩かない生活へ | **908** | https://www.ootanisatan.com/switchbot-lock-lite-review/ | 2026/05/26（最終更新 2026/06/02） | **公開**（カテゴリ：ガジェット研究室+時短ツール研究室／2026/06/02にローカルプレビュー見ながら大幅推敲：タイトル刷新（「魔法」等の煽り削除）・オートロックをタイマー式に事実修正・ROI数値統一（時給950円で約8.5ヶ月回収・5年約+8万円）・専門用語平易化・章重複解消／**Amazonアフィリリンク2本追加**（本体B0D3QT5RP2・電池PanasonicB08RC7DF53、tag=gp6sk1029-22）＋PR表記／タナカ吹き出しを低画質ドヤ顔→高画質ニヤ顔に差替／Markdown残骸0件） |
 
 > **台帳メンテナンスルール**
 > - 新規公開時に1行追加（必須）
