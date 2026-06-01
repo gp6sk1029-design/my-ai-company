@@ -299,9 +299,9 @@ def markdown_to_blocks(md_text: str) -> str:
             slot_map = {'通常':1,'ドヤ顔':2,'悩む':3,'焦り':4,'恥ずかしい':5}
             blocks.append(_build_ootani_block(slot_map[m.group(1)], m.group(2)))
             i += 1; continue
-        m = re.match(r'\*\*タナカ\[(通常|驚き|絶望|怪しげ|ドヤ顔)\][：:]\*\*[「\s]*(.*?)[」]?\s*$', line)
+        m = re.match(r'\*\*タナカ\[(通常|驚き|絶望|怪しげ|ニヤ顔|ドヤ顔)\][：:]\*\*[「\s]*(.*?)[」]?\s*$', line)
         if m:
-            slot_map = {'通常':6,'驚き':7,'絶望':8,'怪しげ':9,'ドヤ顔':10}
+            slot_map = {'通常':6,'驚き':7,'絶望':8,'怪しげ':9,'ニヤ顔':9,'ドヤ顔':10}
             blocks.append(_build_tanaka_block(slot_map[m.group(1)], m.group(2)))
             i += 1; continue
 
