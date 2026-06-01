@@ -25,16 +25,22 @@ mdを直してブラウザ自動リロード（WP往復なし）。装飾修正�
 
 ## 🔁 記事推敲→公開の標準ルーチン（2026-06-02 確立・公開前必須）
 
-「画面を見ながら直感的に推敲して本番公開する」標準フロー。新記事・既存記事の改稿どちらにも適用する。
+「素材集めから本番公開まで」一気通貫の標準フロー。新記事・既存記事の改稿どちらにも適用する。
 
 ```
+《準備フェーズ：記事めし》
+⓪-a 素材収集(撮影/スクショ) → ⓪-b PROMPT.md生成 → ⓪-c context.md化
+《制作フェーズ》
 ①執筆 → ②プレビュー起動 → ③画面を見ながら推敲 → ④事実確認 → ⑤修正ログ
 → ⑥アフィリリンク → ⑦ドライラン点検 → ⑧本番反映 → ⑨本番検証 → ⑩仕上げ
 ```
 
 | # | 工程 | 具体アクション |
 |---|---|---|
-| ① | 執筆 | mdを `blog/articles/` に作成。記事めし`PROMPT.md`最優先・前回記事スタイル踏襲・ROI table/キャラ対話/金額換算は必須 |
+| ⓪-a | 素材収集（記事めしPWA） | 商品写真・スクショを撮り、記事めしPWA（`blog-capture.pages.dev`）でGoogle Driveフォルダにアップロード。クリップボード貼付/ドラッグ&ドロップ対応。**ユーザーがブラウザで行う作業**（Claude in Chrome領域） |
+| ⓪-b | PROMPT.md生成（記事めしPWA） | PWAで「記事タイプ」＋「読者に伝えたいポイント（優先度順）」を入力 → Driveの画像フォルダに `PROMPT.md` が自動生成される |
+| ⓪-c | context.md化（執筆セッション） | `python3 blog/scripts/article_from_meshi.py --folder-id <Driveフォルダid> --slug <slug>` → PROMPT.md取得＋画像を役割タグ(eyecatch/hero/section/product/diagram/compare/ngsummary)で分類し `articles/{slug}_context.md` を生成。**Claudeはこの context.md を最初に読む** |
+| ① | 執筆 | context.md を基にmdを `blog/articles/` に作成。**記事めしメモは「種」、本文は深掘り**（MEMORY「記事めしメモは種」原則：各ポイントを仕組み/数値/理論/反論先回り/実体験で800〜1500字に展開）。前回記事スタイル踏襲・ROI table/キャラ対話/金額換算は必須 |
 | ② | プレビュー起動 | `python3 blog/scripts/preview_server.py` → Chrome MCPで `http://localhost:8794/preview/<slug>` を開く（Claudeも同画面を見る） |
 | ③ | 推敲ループ | ユーザーが画面を見て指示 → Claudeがmd修正 → 1.5秒で自動リロード。気が済むまで往復 |
 | ④ | 事実確認 | スペック・価格・設定範囲・対応規格は**公式 or 実機アプリで裏取り**。シリーズ品はモデルごと確認（例：ロックLiteはセンサー非搭載・タイマー式）。実機所有ユーザーの入力は正とする |
