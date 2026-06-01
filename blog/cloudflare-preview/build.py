@@ -71,6 +71,12 @@ _UL_TRIGGER = re.compile(r'[0-9]|[０-９]|¥|円|％|%|日|分|時間|週|月|�
 
 
 def md_inline(text: str) -> str:
+    # [文字](URL) → リンク（画像 ![]() は除外するため ! の直後はマッチさせない）
+    text = re.sub(
+        r'(?<!\!)\[([^\]]+)\]\((https?://[^)]+)\)',
+        r'<a href="\2" target="_blank" rel="noopener nofollow">\1</a>',
+        text,
+    )
     text = re.sub(r'\*\*\*(.+?)\*\*\*', lambda m: f'<strong class="jinr-emph">{m.group(1)}</strong>', text)
     def _bold(m):
         inner = m.group(1)

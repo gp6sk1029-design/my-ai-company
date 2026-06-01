@@ -31,6 +31,13 @@ def md_to_html_inline(text: str) -> str:
             + inner + '</span></strong>'
         )
 
+    # ⓪ [文字](URL) → リンク（画像 ![]() は除外するため ! の直後はマッチさせない）
+    text = re.sub(
+        r'(?<!\!)\[([^\]]+)\]\((https?://[^)]+)\)',
+        r'<a href="\2" target="_blank" rel="noopener nofollow sponsored">\1</a>',
+        text,
+    )
+
     # ① ***xxx*** → 水色アンダーライン付き strong（最優先）
     text = re.sub(r'\*\*\*(.+?)\*\*\*', lambda m: _wrap_underline(m.group(1)), text)
 
