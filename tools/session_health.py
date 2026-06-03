@@ -42,30 +42,40 @@ THRESHOLDS = {
 }
 
 
-def session_from_hook_stdin() -> Path | None:
+def session_from_hook_stdin() -> tuple[Path | None, bool]:
     """Claude Codeがhookのstdinに渡すJSONから現在セッションの正確なパスを取得。
 
     hookは {"session_id":..., "transcript_path":..., ...} をstdinに渡す。
     これが「現在のセッション」の唯一正確な情報源。
-    端末から手動実行した場合（stdinがTTY）はブロックせず None を返す。
+
+    戻り値: (jsonlパス, hook起動か)
+      - (Path, True)  : transcript_path が指すファイルが実在 → そのまま診断
+      - (None, True)  : hookは起動したが現セッションのjsonlがまだ無い/読めない
+                        ＝引き継ぎ直後など「中身ゼロの新セッション」。
+                        ⚠️ ここで mtime推測に逃げると前セッションの巨大ファイルを
+                        誤検出してCRIT表示になる（2026-06-02再発・修正）。よって
+                        呼び出し側は推測せず「健康（新品）」扱いにすること。
+      - (None, False) : stdinが空＝端末からの手動実行 → mtime推測フォールバック可。
     """
     import select
     try:
-        # stdinに即読めるデータがある時だけ読む（TTYならタイムアウト0で空＝Noneへ）
+        # stdinに即読めるデータがある時だけ読む（TTYならタイムアウト0で空＝手動実行）
         if not select.select([sys.stdin], [], [], 0.0)[0]:
-            return None
+            return None, False
         raw = sys.stdin.read()
         if not raw.strip():
-            return None
+            return None, False
         d = json.loads(raw)
         tp = d.get("transcript_path") or d.get("transcriptPath")
         if tp:
             p = Path(tp).expanduser()
             if p.exists():
-                return p
+                return p, True
+        # hookは起動したが transcript が未作成/読めない＝新セッション
+        return None, True
     except Exception:
-        pass
-    return None
+        # stdinはあったがJSON壊れ等。安全側に倒して「hook起動・対象不明」扱い
+        return None, True
 
 
 def find_current_session() -> Path | None:
@@ -222,14 +232,23 @@ def main() -> int:
     parser.add_argument("--session", type=Path, help="特定セッションを指定")
     args = parser.parse_args()
 
-    # 優先順位: ①--session明示指定 ②hookのstdin(transcript_path＝正確) ③mtime推測(最終手段)
+    # 優先順位: ①--session明示指定 ②hookのstdin(transcript_path＝正確)
+    #          ③hook起動だが対象未作成＝新セッション→健康扱い(推測しない)
+    #          ④stdinなし(手動実行)→mtime推測(最終手段)
     source = "arg"
     if args.session:
         jsonl = args.session
     else:
-        jsonl = session_from_hook_stdin()
+        jsonl, is_hook = session_from_hook_stdin()
         if jsonl:
             source = "hook"
+        elif is_hook:
+            # 🔴 引き継ぎ直後など「中身ゼロの新セッション」。
+            # 前セッションの巨大jsonlを推測検出してCRIT誤報するのを防ぐため、
+            # mtime推測には進まず健康(OK)として静かに抜ける。
+            if not args.quiet:
+                print("\n✅ セッション健康診断: OK（新セッション開始・容量ゼロ）")
+            return 0
         else:
             jsonl = find_current_session()
             source = "guess"
