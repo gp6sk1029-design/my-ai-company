@@ -56,7 +56,7 @@
 <body>
 <div class="topbar">
   <h1>📚 ノウハウ図書館 人気記事ピックアップ</h1>
-  <div class="sub">リベシティ ノウハウ図書館の人気記事を、副業・お得・スキルで仕分け　|　月間ランキング（2026年5月時点・保存数順）</div>
+  <div class="sub">リベシティ ノウハウ図書館の人気記事を、副業・お得・スキルで仕分け　|　直近3日ランキング（2026-06-03時点・保存数順・リベ日課更新）</div>
 </div>
 <div class="wrap">
 
@@ -87,7 +87,7 @@
     🔄 <b>更新</b>：来月以降は research セッションで図書館の月間ランキングを再取得し、下の <code>ARTICLES</code> に差し替えれば最新化できます（仕分けは自動）。
   </div>
   <footer>
-    出典：リベシティ ノウハウ図書館（library.libecity.com）月間ランキング／sort=保存数　|　取得 2026-05-31　|　タイトル＋反応数のみ・本文転載なし・私的利用限定
+    出典：リベシティ ノウハウ図書館（library.libecity.com）直近3日ランキング／sort=保存数　|　取得 2026-06-03（リベ日課）　|　タイトル＋反応数のみ・本文転載なし・私的利用限定
   </footer>
 </div>
 
@@ -151,30 +151,30 @@ ARTICLES.forEach(a=>a.bucket=classify(a));
 
 // ===== Claude Code 自動化判定（automate.md 4ゲース基準で手動判定。go=ツール化向き/part=一部自動化可/no=不向き） =====
 const AUTO = {
- "01KRXNGBB50HFK26Q4X77WKMX9":["no","体験談・コツ。自動化する定型作業ではない"],
- "01KRBJ6J0Z9RR1RR37P0BRDAHM":["no","PC操作の単発tip。OS標準機能で完結"],
- "01KQQ8BG8CX09MC2NSPMMJS340":["no","体験談（Claude活用の好例だが記事自体は読み物）"],
- "01KQZNM5P5271SHPSY3S57YK6M":["go","適性診断アプリ＝Claude Codeで作れる典型。ツール化向き"],
- "01KRQXV5AE3Q743NQBW1CVJAMC":["no","単発の設定tip。自動化不要"],
- "01KSEZ7GB98EFP8FG4QXM7736G":["no","独立までのマインド・体験談"],
- "01KRMZBJPXS0G5VQ94AZ5K0MWA":["part","BGM生成・投稿の一部を半自動化可。記事は心構え寄り"],
- "01KQHAZJKDBSY2SEKXKRTGA7C2":["no","お得情報。自動化対象なし"],
- "01KQPCKJJ5DPSQ32WKAYMN75WW":["no","3年間の振り返り・マインド"],
- "01KSC5Q7JZDXRJEH9SMYPW3DD6":["part","\"AI自動化サポート\"自体がClaude Code案件。記事は体験談"],
- "01KR92220Z05NKHPW1MMZ18TSA":["no","心構え記事（Claude Code関連の学びはあり）"],
- "01KR0D4WDFF812VTE6NRJ062T9":["part","BGM制作・サムネ・概要欄の一部を自動化可"],
- "01KQY3BG9D2G3NJVHCKE9EG0CS":["go","AI音楽生成→配信をパイプライン化しやすい（Suno+API）"],
- "01KSGCV09KXWNERMKZ41G49VGW":["no","初ブログの体験談"],
- "01KRANXGM4BHTMAMPJ9HAX03TJ":["no","お金の判断・情報。自動化対象なし"],
- "01KS55VBR7GN5AH8G7X9V1R552":["no","家族・マインドの読み物"],
- "01KS0Y7KQH4NTGFMMY4F5HJGMG":["no","単発の設定tip"],
- "01KQRNQ1ERRCGA6Q203XH9P5P9":["part","プロンプト定型化→画像生成バッチに乗せられる（半自動）"],
- "01KSH6M3DW552RK89FK215MEJ9":["no","交流のコツ。自動化対象なし"],
- "01KRCQ5AK7260N4VEVKD1S49KM":["no","キャリアの体験談"],
- "01KR60701PP6W13VKDFW5G3TNB":["go","在宅管理アプリ＝Claude Codeで作る事例そのもの"],
- "01KRZJ15543Y7N9CMW902R5CWR":["no","PC初心者の体験談"],
- "01KQ4ATQRV29NBJE8ZKNG3TY2G":["part","商品選定・投稿の一部を半自動化可（楽天ROOM規約に注意）"],
- "01KRWH7MR7RBB1AK6QFNV7YPZ6":["go","画像一括変換アプリ＝Claude Codeで作れる収益化ツール"]
+ "01KT2AVW9HJVGJM032AX1CVV6S":["no","ブラウザの単発設定tip。OS/拡張で完結"],
+ "01KSFG2FBV42WY2EMVGYC3APPB":["go","Suno×Claude CodeでAI音楽生成→配信を自動化＝ツール化の典型"],
+ "01KB79VWMSNZHH1Q24495SH72W":["no","案件獲得の体験談・ノウハウ。定型作業ではない"],
+ "01KSK9AH5QZC043T7VR1BE9ESC":["part","Claudeプロンプトのコツ→定型テンプレ化は半自動化可。記事は読み物"],
+ "01KT0HKQAT01CVFR2401T7YVPK":["no","マインド・学びの読み物"],
+ "01KSHS2G6RP8Z0CEC8WZVGY3CT":["part","案件管理方法の公開＝案件管理アプリ化の余地。記事は体験談"],
+ "01KSNZGVEP85J0X5EMX3H4FPWC":["no","転職の進め方・体験談"],
+ "01KT33QGW3WGSFPRYFREX3BS97":["go","診断アプリ＝Claude Codeで作れる典型（適性診断アプリと同型）"],
+ "01KT0WBDRDMZ3VHB807K0CBSGW":["part","AI画像生成の手順→プロンプト定型化でバッチ半自動化可"],
+ "01KT5YJQRP1BWPH3EM00BQEAHP":["no","子育て・お金教育の読み物"],
+ "01KSYEKZ4JQMMF6SPGSXHKXQ3P":["no","転職と家計管理の体験談"],
+ "01KT5XV359R0HQQQBXTBDGT8A9":["no","家計の毎日確認の話（可視化はlife-plan既存）"],
+ "01KT2NZ7MTVNNQED72K5Z0BNTJ":["no","バドミントン用品の選び方・読み物"],
+ "01KSZ1PSXR3ZDR417NTWHRG2B0":["no","NISA未着手の友人の話・読み物"],
+ "01KT5TX9P94EGFD2SW0DQ59XRS":["no","介護施設の選び方・専門解説"],
+ "01KT5F8RNAG8KFPFA26JEEP8DP":["no","バドミントンシューズの選び方・読み物"],
+ "01KT37J6X635GGQVXEHVWV3TPX":["no","海外トイレ事情の読み物"],
+ "01KT640KRAVT1TG4MZNA1SVJ4J":["no","D2C挑戦の体験談"],
+ "01KT3MFFPPZP5XJTS8MB3A3H3J":["no","介護面談の伝え方・体験談"],
+ "01KT3JKD57KXR1C9MDBB25GGEA":["no","保護猫の迎え方・読み物"],
+ "01KT17XQQ04202VKWQSH46132S":["no","AI学習を続けるマインドの読み物"],
+ "01KSZ4EMGBW212CQBAAMNAPWQ4":["go","クロコ（Claude Code）で文字数カウンターを作った＝ツール化事例そのもの"],
+ "01KT5NS2XMCS72EMANE94XAQJX":["no","矯正歯科医院の選び方・読み物"],
+ "01KT5JCGHDCJFHXQG94JSCWRNC":["no","クルーズ子連れ旅行の体験談"]
 };
 ARTICLES.forEach(a=>{ const x=AUTO[a.id]||["no",""]; a.autoLv=x[0]; a.autoWhy=x[1]; });
 const AUTO_LABEL = {go:"🟢 ツール化向き", part:"🟡 一部自動化可", no:"⚪ 自動化不向き"};
