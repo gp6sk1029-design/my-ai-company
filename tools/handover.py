@@ -169,6 +169,13 @@ SESSION_ROLES = {
         "keywords": ["SNS", "X", "Instagram", "YouTube", "投稿", "ハッシュタグ"],
         "out_of_scope": "記事本文執筆・出品作業",
     },
+    "research": {
+        "name": "リサーチセッション",
+        "scope": "リベシティ等の副業ネタ収集・掛け合わせ創造・自動化案件抽出・学長メソッド研究（リベ日課）",
+        "files": ["research/SKILL.md", "research/MEMORY.md"],
+        "keywords": ["リベ", "リベシティ", "ノウハウ図書館", "副業ネタ", "学長", "高配当株", "リベ日課", "research", "掛け合わせ"],
+        "out_of_scope": "記事本文執筆・出品作業・ツール実装（提案はtoolsへ送出）・全社ルール変更",
+    },
     "infra": {
         "name": "インフラ・全体管理セッション",
         "scope": "hooks・global_rules・session_health・handover等の社内基盤",
