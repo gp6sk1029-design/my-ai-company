@@ -288,12 +288,23 @@
       const roleBadge = (curRoleKey !== 'none'
         ? `<div class="role-badge" style="background:${roleDef.color}" title="${roleDef.label}">${roleDef.emoji} ${roleDef.label}</div>`
         : '');
+      // 比較ロールのときだけ「どの製品の写真か」を選ぶセレクタを表示（製品1〜4）
+      const compareSelHtml = (curRoleKey === 'compare')
+        ? '<select class="compare-idx-sel" title="どの製品の写真か" ' +
+          'style="position:absolute;left:4px;bottom:4px;z-index:6;font-size:11px;padding:2px 5px;' +
+          'border-radius:6px;border:1px solid #ec4899;background:#fff;color:#111;">' +
+          '<option value="">製品?</option>' +
+          [1, 2, 3, 4].map(i =>
+            `<option value="${i}"${String(item.compareIndex) === String(i) ? ' selected' : ''}>製品${i}</option>`
+          ).join('') +
+          '</select>'
+        : '';
       div.insertAdjacentHTML('beforeend',
         '<span class="type-badge">' + (isVideo ? 'VID' : isPdf ? 'PDF' : 'IMG') + '</span>' +
         editBtnHtml + roleBtnHtml +
         '<button class="delete-btn" type="button">✕</button>' +
         (item.status === 'uploading' ? '<div class="status-overlay">転送中…</div>' : '') +
-        editingBadge + replaceBadge + roleBadge
+        editingBadge + replaceBadge + roleBadge + compareSelHtml
       );
       div.querySelector('.delete-btn').addEventListener('click', async (e) => {
         e.stopPropagation();
@@ -312,6 +323,21 @@
         e.stopPropagation();
         await cycleRole(item.id);
       });
+      const cmpSel = div.querySelector('.compare-idx-sel');
+      if (cmpSel) {
+        cmpSel.addEventListener('click', (e) => e.stopPropagation());
+        cmpSel.addEventListener('change', async (e) => {
+          e.stopPropagation();
+          const v = e.target.value;
+          const all = await queueAll();
+          const t = all.find(x => x.id === item.id);
+          if (t) {
+            t.compareIndex = v ? Number(v) : null;
+            await queuePut(t);
+            showToast(v ? `この写真を「製品${v}」に割り当て` : '製品割当を解除', 'success');
+          }
+        });
+      }
       queueList.appendChild(div);
     }
   }
@@ -356,6 +382,8 @@
     target.role = next.key;
     // 互換: eyecatch のみ isEyecatch も維持
     target.isEyecatch = (next.key === 'eyecatch');
+    // 「比較」以外になったら製品割当をクリア
+    if (next.key !== 'compare') target.compareIndex = null;
     await queuePut(target);
     await renderQueue();
     if (next.key === 'none') {
@@ -1349,8 +1377,8 @@
       mood:  ['配色',         '例：青菱形＋オレンジ結論'],
     },
     compare: {
-      title: ['比較タイトル', '例：スマートロック3製品比較'],
-      main:  ['比較対象3つ',  '例：ロックLite / ロックPro / Qrio Lock'],
+      title: ['比較タイトル', '例：スマートロック比較'],
+      main:  ['比較対象（2〜4個を / 区切り）',  '例：ロックLite / ロックPro / Qrio Lock'],
       sub:   ['補足',         '例：価格は2026年5月時点'],
       mood:  ['配色',         '例：白背景＋勝者オレンジ強調'],
     },
@@ -1640,20 +1668,36 @@ ${mood || '背景 薄青 #eff6ff / ボックス1-3 白＋青枠 #1d4ed8 / ボッ
 【スタイル】McKinsey 風コンサル資料 / インフォグラフィック上位1%の質感。
 ${COMMON_GUARDS}`,
 
-    compare: ({title, main, sub, mood}) => `# 比較表ビジュアル（3列カード・勝者強調）
+    compare: ({title, main, sub, mood}) => {
+      // 比較対象を「/」区切りで分割し、2〜4個に自動調整（比較数 = 入力した製品名の数）
+      const products = (main || '').split('/').map(s => s.trim()).filter(Boolean);
+      const n = Math.min(4, Math.max(2, products.length || 3));
+      const names = products.length
+        ? products.slice(0, n)
+        : Array.from({ length: n }, (_, i) => '製品' + String.fromCharCode(65 + i));
+      const cardW = n <= 2 ? 420 : (n === 3 ? 320 : 260);
+      // 製品ごとの実写真割り当て指示（compare_p1_*, compare_p2_* … にひも付け）
+      const photoLines = names.map((nm, i) =>
+        `  - 製品${i + 1}「${nm}」：アップロード済み実機写真 compare_p${i + 1}_*.jpg をカード上部のヘッダー画像として使用`
+      ).join('\n');
+      return `# 比較表ビジュアル（${n}列カード・勝者強調）
 
 【出力仕様】1200×630px / PNG / 白背景
 
 【構図】
 - 上部 1/8：タイトル
-- 中央 6/8：3カラム比較カード（各カード幅 320px、間隔 40px）
+- 中央 6/8：${n}カラム比較カード（各カード幅 約${cardW}px・間隔 32px・横並び均等）
 - 下部 1/8：補足
 
-【3カードの構造】各カードは縦長丸角矩形（角丸16px）
-- ヘッダー：製品名／選択肢名（${main || '製品A, 製品B, 製品C'}）
+【${n}カードの構造】各カードは縦長丸角矩形（角丸16px）
+- ヘッダー：製品名（${names.join(' / ')}）＋下記の実機写真
 - 4-5項目の比較行（左：項目名グレー / 右：値）
 - ★最優秀カードはオレンジ枠＋「BEST」リボン（右上）
 - 各項目：勝者はオレンジ #f97316 太字、敗者はグレー #6b7280
+
+【製品写真の割り当て】各カードのヘッダーには、対応する実機写真を配置すること：
+${photoLines}
+※ 写真が未アップロードの製品は、製品名のみのテキストヘッダーで代用
 
 【テキスト】
 - タイトル（28-36pt・青 #1d4ed8 極太）：「${title || '製品比較'}」
@@ -1663,7 +1707,8 @@ ${COMMON_GUARDS}`,
 ${mood || '白背景 / カード枠 グレー #e5e7eb / BESTカードのみ オレンジ枠 #f97316＋薄オレンジ背景 #fff7ed / ヘッダー 青 #1d4ed8 ベタ＋白文字'}
 
 【スタイル】Wirecutter / The Verge の比較表記事レベル。表の整列が完璧で目線が自然に流れる。
-${COMMON_GUARDS}`,
+${COMMON_GUARDS}`;
+    },
 
     ngsummary: ({title, main, sub, mood}) => `# NG集サマリ図（やってはいけない4つ・警告系）
 
@@ -2292,7 +2337,10 @@ ${COMMON_GUARDS}`,
       const roleKey = normalizeItemRole(it);
       if (roleKey === 'none') continue;
       const def = getRoleDef(roleKey);
-      const prefix = def.prefix;
+      // 比較ロールで製品番号が割り当てられていれば compare_p{n}_ にする
+      const prefix = (roleKey === 'compare' && it.compareIndex)
+        ? 'compare_p' + it.compareIndex + '_'
+        : def.prefix;
       if (prefix && !new RegExp('^' + prefix, 'i').test(it.originalName || '')) {
         it.originalName = prefix + (it.originalName || (roleKey + '.png'));
         await queuePut(it);
@@ -2396,8 +2444,26 @@ ${COMMON_GUARDS}`,
         for (const def of ROLE_DEFS) {
           if (def.key === 'none' || !roleUploadMap[def.key]) continue;
           const list = roleUploadMap[def.key];
-          const desc = list.map(f => f.name + (f.fileId ? ` (fileId: ${f.fileId})` : '')).join(', ');
-          newNotes.push(`${def.label}: ${desc}`);
+          if (def.key === 'compare') {
+            // 比較表は製品ごとに行を分け、製品名（比較対象欄）も併記する
+            const mainVal = ((document.getElementById('ai-var-main') || {}).value
+              || (document.getElementById('banner-var-main') || {}).value || '');
+            const pnames = mainVal.split('/').map(s => s.trim()).filter(Boolean);
+            const lines = list.map(f => {
+              const m = /compare_p(\d+)_/i.exec(f.name);
+              const fid = f.fileId ? ` (fileId: ${f.fileId})` : '';
+              if (m) {
+                const i = Number(m[1]);
+                const nm = pnames[i - 1] ? `（${pnames[i - 1]}）` : '';
+                return `  製品${i}${nm}: ${f.name}${fid}`;
+              }
+              return `  ${f.name}${fid}`;
+            });
+            newNotes.push(`${def.label}:\n${lines.join('\n')}`);
+          } else {
+            const desc = list.map(f => f.name + (f.fileId ? ` (fileId: ${f.fileId})` : '')).join(', ');
+            newNotes.push(`${def.label}: ${desc}`);
+          }
         }
         // 上部に挿入（優先度高い扱い）
         memos = [...newNotes, ...memos];
