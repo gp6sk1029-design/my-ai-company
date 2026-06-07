@@ -153,6 +153,13 @@
 - 2026/05/04: **ChatGPT高品質ロゴを本番ヘッダーに反映成功**。フロー：ChatGPTで生成→オーナーがGoogle Driveのダウンロードフォルダに右クリック保存（10秒手動・1916×821・PNG・1.5MB）→PDMが検知→PIL で1200×514にリサイズ＋PNG最適化（427KB→WAF回避）→WP REST APIアップ（media_id=774）→ JIN:R Customizer `jinr__header_logo_url` 更新→公開。標準フロー「①AI生成 ②（Canva仕上げ）③リサイズ ④WP反映」の③④を自動化、①②をオーナー作業に委ねるのが最効率
 - 2026/05/04: ロゴ生成の手段比較：(A) Pillow直接 = 完全自動だが品質6-8.5/10、(B) ChatGPT Web UI + 手動保存 = 品質9-10/10・1ステップ手動、(C) OpenAI API直接 = 完全自動・品質9-10/10・$0.02/枚。長期的には (C) が理想だがAPIキー要発行
 
+- 2026/06/08：**記事めしPWA「比較表ビジュアル」を2〜4製品＋製品ごと実写真ひも付けに改修**（app.jsのみ）。
+  - 比較数は専用セレクタを足さず「比較対象欄の `/` 区切り製品名の数」で自動判定（2〜4にクランプ・5個以上は4・空欄は3）。HTML/CSS追加ゼロで実現でき壊れにくい。
+  - 画像役割「⚖️ 比較」を選ぶと renderQueue 内で「製品1〜4」セレクタ（compare-idx-sel）を動的描画。選ぶと item.compareIndex を保存→アップ時ファイル名 `compare_p{n}_◯◯.jpg`→PROMPT.md に「製品n（製品名）: 写真」と製品ごと記録。
+  - **学び：画像役割タグ→ファイル名prefix→roleUploadMap→memos配列→savePrompt の経路を使えば、PROMPT.mdへの追記はGAS改修不要でクライアント側だけで完結する**（compareの製品別行もこの経路で実現）。GAS(savePrompt)が送るのは articleType + memosJson のみ。
+  - 触った関数：TEMPLATE_FIELDS.compare / AI_TEMPLATES.compare（矢印関数を本体ブロック化しnを動的算出）/ renderQueue（セレクタ描画＋change保存）/ cycleRole（非compareでcompareIndexクリア）/ uploadAll（prefix分岐＋newNotes製品別）。
+  - 検証：`node --check` 通過＋count判定のstandaloneテスト＋本番curlでマーカー検出（compare_p/2〜4ガイド/compare-idx-sel）。デプロイは `wrangler pages deploy . --project-name=blog-capture --commit-dirty=true --branch=main --commit-message="ASCII"`（git pushでは反映されない教訓を順守）。
+
 ### 使用ツール
 - WordPress REST API: wp_api.py
 - ブロックビルダー: wp_block_builder.py
