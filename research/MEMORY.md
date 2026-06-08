@@ -208,6 +208,12 @@ CLAUDE.md準拠の振り返り記録。
 
 他部門セッションへの連絡事項。
 
+- **[2026-06-08 決定・実装待ち] 📊 高配当株「保有 vs 学長PF」の保有を半自動化（方式B改良版）**
+  - ユーザー要望：月次比較ビューアの保有を毎回手入力したくない（自動連携したい）
+  - 決定：保有更新は月に数回／l-haitouはWeb上(https://worksnow.online/l-haitou/dashboard.html)でソース手元になし → l-haitou本体は改修しない。代わりに「リベ日課に保有の自動取り込みを組み込む」：(1)リベ日課でl-haitou dashboardをChromeで開く (2)localStorageから現在の保有を読み取る（読むだけ＝研究部門の範囲・無改修） (3)高配当株マガジン_月次比較ビューア.html の HOLDINGS_DEFAULT＋HOLD_DATE を差し替え
+  - 次の未完タスク：① Chrome起動後に l-haitou の localStorageキー名・保有データ形式を実地調査 ② 読取JSを確立しMEMORY/collect.mdに記録 ③ リベ日課SKILL Part Cに手順追記 ④ 初回は手動で保有最新化
+  - 保留理由：Claude in Chrome未起動で l-haitou の中身を確認できず中断（2026-06-08）
+
 - **[✅実装済・2026-06-02] 🔁 リベ研究を「毎日ルーチン化」する（ユーザー要望）→ スキル化完了**
   - **成果物**: `.claude/skills/libe-nikka/SKILL.md`（起動語「リベ日課」「リベ朝会」「リベ更新」）＋ スラッシュコマンド `.claude/commands/リベ日課.md`・`libe-nikka.md`。朝会(asakai)の研究部門版としてプロジェクト内スキル化（repoコミットで2台PC同期）。Part A=ノウハウ図書館 days=3 再取得→ビューアHTML差替／Part B=学長マガジン新着1〜2件要約→台帳追記／Part C=高配当株は月初のみチェック。礼節3秒・本文転載なし・投資助言NG・Chrome必須を明記
   - **次の検証（次researchセッション）**: 実際に「リベ日課」を起動して Part A〜C を通しで実行し、UIズレ等あれば collect.md §1/§8.6 と SKILL を更新
