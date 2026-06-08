@@ -189,8 +189,8 @@ function renderT1(){
   const removed=from.codes.filter(c=>!st.has(c));
   // metrics（yield/dividend が null の月は図解のみで未読取＝「図解参照」表示）
   const dN=to.codes.length-from.codes.length;
-  const yv=v=>(v==null?'図解参照':v+'%');
-  const dv=v=>(v==null?'図解参照':v.toLocaleString()+'円');
+  const yv=v=>(v==null?'<span style="font-size:13px;color:#94a3b8">利回りは次回反映</span>':v+'%');
+  const dv=v=>(v==null?'<span style="font-size:13px;color:#94a3b8">次回反映</span>':v.toLocaleString()+'円');
   const bothY=(from.yield!=null&&to.yield!=null), bothD=(from.dividend!=null&&to.dividend!=null);
   const dY=bothY?Math.round((to.yield-from.yield)*100)/100:null, dD=bothD?(to.dividend-from.dividend):null;
   t1metrics.innerHTML = metric('構成銘柄数', from.codes.length, to.codes.length, (dN===0?'変更なし':sign(dN)+'銘柄'), diffCls(dN))
