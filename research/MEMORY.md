@@ -208,7 +208,9 @@ CLAUDE.md準拠の振り返り記録。
 
 他部門セッションへの連絡事項。
 
-- **[2026-06-08 決定・実装待ち] 📊 高配当株「保有 vs 学長PF」の保有を半自動化（方式B改良版）**
+- **[2026-06-08 ✅実装済] 📊 高配当株「保有 vs 学長PF」の保有を自動取り込み（方式B改良版）**
+  - 完了：l-haitou(worksnow.online/l-haitou/dashboard.html)のlocalStorage `rakutenStocks`(45)＋`sbiStocks`(56)を`code`でマージ→現在保有75銘柄を取得。ビューアの`HOLDINGS_DEFAULT`75コードと照合し**5/31から変更なし**を確認、`HOLD_DATE`を2026-06-08に更新。読取JSと手順を**リベ日課SKILL Part C-2**に組込み済（次回から毎回自動取り込み・l-haitou無改修・読取専用）
+  - （以下は当初の検討メモ）
   - ユーザー要望：月次比較ビューアの保有を毎回手入力したくない（自動連携したい）
   - 決定：保有更新は月に数回／l-haitouはWeb上(https://worksnow.online/l-haitou/dashboard.html)でソース手元になし → l-haitou本体は改修しない。代わりに「リベ日課に保有の自動取り込みを組み込む」：(1)リベ日課でl-haitou dashboardをChromeで開く (2)localStorageから現在の保有を読み取る（読むだけ＝研究部門の範囲・無改修） (3)高配当株マガジン_月次比較ビューア.html の HOLDINGS_DEFAULT＋HOLD_DATE を差し替え
   - 次の未完タスク：① Chrome起動後に l-haitou の localStorageキー名・保有データ形式を実地調査 ② 読取JSを確立しMEMORY/collect.mdに記録 ③ リベ日課SKILL Part Cに手順追記 ④ 初回は手動で保有最新化

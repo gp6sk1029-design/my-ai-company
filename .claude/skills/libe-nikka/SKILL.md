@@ -81,6 +81,21 @@ description: リベ日課スキル。リベシティのノウハウ図書館「�
    - 月の途中の日課では「高配当株：月次更新待ち（前回=◯月）」とだけ報告し、深追いしない。
 2. 🚨 **投資助言NG厳守**：差分は「事実の記録」。「買うべき/今が買い時/この配分に」は出さない（digest.md §1ルール3・§4）。
 
+### Part C-2: 自分の保有を l-haitou から自動取り込み（毎回・2026-06-08確立）
+
+🔴 月次比較ビューアの「②自分の保有 vs マガジン」の保有を、毎回 l-haitou から読み取って自動更新する（ユーザーはコピペ不要・l-haitou本体は読むだけ＝無改修）。
+
+1. `https://worksnow.online/l-haitou/dashboard.html` を Chrome で navigate（ログイン/アクセスコード `appAccessCode` 済み前提。未ログインなら案内し中断）。
+2. `javascript_tool` で localStorage を読み、**`rakutenStocks` と `sbiStocks` の2配列を `code` でマージ**して現在保有を得る：
+   ```js
+   const m={}; ['rakutenStocks','sbiStocks'].forEach(k=>{try{JSON.parse(localStorage.getItem(k)||'[]').forEach(s=>{if(s.code)m[String(s.code)]=(s.name||'').replace(/"/g,'')})}catch(_){}}); m
+   ```
+   （各要素は `{code,name,shares,acquisitionPrice,currentPrice,...}`。保有判定は `code` の集合でOK）
+3. ビューア `高配当株マガジン_月次比較ビューア.html` の `HOLDINGS_DEFAULT` のコード集合と照合：
+   - **コードに変化があれば** `HOLDINGS_DEFAULT` を現在保有で差し替え＋`HOLD_DATE` を当日に。銘柄名はビューア側の整形版を優先（l-haitouは全角・略称で読みにくいので、新規コードのみ補う）。
+   - **変化なければ** `HOLD_DATE` だけ当日に更新し「保有：5/xxから変更なし（75銘柄）」と報告。
+4. 🚨 投資助言NG：保有の可視化＝事実の記録のみ。「買うべき」は出さない。l-haitouは worksnow.online（リポジトリ外）なので**読み取り専用**（本体改修はしない）。
+
 ---
 
 ## 出力フォーマット（日課サマリー）
