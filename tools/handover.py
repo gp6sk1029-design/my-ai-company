@@ -241,8 +241,8 @@ def generate_role_prompt(role: str, handover_filename: str) -> str:
 
 
 def generate_handover(title: str | None = None, recent: int = 10,
-                       role: str | None = None) -> Path:
-    """引き継ぎ書を生成し、保存先パスを返す。"""
+                       role: str | None = None) -> tuple[Path, str]:
+    """引き継ぎ書を生成し、(保存先パス, 貼り付け用プロンプト) を返す。"""
     HANDOVER_DIR.mkdir(exist_ok=True)
 
     jsonl = find_current_session()
@@ -359,7 +359,7 @@ def generate_handover(title: str | None = None, recent: int = 10,
     ])
 
     output_path.write_text("\n".join(lines), encoding="utf-8")
-    return output_path
+    return output_path, role_prompt
 
 
 def main() -> int:
@@ -372,7 +372,7 @@ def main() -> int:
     args = parser.parse_args()
 
     try:
-        path = generate_handover(title=args.title, recent=args.recent, role=args.role)
+        path, role_prompt = generate_handover(title=args.title, recent=args.recent, role=args.role)
     except Exception as e:
         print(f"❌ 引き継ぎ書生成失敗: {e}", file=sys.stderr)
         return 1
@@ -380,10 +380,13 @@ def main() -> int:
     print(f"✅ 引き継ぎ書を生成しました")
     print(f"   📄 {path}")
     print()
-    print(f"💡 次のセッションで以下を実行：")
-    print(f"   1. 新しいセッション（チャット）を開く")
-    print(f"   2. 引き継ぎ書（{path.name}）の「🎭 役割定義プロンプト」をコピペ")
-    print(f"   3. Claudeが「準備OK」と返してから本来のタスクを依頼")
+    print("=" * 56)
+    print("📋 新しいチャットにこのまま貼り付けてください（コピペ用）")
+    print("=" * 56)
+    print(role_prompt.strip())
+    print("=" * 56)
+    print()
+    print(f"💡 手順：①新しいチャットを開く ②上の枠の文をそのまま貼る ③Claudeが「準備OK」と返したら続きを依頼")
     return 0
 
 
