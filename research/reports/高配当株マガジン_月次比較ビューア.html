@@ -132,7 +132,7 @@
   </div>
 
   <footer>
-    出典：リベシティ「学長高配当株マガジンチャット」モデルポートフォリオ図解（第110回・第113回）を読み取り当方データ化　|　保有データ：l-haitouツール（楽天・SBI）より　|　私的利用限定・blog/SNS送出不可
+    出典：リベシティ「学長高配当株マガジンチャット」モデルポートフォリオ（第110/113回＝図解読取・第116回＝本文の追加除外リストから構成）　|　保有データ：l-haitouツール（楽天・SBI）より・2026-06-08照合　|　6月の全体利回り/年間配当は図解のみのため未読取（図解参照）　|　私的利用限定・blog/SNS送出不可
   </footer>
 </div>
 
@@ -151,12 +151,19 @@ const PF_2026 = {
   "2003":["日東富士製粉","食料品"], "1928":["積水ハウス","建設"], "6345":["アイチコーポレーション","機械"],
   "9364":["上組","倉庫・運輸"], "9381":["エーアイテイー","倉庫・運輸"],
   "7989":["立川ブラインド工業","金属製品"], "7820":["ニホンフラッシュ","その他製品"], "7994":["オカムラ","その他製品"],
-  "4540":["ツムラ","医薬品"], "1343":["NF・J-REIT ETF","J-REIT"]
+  "4540":["ツムラ","医薬品"], "1343":["NF・J-REIT ETF","J-REIT"],
+  // 2026年6月（第116回）で追加された銘柄
+  "5108":["ブリヂストン","ゴム製品"], "9989":["サンドラッグ","小売"], "4206":["アイカ工業","化学"], "5982":["マルゼン","機械"], "4290":["プレステージ・インターナショナル","サービス"]
 };
-// 月ごとのモデルPF（codes配列＋メタ）。構成が変わった月だけcodesを差し替える。
+// 4〜5月のモデルPF構成（34銘柄）
+const CODES_34 = ["9986","3076","8130","2659","3333","4008","4042","4097","4958","8309","8725","8584","6785","7722","3231","3003","2169","9757","9769","4641","3817","3901","4674","4746","2003","1928","6345","9364","9381","7989","7820","7994","4540","1343"];
+// 6月（第116回）：除外3（7820ニホンフラッシュ/8584ジャックス/4042東ソー）＋追加5（5108/9989/4206/5982/4290）＝36銘柄
+const CODES_JUN = CODES_34.filter(c=>!["7820","8584","4042"].includes(c)).concat(["5108","9989","4206","5982","4290"]);
+// 月ごとのモデルPF（codes配列＋メタ）。構成が変わった月だけcodesを差し替える。yield/dividend=null は図解のみで未読取（digest §4.1）。
 const MAGAZINE = {
-  "2026-04": { label:"2026年4月（第110回）", codes:Object.keys(PF_2026), yield:4.03, dividend:12096 },
-  "2026-05": { label:"2026年5月（第113回）", codes:Object.keys(PF_2026), yield:4.16, dividend:12492 }
+  "2026-04": { label:"2026年4月（第110回）", codes:CODES_34, yield:4.03, dividend:12096 },
+  "2026-05": { label:"2026年5月（第113回）", codes:CODES_34, yield:4.16, dividend:12492 },
+  "2026-06": { label:"2026年6月（第116回）", codes:CODES_JUN, yield:null, dividend:null }
 };
 // 自分の保有スナップショット（l-haitouツールより・日本株のみ）
 // 2026-06-08 リベ日課でl-haitouのlocalStorage(rakutenStocks+sbiStocks)を読み取り照合→75銘柄・5/31から変更なしを確認（コード一致）。銘柄名はビューア側の整形版を維持
@@ -180,11 +187,15 @@ function renderT1(){
   const sf=new Set(from.codes), st=new Set(to.codes);
   const added=to.codes.filter(c=>!sf.has(c));
   const removed=from.codes.filter(c=>!st.has(c));
-  // metrics
-  const dN=to.codes.length-from.codes.length, dY=Math.round((to.yield-from.yield)*100)/100, dD=to.dividend-from.dividend;
+  // metrics（yield/dividend が null の月は図解のみで未読取＝「図解参照」表示）
+  const dN=to.codes.length-from.codes.length;
+  const yv=v=>(v==null?'図解参照':v+'%');
+  const dv=v=>(v==null?'図解参照':v.toLocaleString()+'円');
+  const bothY=(from.yield!=null&&to.yield!=null), bothD=(from.dividend!=null&&to.dividend!=null);
+  const dY=bothY?Math.round((to.yield-from.yield)*100)/100:null, dD=bothD?(to.dividend-from.dividend):null;
   t1metrics.innerHTML = metric('構成銘柄数', from.codes.length, to.codes.length, (dN===0?'変更なし':sign(dN)+'銘柄'), diffCls(dN))
-    + metric('PF配当利回り', from.yield+'%', to.yield+'%', sign(dY)+'pt', diffCls(dY))
-    + metric('年間配当(元本30万想定)', from.dividend.toLocaleString()+'円', to.dividend.toLocaleString()+'円', sign(dD)+'円', diffCls(dD));
+    + metric('PF配当利回り', yv(from.yield), yv(to.yield), (dY==null?'—':sign(dY)+'pt'), diffCls(dY||0))
+    + metric('年間配当(元本30万想定)', dv(from.dividend), dv(to.dividend), (dD==null?'—':sign(dD)+'円'), diffCls(dD||0));
   addedList.innerHTML = added.length? '<ul>'+added.map(c=>`<li><span class="chip-code">${c}</span>${pfName(c)}</li>`).join('')+'</ul>' : '<div class="none">なし（0件）</div>';
   removedList.innerHTML = removed.length? '<ul>'+removed.map(c=>`<li><span class="chip-code">${c}</span>${pfName(c)}</li>`).join('')+'</ul>' : '<div class="none">なし（0件）</div>';
   // table（今月基準＋除外も末尾に）
