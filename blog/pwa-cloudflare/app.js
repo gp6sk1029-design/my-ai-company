@@ -87,6 +87,25 @@
       tx.onerror = () => rej(tx.error);
     });
   }
+  // 🛡 古いスナップショットの丸ごと書き戻し（compareIndex等の消失）を防ぐ安全な部分更新。
+  // 最新レコードを取得→mutateで変更→保存。レコードが削除済みなら null（書き戻さない）。
+  async function queueUpdate(id, mutate) {
+    const db = await openDB();
+    return new Promise((res, rej) => {
+      const tx = db.transaction(STORE, 'readwrite');
+      const store = tx.objectStore(STORE);
+      const getReq = store.get(id);
+      getReq.onsuccess = () => {
+        const latest = getReq.result;
+        if (!latest) { res(null); return; }
+        try { mutate(latest); } catch (e) { rej(e); return; }
+        store.put(latest);
+        tx.oncomplete = () => res(latest);
+      };
+      getReq.onerror = () => rej(getReq.error);
+      tx.onerror = () => rej(tx.error);
+    });
+  }
   async function queueAll() {
     const db = await openDB();
     return new Promise((res, rej) => {
@@ -253,13 +272,17 @@
     await renderQueue();
     showToast('追加（' + prettySize(blob.size) + '）', 'success');
   }
+  let issuedObjectURLs = [];   // 🛡 リーク防止：発行済みObjectURLを再描画ごとに一括解放
+  let isUploading = false;     // 🛡 転送中はキュー操作（削除・役割変更・編集）をロック
   async function renderQueue() {
+    issuedObjectURLs.forEach((u) => { try { URL.revokeObjectURL(u); } catch (_) {} });
+    issuedObjectURLs = [];
     const items = await queueAll();
     queueList.innerHTML = '';
     queueCount.textContent = items.length;
     pendingCount.textContent = items.length;
-    uploadAllBtn.disabled = items.length === 0;
-    clearQueueBtn.disabled = items.length === 0;
+    uploadAllBtn.disabled = items.length === 0 || isUploading;
+    clearQueueBtn.disabled = items.length === 0 || isUploading;
     queueEmpty.style.display = items.length === 0 ? 'block' : 'none';
     uploadAllCount.textContent = items.length > 0 ? `${items.length}件を送信` : '';
     for (const item of items) {
@@ -267,6 +290,7 @@
       div.className = 'queue-item';
       div.dataset.id = item.id;
       const url = URL.createObjectURL(item.blob);
+      issuedObjectURLs.push(url);
       const isVideo = item.mimeType.startsWith('video/');
       const isPdf = item.mimeType === 'application/pdf';
       if (isVideo) div.innerHTML = '<video src="' + url + '" muted></video>';
@@ -289,13 +313,15 @@
         ? `<div class="role-badge" style="background:${roleDef.color}" title="${roleDef.label}">${roleDef.emoji} ${roleDef.label}</div>`
         : '');
       // 比較ロールのときだけ「どの製品の写真か」を選ぶセレクタを表示（製品1〜4）
+      // 位置は右下の役割ボタンの上（左下のAI編集ボタン🤖🍌🎨と重ならないように）
+      const cmpNames = (curRoleKey === 'compare') ? getCompareProductNames() : [];
       const compareSelHtml = (curRoleKey === 'compare')
         ? '<select class="compare-idx-sel" title="どの製品の写真か" ' +
-          'style="position:absolute;left:4px;bottom:4px;z-index:6;font-size:11px;padding:2px 5px;' +
-          'border-radius:6px;border:1px solid #ec4899;background:#fff;color:#111;">' +
+          'style="position:absolute;right:4px;bottom:38px;z-index:6;font-size:11px;padding:2px 5px;' +
+          'max-width:calc(100% - 8px);border-radius:6px;border:1px solid #ec4899;background:#fff;color:#111;">' +
           '<option value="">製品?</option>' +
           [1, 2, 3, 4].map(i =>
-            `<option value="${i}"${String(item.compareIndex) === String(i) ? ' selected' : ''}>製品${i}</option>`
+            `<option value="${i}"${String(item.compareIndex) === String(i) ? ' selected' : ''}>製品${i}${cmpNames[i - 1] ? '＝' + cmpNames[i - 1].slice(0, 8) : ''}</option>`
           ).join('') +
           '</select>'
         : '';
@@ -306,8 +332,13 @@
         (item.status === 'uploading' ? '<div class="status-overlay">転送中…</div>' : '') +
         editingBadge + replaceBadge + roleBadge + compareSelHtml
       );
+      // 🛡 転送中は全操作ボタンを無効化（✕削除した画像が送信される事故防止）
+      if (isUploading) {
+        div.querySelectorAll('button, select').forEach((b) => { b.disabled = true; });
+      }
       div.querySelector('.delete-btn').addEventListener('click', async (e) => {
         e.stopPropagation();
+        if (isUploading) return;
         await queueDelete(item.id);
         URL.revokeObjectURL(url);
         await renderQueue();
@@ -361,6 +392,22 @@
     if (item.role) return item.role;
     if (item.isEyecatch) return 'eyecatch';
     return 'none';
+  }
+  // 🛡 PROMPT.md の「画像役割行」を判定する正規表現（全箇所でこれを使う）。
+  // ROLE_DEFS の label と完全一致させること（旧表記「アイキャッチ画像」も後方互換で残す）。
+  // 比較行は「比較/Before-After 製品1（名前）:」形式（1行＝1製品）にも一致する。
+  const ROLE_NOTE_RE = /^(画像役割|アイキャッチ画像|アイキャッチ|ヒーローバナー|セクション画像|商品\/実機写真|図解\/フロー図|比較\/Before-After(?:\s*製品\d+（[^）]*）|\s*製品\d+)?|NG集サマリ)\s*[:：]/;
+  // 比較表テンプレの「比較対象」欄から製品名リストを取得。
+  // 🛡 テンプレ選択が compare の入力欄だけを信用する（別テンプレの値を製品名と誤認しない）
+  function getCompareProductNames() {
+    let v = '';
+    try {
+      const helperTpl = (document.getElementById('ai-template-select') || {}).value;
+      const bannerTpl = (document.getElementById('banner-tpl') || {}).value;
+      if (helperTpl === 'compare') v = (document.getElementById('ai-var-main') || {}).value || '';
+      if (!v && bannerTpl === 'compare') v = (document.getElementById('banner-var-main') || {}).value || '';
+    } catch (_) {}
+    return v.split('/').map(s => s.trim()).filter(Boolean).slice(0, 4);
   }
   async function cycleRole(targetId) {
     const all = await queueAll();
@@ -752,6 +799,18 @@
   }
 
   async function oneClickEdit(item, engine) {
+    // 🛡 クロージャの古いスナップショットを捨てて最新レコードで作業する
+    // （古いまま書き戻すと、直前に設定した compareIndex 等が消える）
+    {
+      const all = await queueAll();
+      const latest = all.find(x => x.id === item.id);
+      if (!latest) { showToast('この画像はすでに削除されています', 'warn'); return; }
+      item = latest;
+    }
+    // 🛡 別画像の編集待機が残っていたら、前の画像の「編集中…」を確実に解除してから上書き
+    if (pendingReplace && pendingReplace.originalId !== item.id) {
+      try { await queueUpdate(pendingReplace.originalId, (it) => { delete it.editingWith; }); } catch (_) {}
+    }
     const prompt = (aiPrompt && aiPrompt.value.trim()) || defaultEditPrompt();
     const aiName = getEngineLabel(engine);
 
@@ -1225,11 +1284,9 @@
   //       明示的に「📋 プロンプト」ボタンを押した時だけクリップボードを切替える。
 
   async function cancelPendingReplace() {
-    if (pendingReplace && pendingReplace.originalItem) {
-      try {
-        delete pendingReplace.originalItem.editingWith;
-        await queuePut(pendingReplace.originalItem);
-      } catch (e) {}
+    if (pendingReplace && pendingReplace.originalId != null) {
+      // 🛡 queueUpdate は削除済みレコードを復活させない（存在チェック付き部分更新）
+      try { await queueUpdate(pendingReplace.originalId, (it) => { delete it.editingWith; }); } catch (e) {}
     }
     pendingReplace = null;
     if (editingBanner) editingBanner.style.display = 'none';
@@ -1245,7 +1302,21 @@
   // 編集後の画像が貼付された時、元と置き換える処理
   async function tryReplaceWithEditedImage(blob, mime, ext) {
     if (!pendingReplace) return false;
-    const orig = pendingReplace.originalItem;
+    // 🛡 最新レコードを取得して更新（削除済みなら復活させず、新規追加にフォールバック）
+    const all = await queueAll();
+    const orig = all.find(x => x.id === pendingReplace.originalId);
+    if (!orig) {
+      const engineLabel = getEngineLabel(pendingReplace.aiEngine);
+      pendingReplace = null;
+      if (editingBanner) editingBanner.style.display = 'none';
+      const ah0 = document.getElementById('ai-helper');
+      if (ah0) ah0.style.display = '';
+      const ahBtn0 = document.getElementById('btn-open-ai-helper');
+      if (ahBtn0) ahBtn0.style.display = '';
+      await addToQueue(blob, mime, ext);
+      showToast(`元画像が削除済みのため、${engineLabel}の編集後画像を新規追加しました`, 'warn');
+      return true;
+    }
     // 元 item を編集後画像で更新
     orig.blob = blob;
     orig.mimeType = mime;
@@ -1675,6 +1746,8 @@ ${COMMON_GUARDS}`,
       const names = products.length
         ? products.slice(0, n)
         : Array.from({ length: n }, (_, i) => '製品' + String.fromCharCode(65 + i));
+      // 入力が1製品だけ等、n に満たない場合は仮名で埋めて矛盾のないプロンプトにする
+      while (names.length < n) names.push('製品' + String.fromCharCode(65 + names.length) + '（比較対象を追記）');
       const cardW = n <= 2 ? 420 : (n === 3 ? 320 : 260);
       // 製品ごとの実写真割り当て指示（compare_p1_*, compare_p2_* … にひも付け）
       const photoLines = names.map((nm, i) =>
@@ -2303,6 +2376,20 @@ ${COMMON_GUARDS}`,
     const items = await queueAll();
     // キューが空でもメモがあれば保存だけは走らせる（記事メモ単独編集ケース）
     if (items.length === 0 && !hasPromptData()) return;
+    if (isUploading) return; // 🛡 二重実行ガード
+    // 🛡 製品番号未割当の比較画像があれば送信前に確認（どの製品カードにも紐付かないため）
+    const unassignedCompare = items.filter(it => normalizeItemRole(it) === 'compare' && !it.compareIndex);
+    if (unassignedCompare.length > 0) {
+      const go = window.confirm(
+        `⚖️ 比較画像のうち ${unassignedCompare.length} 枚が「製品番号」未割当です。\n` +
+        `このまま送信すると、比較表のどの製品にも紐付きません。\n\n` +
+        `[OK] このまま送信　[キャンセル] 戻って割り当てる`
+      );
+      if (!go) {
+        setStatus('送信を中止しました（キュー画像の「製品?」で番号を割り当ててください）');
+        return;
+      }
+    }
     uploadAllBtn.disabled = true;
 
     // 先に PROMPT.md を保存（フォルダが新規ならここで作成される）
@@ -2331,6 +2418,10 @@ ${COMMON_GUARDS}`,
       if (promptSaved) clearMemoState();
       return;
     }
+
+    // 🛡 ここから転送中ロック（✕削除・役割変更・編集の誤操作防止）
+    isUploading = true;
+    await renderQueue();
 
     // 役割（アイキャッチ/セクション/図解 等）が指定された画像は、ファイル名にプレフィックス付与
     for (const it of items) {
@@ -2436,8 +2527,7 @@ ${COMMON_GUARDS}`,
     const roleKeys = Object.keys(roleUploadMap);
     if (roleKeys.length > 0 && (articleFolderId || articleTitle)) {
       try {
-        const ROLE_NOTE_RE = /^(画像役割|アイキャッチ画像|ヒーローバナー|セクション画像|商品\/実機写真|図解\/フロー図|比較\/Before-After|NG集サマリ):/;
-        // 既存の「画像役割:」「アイキャッチ画像:」始まり行を全削除して書き直す
+        // 既存の「画像役割:」「アイキャッチ:」始まり行を全削除して書き直す（ROLE_NOTE_REは全箇所共通定義）
         memos = memos.filter(m => !ROLE_NOTE_RE.test(m));
         // 🛡 メモ消失防止：ローカルメモが空（アップロード後のクリア等）なのに
         // Drive の PROMPT.md にユーザーメモが残っている場合、先に取り込んでから書き直す。
@@ -2466,21 +2556,21 @@ ${COMMON_GUARDS}`,
           if (def.key === 'none' || !roleUploadMap[def.key]) continue;
           const list = roleUploadMap[def.key];
           if (def.key === 'compare') {
-            // 比較表は製品ごとに行を分け、製品名（比較対象欄）も併記する
-            const mainVal = ((document.getElementById('ai-var-main') || {}).value
-              || (document.getElementById('banner-var-main') || {}).value || '');
-            const pnames = mainVal.split('/').map(s => s.trim()).filter(Boolean);
-            const lines = list.map(f => {
+            // 比較表は「1行＝1製品」の独立メモにする。
+            // 🛡 複数行メモはGASのparsePromptMd_が2行目以降を読み戻せず往復で消えるため、必ず1行で完結させる。
+            // 🛡 製品名は比較表テンプレ選択中の入力欄だけを信用する（getCompareProductNames）
+            const pnames = getCompareProductNames();
+            for (const f of list) {
               const m = /compare_p(\d+)_/i.exec(f.name);
               const fid = f.fileId ? ` (fileId: ${f.fileId})` : '';
               if (m) {
                 const i = Number(m[1]);
                 const nm = pnames[i - 1] ? `（${pnames[i - 1]}）` : '';
-                return `  製品${i}${nm}: ${f.name}${fid}`;
+                newNotes.push(`${def.label} 製品${i}${nm}: ${f.name}${fid}`);
+              } else {
+                newNotes.push(`${def.label}: ${f.name}${fid}`);
               }
-              return `  ${f.name}${fid}`;
-            });
-            newNotes.push(`${def.label}:\n${lines.join('\n')}`);
+            }
           } else {
             const desc = list.map(f => f.name + (f.fileId ? ` (fileId: ${f.fileId})` : '')).join(', ');
             newNotes.push(`${def.label}: ${desc}`);
@@ -2496,6 +2586,7 @@ ${COMMON_GUARDS}`,
         console.error('role memo save error:', e);
       }
     }
+    isUploading = false; // 🛡 転送中ロック解除
     await renderQueue();
     uploadAllBtn.disabled = false;
     let msg = '✅成功 ' + success + ' / スキップ ' + skipped + ' / 失敗 ' + failed;
@@ -2663,6 +2754,20 @@ ${COMMON_GUARDS}`,
     // 既存記事を選んだら PROMPT.md と既存ファイル一覧をDriveから復元
     const folderId = articleSelect.value;
     if (folderId) {
+      // 🛡 クロス汚染防止：メモ欄に「別の記事の持ち物」のメモが残っている場合は確認してから処理。
+      // 黙って引き継ぐと、前の記事のメモがこの記事のPROMPT.mdへ恒久的に書き込まれてしまう。
+      if (memoFolderId && memoFolderId !== folderId && getValidMemos().length > 0) {
+        const keep = window.confirm(
+          '📝 メモ欄に「前に選んでいた記事」のメモが残っています。\n\n' +
+          '[OK] この記事でも使う（引き継ぐ）\n' +
+          '[キャンセル] クリアして、この記事の保存済みメモだけを読み込む'
+        );
+        if (!keep) {
+          memos = [];
+          renderMemos();
+        }
+        memoFolderId = folderId;
+      }
       localStorage.setItem(LS_LAST_FOLDER_KEY, folderId);
       await loadExistingPrompt(folderId);
       await loadExistingFiles(folderId);
@@ -2947,14 +3052,18 @@ ${COMMON_GUARDS}`,
   // 初期表示時にも反映
   setTimeout(updateCurrentArticleDisplay, 100);
 
+  let promptLoadSeq = 0; // 🛡 素早い記事切替時、古いfetch結果が後から上書きするのを防ぐ世代カウンタ
   async function loadExistingPrompt(folderId, opts) {
     opts = opts || {};
+    const seq = ++promptLoadSeq;
     try {
       const url = GAS_URL + '?' + new URLSearchParams({
         token: TOKEN, action: 'getPrompt', articleFolderId: folderId,
       }).toString();
       const res = await fetch(url).then((r) => r.json());
+      if (seq !== promptLoadSeq) return; // 🛡 すでに別の記事へ切替済み → この結果は捨てる
       if (!res.ok || !res.exists) {
+        memoFolderId = folderId; // 残っているローカルメモはこの記事の持ち物として扱う
         if (opts.silent !== true) showToast('この記事にはまだメモがありません', 'warn');
         return;
       }
@@ -2971,7 +3080,9 @@ ${COMMON_GUARDS}`,
       const driveMemos = Array.isArray(res.memos) ? res.memos.slice() : [];
       const localDrafts = getValidMemos().filter(m => !driveMemos.includes(m));
       memos = [...driveMemos, ...localDrafts];
+      memoFolderId = folderId; // 🛡 メモの持ち主をこの記事に確定
       persistMemoState();
+      memoDirty = localDrafts.length > 0; // Driveと同内容なら「保存済み」扱い
       renderMemos();
       // メモセクションを開く
       const det = document.getElementById('memo-details');
@@ -3055,12 +3166,20 @@ ${COMMON_GUARDS}`,
     updateMemoStatus();
   }
 
+  // 🛡 メモの持ち主（記事フォルダID）と未保存フラグ。
+  // 記事切替時に「前の記事のメモが新しい記事に混入してPROMPT.mdへ書き込まれる」事故を防ぐ。
+  let memoFolderId = '';
+  let memoDirty = false;
   function persistMemoState() {
+    memoFolderId = getSelectedArticleFolderId() || memoFolderId || '';
     const state = {
       articleType: articleTypeSelect.value || '',
       memos: memos,
+      folderId: memoFolderId,
     };
     localStorage.setItem(LS_MEMO_STATE_KEY, JSON.stringify(state));
+    memoDirty = true;
+    updateMemoStatus();
   }
   function loadMemoState() {
     try {
@@ -3069,11 +3188,14 @@ ${COMMON_GUARDS}`,
       const state = JSON.parse(raw);
       if (state && Array.isArray(state.memos)) memos = state.memos;
       if (state && state.articleType) articleTypeSelect.value = state.articleType;
+      if (state && typeof state.folderId === 'string') memoFolderId = state.folderId;
     } catch (_) {}
   }
   function clearMemoState() {
     memos = [];
     articleTypeSelect.value = '';
+    memoFolderId = '';
+    memoDirty = false;
     localStorage.removeItem(LS_MEMO_STATE_KEY);
     renderMemos();
   }
@@ -3093,6 +3215,7 @@ ${COMMON_GUARDS}`,
       const parts = [];
       if (type) parts.push(type);
       if (valid > 0) parts.push('メモ' + valid + '件');
+      if (memoDirty) parts.push('●未保存'); // 💾 Drive未保存の変更がある印（保存 or 転送で消える）
       memoSummaryStatus.textContent = parts.join(' / ');
       memoSummaryStatus.classList.add('active');
     }
@@ -3151,7 +3274,13 @@ ${COMMON_GUARDS}`,
       body: body.toString(),
       headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
     });
-    return res.json();
+    const json = await res.json();
+    if (json && json.ok) {
+      memoDirty = false; // 🛡 Drive保存成功 → 「未保存」表示を解除
+      if (json.articleFolderId) memoFolderId = json.articleFolderId;
+      updateMemoStatus();
+    }
+    return json;
   }
 
   // ─── モードタブ切替 ─────────────────────
@@ -3229,7 +3358,9 @@ ${COMMON_GUARDS}`,
     clearTimeout(toastTimer);
     toast.textContent = msg;
     toast.className = 'toast ' + (kind || '');
-    toastTimer = setTimeout(() => toast.classList.add('hidden'), 3000);
+    // 警告・エラーは読む時間を長めに確保（操作指示を含むことが多いため）
+    const ms = (kind === 'error' || kind === 'warn') ? 6000 : 3000;
+    toastTimer = setTimeout(() => toast.classList.add('hidden'), ms);
   }
 
   // ─── 初期化 ─────────────────────
@@ -3237,6 +3368,17 @@ ${COMMON_GUARDS}`,
     renderArticleTypes();
     loadMemoState();
     renderMemos();
+    // 🛡 前回セッションの「編集中…」残骸をクリア。
+    // 置換待機(pendingReplace)はメモリのみで再起動で消えるため、editingWithが残ると
+    // バッジが固着し、ペーストが置換でなく新規追加になる（解除手段もない）。
+    try {
+      const startupItems = await queueAll();
+      let cleared = 0;
+      for (const it of startupItems) {
+        if (it.editingWith) { delete it.editingWith; await queuePut(it); cleared++; }
+      }
+      if (cleared > 0) console.log(`[startup] 編集中フラグを${cleared}件クリア`);
+    } catch (e) { console.warn('startup editingWith cleanup failed:', e); }
     await renderQueue();
     await loadArticleList();
     // 前回選択していた記事を復元（リロード後もメモ・ファイル一覧が継続）

@@ -610,15 +610,19 @@ body {
   left: 50%; transform: translateX(-50%);
   max-width: calc(100% - 24px);
   background: #1a1a2e; color: #fff;
-  padding: 12px 22px; border-radius: 999px;
+  padding: 12px 22px; border-radius: 18px;
   font-size: 14px; font-weight: 500; z-index: 100;
   box-shadow: 0 8px 28px rgba(0,0,0,0.25);
   animation: slideUp 0.25s ease;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  /* 1行省略をやめて全文表示（操作指示が読めるように）。最大4行で省略 */
+  white-space: normal; overflow: hidden;
+  display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical;
+  line-height: 1.45;
 }
 .toast.hidden { display: none; }
 .toast.success { background: #10b981; }
 .toast.error { background: #ef4444; }
+.toast.warn { background: #b45309; }
 @keyframes slideUp {
   from { transform: translate(-50%, 20px); opacity: 0; }
   to { transform: translate(-50%, 0); opacity: 1; }

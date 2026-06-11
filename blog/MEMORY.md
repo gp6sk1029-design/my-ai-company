@@ -161,6 +161,12 @@
   - 触った関数：TEMPLATE_FIELDS.compare / AI_TEMPLATES.compare（矢印関数を本体ブロック化しnを動的算出）/ renderQueue（セレクタ描画＋change保存）/ cycleRole（非compareでcompareIndexクリア）/ uploadAll（prefix分岐＋newNotes製品別）。
   - 検証：`node --check` 通過＋count判定のstandaloneテスト＋本番curlでマーカー検出（compare_p/2〜4ガイド/compare-idx-sel）。デプロイは `wrangler pages deploy . --project-name=blog-capture --commit-dirty=true --branch=main --commit-message="ASCII"`（git pushでは反映されない教訓を順守）。
 
+- 2026/06/08：**記事めしPWA全体監査（6視点×並列バグハント→反証検証）で確定バグ21件を特定、クライアント側11件＋UI改善3件を修正・本番反映**。
+  - 修正済（app.js/styles.css）：①記事切替でのメモ混入（記事IDひも付け＋確認ダイアログ＋fetch世代ガード）②リロード後の「編集中…」固着（起動時クリーンアップ）③ObjectURLリーク（再描画ごと一括revoke）④staleクロージャ書き戻しでcompareIndex消失（queueUpdate部分更新ヘルパー新設）⑤削除画像のゾンビ復活（存在チェック＋新規追加フォールバック）⑥転送中の誤操作（isUploadingロック）⑦【critical】比較役割行の複数行メモがPROMPT.md往復で消失→**役割行は必ず1行＝1件で生成**（GASのparsePromptMd_は番号付き1行しか読み戻せない）⑧ROLE_NOTE_RE不一致「アイキャッチ画像」vs実ラベル「アイキャッチ」→共通定義に統一（旧形式も後方互換）⑨製品名ソース誤り（compareテンプレ選択中の欄のみ信用）⑩製品番号未割当の送信前警告 ⑪1製品入力時の矛盾プロンプト解消／UI：製品セレクタ右上移動＋製品名表示・メモ「●未保存」表示・トースト複数行＋warn長め表示
+  - **学び：PROMPT.mdへ書くメモは「1行＝1件」が鉄則**（複数行メモは往復で2行目以降が消える）。**正規表現や定数はROLE_DEFS等の単一ソースから導出**しないとラベル変更で静かに壊れる。
+  - 🔶 **残課題（GAS側・要再デプロイのため未着手）**：(a)Deduperが記事をまたいで重複スキップ→別記事に同じ画像を使えない＆キューから消える (b)ハッシュ台帳が削除/差替に追従せず誤スキップ永続 (c)downloadFile/replaceFileがDrive全体の任意fileIdを受ける（トークンは公開JSに露出・要スコープ制限）(d)savePromptの「ゴミ箱→新規作成」方式は作成失敗時にメモが消える窓（setContent上書き化が安全）(e)resumableUrlのみLock無し (f)大容量アップ成功時にfileId/正規化名が返らず役割行が実在しない名前を指す。対応時は clasp push → create-deployment -i <同ID> でURL不変デプロイ。
+  - 監査手法メモ：Workflowツールで6視点find→1指摘1反証verifyの2段構え。誤検知2件を棄却でき、修正対象を確定リスト化できた（62エージェント・約15分）。
+
 ### 使用ツール
 - WordPress REST API: wp_api.py
 - ブロックビルダー: wp_block_builder.py
