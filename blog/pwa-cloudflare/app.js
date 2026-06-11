@@ -2436,10 +2436,31 @@ ${COMMON_GUARDS}`,
     const roleKeys = Object.keys(roleUploadMap);
     if (roleKeys.length > 0 && (articleFolderId || articleTitle)) {
       try {
+        const ROLE_NOTE_RE = /^(画像役割|アイキャッチ画像|ヒーローバナー|セクション画像|商品\/実機写真|図解\/フロー図|比較\/Before-After|NG集サマリ):/;
         // 既存の「画像役割:」「アイキャッチ画像:」始まり行を全削除して書き直す
-        memos = memos.filter(m =>
-          !/^(画像役割|アイキャッチ画像|ヒーローバナー|セクション画像|商品\/実機写真|図解\/フロー図|比較\/Before-After|NG集サマリ):/.test(m)
-        );
+        memos = memos.filter(m => !ROLE_NOTE_RE.test(m));
+        // 🛡 メモ消失防止：ローカルメモが空（アップロード後のクリア等）なのに
+        // Drive の PROMPT.md にユーザーメモが残っている場合、先に取り込んでから書き直す。
+        // これを怠ると savePrompt の全書き直しでユーザーメモが画像役割行だけに置き換わって消える。
+        if (getValidMemos().length === 0 && articleFolderId) {
+          try {
+            const gp = await fetch(GAS_URL + '?' + new URLSearchParams({
+              token: TOKEN, action: 'getPrompt', articleFolderId: articleFolderId,
+            }).toString()).then(r => r.json());
+            if (gp.ok && gp.exists) {
+              const rescued = (Array.isArray(gp.memos) ? gp.memos : [])
+                .map(m => String(m || '').trim())
+                .filter(m => m.length > 0 && !ROLE_NOTE_RE.test(m));
+              if (rescued.length > 0) memos = [...memos, ...rescued];
+              if (!articleTypeSelect.value && gp.articleType) {
+                if (!articleTypes.includes(gp.articleType)) {
+                  articleTypes.push(gp.articleType); saveArticleTypes(); renderArticleTypes();
+                }
+                articleTypeSelect.value = gp.articleType;
+              }
+            }
+          } catch (e) { console.warn('existing memo rescue failed:', e); }
+        }
         const newNotes = [];
         for (const def of ROLE_DEFS) {
           if (def.key === 'none' || !roleUploadMap[def.key]) continue;
@@ -2937,15 +2958,19 @@ ${COMMON_GUARDS}`,
         if (opts.silent !== true) showToast('この記事にはまだメモがありません', 'warn');
         return;
       }
-      // 既存メモ上書きの確認は完全廃止（自動上書き）— 必要なら「↻ メモ再読込」を押す形に
+      // 既存メモ上書きの確認は完全廃止（自動マージ）— 必要なら「↻ メモ再読込」を押す形に
       articleTypes = Array.from(new Set([
         ...articleTypes,
         ...(res.articleType ? [res.articleType] : []),
       ]));
       saveArticleTypes();
       renderArticleTypes();
-      articleTypeSelect.value = res.articleType || '';
-      memos = Array.isArray(res.memos) ? res.memos.slice() : [];
+      articleTypeSelect.value = res.articleType || articleTypeSelect.value || '';
+      // 🛡 メモ消失防止：Driveのメモで「置き換え」ず、ローカルの書きかけメモを残してマージする
+      // （置き換えると、記事選択前に書いたメモが黙って消える事故になる）
+      const driveMemos = Array.isArray(res.memos) ? res.memos.slice() : [];
+      const localDrafts = getValidMemos().filter(m => !driveMemos.includes(m));
+      memos = [...driveMemos, ...localDrafts];
       persistMemoState();
       renderMemos();
       // メモセクションを開く
