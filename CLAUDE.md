@@ -158,14 +158,14 @@ PDMは「万能・何でも対応」がデフォルトモード。
 | `ec` | EC物販セッション | メルカリ出品・価格・在庫・顧客対応 | tools/ec/SKILL.md / tools/ec/MEMORY.md |
 | `tools` | ツール開発セッション | PWA・自動化スクリプト開発 | tools/SKILL.md / tools/MEMORY.md |
 | `sns` | SNS統括セッション | X/Instagram/YouTube投稿 | sns/SKILL.md / sns/MEMORY.md |
-| `research` | リサーチセッション | リベシティ記事収集／掛け合わせ副業創造／単一記事からの自動化案件抽出（tools部門への提案を含む） | research/SKILL.md / research/MEMORY.md / research/skills/{collect,synthesize,automate,handoff}.md |
+| `research` | リサーチセッション | リベシティ記事収集／掛け合わせ副業創造／単一記事からの自動化案件抽出（tools部門への提案を含む） | research/SKILL.md / research/MEMORY.md / research/skills/{collect,synthesize,automate,digest,handoff}.md |
 | `infra` | インフラ・全体管理セッション | hooks・global_rules・session_health等 | CLAUDE.md / .claude/settings.json |
 
 ### 必須プロトコル：新セッション開始の3ステップ
 
 **Step 1: 引き継ぎ書を生成（前セッションで実行）**
 ```bash
-python3 tools/handover.py --role <pdm|blog|ec|tools|sns|infra>
+python3 tools/handover.py --role <pdm|blog|ec|tools|sns|research|infra>
 # または自動推定で：
 python3 tools/handover.py
 ```
@@ -548,20 +548,10 @@ MEMORY.md（学習・経験の蓄積）
 **ブログ部門（my-ai-companyリポジトリ）**
 - ブログ部隊（生産技術ガジェット研究所） → `blog/SKILL.md` ⭐**唯一の正版**
 
-<<<<<<< HEAD
-**本業（work-projectsリポジトリ）**
-- メール秘書 → email-assistant/SKILL.md
-- PLCデバッガ → plc-debugger/SKILL.md
-- 文字起こしツール → media-transcriber/SKILL.md
-- 巻線レポート → winding-report/SKILL.md
-- 送別会書類 → farewell-docs/SKILL.md
-- 図面検図ツール → drawing-checker/SKILL.md
-=======
 > ⚠️ **重要（2026-05-24制定）**：生産技術ガジェット研究所のスキルは `blog/SKILL.md` に一本化済み。
 > 過去に `~/.claude/skills/seisan-gijutsu-blog/` と Claude.ai Webの個人スキルにも同名スキルが存在したが、
 > 内容が古く時給設定（旧2,000円→新950円）等で矛盾を起こしていたため、両方とも廃止した。
 > **再びWebやCLIグローバルにアップロードしない**。記事執筆時は `blog/SKILL.md` のみを参照すること。
->>>>>>> 9911465614d102cb42310e9ee2d5c2b875befa9d
 
 **ツール作成部門（my-ai-companyリポジトリ）**
 - 部門共通スキル → `tools/SKILL.md`
@@ -592,6 +582,7 @@ MEMORY.md（学習・経験の蓄積）
 - 文字起こしツール → `media-transcriber/SKILL.md`
 - 巻線レポート → `winding-report/SKILL.md`
 - 送別会書類 → `farewell-docs/SKILL.md`
+- 図面検図ツール → `drawing-checker/SKILL.md`（⚠️ 2026-06-12時点でMac側work-projectsに未同期。Windows側PCで未pushの可能性）
 
 ---
 

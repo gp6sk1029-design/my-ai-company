@@ -201,9 +201,11 @@ def detect_session_role(modified_files: list[Path], user_messages: list[str]) ->
             score["tools"] += 1
         if "sns/" in path_str:
             score["sns"] += 2
+        if "research/" in path_str:
+            score["research"] += 2
         if any(p in path_str for p in [".claude/", "global_rules/", "tools/handover", "tools/session_health"]):
             score["infra"] += 1
-        if any(p in path_str for p in ["claude.md", "memory.md"]) and "blog/" not in path_str:
+        if any(p in path_str for p in ["claude.md", "memory.md"]) and "blog/" not in path_str and "research/" not in path_str:
             score["pdm"] += 1
 
     # ユーザーメッセージのキーワードからスコアリング
@@ -291,7 +293,7 @@ def generate_handover(title: str | None = None, recent: int = 10,
         role_prompt.strip(),
         "```",
         "",
-        "> 役割が違う場合は `python3 tools/handover.py --role <pdm|blog|ec|tools|sns|infra>` で再生成可能",
+        "> 役割が違う場合は `python3 tools/handover.py --role <pdm|blog|ec|tools|sns|research|infra>` で再生成可能",
         "",
         "---",
         "",
@@ -368,7 +370,7 @@ def main() -> int:
     parser.add_argument("--recent", type=int, default=10,
                         help="含めるユーザー入力の数（デフォルト10）")
     parser.add_argument("--role", choices=list(SESSION_ROLES.keys()),
-                        help="セッション役割（pdm/blog/ec/tools/sns/infra）。未指定時は自動推定")
+                        help="セッション役割（pdm/blog/ec/tools/sns/research/infra）。未指定時は自動推定")
     args = parser.parse_args()
 
     try:
