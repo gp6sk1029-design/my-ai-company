@@ -220,6 +220,22 @@ body {
 }
 .banner-prompt-summary .bps-kv strong { word-break: break-word; }
 .banner-prompt-summary .bps-warn { color: #fde68a; font-weight: 700; }
+.banner-prompt-summary .bps-head-hint { font-size: 10.5px; font-weight: 400; opacity: 0.8; }
+/* カード内で直接編集できる入力欄（上部「プロンプト準備」と双方向同期） */
+.banner-prompt-summary .bps-input,
+.banner-prompt-summary .bps-tpl {
+  flex: 1;
+  min-width: 0;
+  font-size: 12.5px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: 1px solid rgba(255,255,255,0.35);
+  background: rgba(255,255,255,0.95);
+  color: #111827;
+}
+.banner-prompt-summary .bps-input::placeholder { color: #9ca3af; font-size: 11px; }
+.banner-prompt-summary .bps-input:focus,
+.banner-prompt-summary .bps-tpl:focus { outline: 2px solid #f97316; border-color: #f97316; }
 .banner-prompt-summary .bps-missing { color: #fde68a; opacity: 0.9; font-style: normal; font-size: 12px; }
 .banner-prompt-summary .bps-full { margin-top: 8px; }
 .banner-prompt-summary .bps-full summary { cursor: pointer; font-size: 12px; opacity: 0.9; }

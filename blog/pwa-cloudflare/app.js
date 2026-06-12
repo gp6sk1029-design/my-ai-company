@@ -923,10 +923,17 @@
     if (!editingBanner || editingBanner.style.display === 'none') return;
     const el = document.getElementById('banner-prompt-summary');
     if (!el) return;
+    // 🖊 カード内の入力中に全再描画するとフォーカスが飛ぶ → 全文プレビューだけ軽量更新して抜ける
+    if (el.contains(document.activeElement) && document.activeElement.classList.contains('bps-edit')) {
+      const full0 = currentEditPrompt();
+      const pre0 = el.querySelector('.bps-full pre');
+      const sum0 = el.querySelector('.bps-full summary');
+      if (pre0) pre0.textContent = full0;
+      if (sum0) sum0.textContent = '📄 指示文の全文を見る（' + full0.length + '文字）';
+      return;
+    }
     const tplSel = document.getElementById('ai-template-select');
     const key = tplSel ? tplSel.value : '';
-    const tplLabel = (tplSel && tplSel.selectedIndex >= 0)
-      ? tplSel.options[tplSel.selectedIndex].text : '';
     const tf = (typeof TEMPLATE_FIELDS !== 'undefined' && TEMPLATE_FIELDS[key]) ? TEMPLATE_FIELDS[key] : null;
     const vals = {
       title: ((document.getElementById('ai-var-title') || {}).value || '').trim(),
@@ -947,26 +954,52 @@
           '<div class="bps-thumb-cap">' + (isSheet ? '連結シート（全製品入り）' : 'この画像') + '</div></div>';
       }
     } catch (_) {}
-    // 入力項目を「日本語ラベル：値」で全部見せる。未入力の欄も「未入力」と明示して気づけるようにする
-    const rows = ['<div class="bps-kv"><span>つくるもの</span><strong>' + escHtml(tplLabel || '未選択') + '</strong></div>'];
+    // 🖊 各欄をこの場で直接編集できるようにする（上部「プロンプト準備」と双方向同期＝単一ソース維持）
+    const tplOptions = tplSel ? tplSel.innerHTML : '';
+    const rows = ['<div class="bps-kv"><span>つくるもの</span>' +
+      '<select class="bps-edit bps-tpl">' + tplOptions + '</select></div>'];
     ['title', 'main', 'sub', 'mood'].forEach((k) => {
       const label = tf ? tf[k][0] : { title: 'タイトル', main: 'メイン', sub: 'サブ', mood: '配色' }[k];
       if (label && label.indexOf('（使用しない') === 0) return; // このテンプレで使わない欄は出さない
-      if (vals[k]) {
-        rows.push('<div class="bps-kv"><span>' + escHtml(label) + '</span><strong>' + escHtml(vals[k]) + '</strong></div>');
-      } else {
-        rows.push('<div class="bps-kv"><span>' + escHtml(label) + '</span><em class="bps-missing">未入力（例文を参考におまかせ生成）</em></div>');
-      }
+      const ph = tf ? tf[k][1] : '';
+      rows.push('<div class="bps-kv"><span>' + escHtml(label) + '</span>' +
+        '<input type="text" class="bps-edit bps-input" data-k="' + k + '" value="' + escHtml(vals[k]).replace(/"/g, '&quot;') + '"' +
+        ' placeholder="未入力（おまかせ生成）' + escHtml(ph ? ' ' + ph : '') + '"></div>');
     });
     if (!full) {
-      rows.push('<div class="bps-kv bps-warn">⚠️ プロンプト未作成：上部「プロンプト準備」でテンプレを選んでください</div>');
+      rows.push('<div class="bps-kv bps-warn">⚠️ プロンプト未作成：上の「つくるもの」でテンプレを選んでください</div>');
     }
     el.innerHTML =
-      '<div class="bps-head">📤 いまAIに送る内容</div>' +
+      '<div class="bps-head">📤 いまAIに送る内容 <span class="bps-head-hint">（この場で書き換えOK・上の準備欄と自動同期）</span></div>' +
       '<div class="bps-flex">' + thumb + '<div class="bps-rows">' + rows.join('') + '</div></div>' +
       (full
         ? '<details class="bps-full"><summary>📄 指示文の全文を見る（' + full.length + '文字）</summary><pre>' + escHtml(full) + '</pre></details>'
         : '');
+    // ── カード内編集 → 上部ヘルパーへ書き戻し（イベント転送で再生成まで自動） ──
+    const cardTpl = el.querySelector('.bps-tpl');
+    if (cardTpl) {
+      if (tplSel) cardTpl.value = tplSel.value;
+      cardTpl.addEventListener('change', () => {
+        if (!tplSel) return;
+        tplSel.value = cardTpl.value;
+        tplSel.dispatchEvent(new Event('change'));   // → regenerateAIPrompt
+        updateBannerPromptSummary();                 // ラベル・欄構成を新テンプレで再描画
+      });
+    }
+    el.querySelectorAll('.bps-input').forEach((inp) => {
+      inp.addEventListener('input', () => {
+        const target = document.getElementById('ai-var-' + inp.dataset.k);
+        if (!target) return;
+        target.value = inp.value;
+        target.dispatchEvent(new Event('input'));    // → regenerateAIPrompt → 全文プレビュー更新
+      });
+    });
+    el.addEventListener('focusout', () => {
+      // カードから完全にフォーカスが出たら整形のため再描画
+      setTimeout(() => {
+        if (!el.contains(document.activeElement)) updateBannerPromptSummary();
+      }, 120);
+    }, { once: true });
   }
   // 上部ヘルパーの編集にライブ追従（リスナーは一度だけ結線）
   ['ai-prompt', 'ai-var-title'].forEach((id) => {
