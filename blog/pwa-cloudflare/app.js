@@ -909,23 +909,48 @@
   function escHtml(s) {
     return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   }
+  let bannerThumbUrl = null;
   function updateBannerPromptSummary() {
     if (!editingBanner || editingBanner.style.display === 'none') return;
     const el = document.getElementById('banner-prompt-summary');
     if (!el) return;
     const tplSel = document.getElementById('ai-template-select');
+    const key = tplSel ? tplSel.value : '';
     const tplLabel = (tplSel && tplSel.selectedIndex >= 0)
       ? tplSel.options[tplSel.selectedIndex].text : '';
-    const title = ((document.getElementById('ai-var-title') || {}).value || '').trim();
-    const head = currentEditPrompt().replace(/\s+/g, ' ').slice(0, 90);
+    const tf = (typeof TEMPLATE_FIELDS !== 'undefined' && TEMPLATE_FIELDS[key]) ? TEMPLATE_FIELDS[key] : null;
+    const vals = {
+      title: ((document.getElementById('ai-var-title') || {}).value || '').trim(),
+      main:  ((document.getElementById('ai-var-main')  || {}).value || '').trim(),
+      sub:   ((document.getElementById('ai-var-sub')   || {}).value || '').trim(),
+      mood:  ((document.getElementById('ai-var-mood')  || {}).value || '').trim(),
+    };
+    const full = currentEditPrompt();
+    // 編集対象のサムネイル（どの画像をAIに渡すかを見える化）
+    let thumb = '';
+    try {
+      if (pendingReplace && pendingReplace.originalItem && pendingReplace.originalItem.blob) {
+        if (bannerThumbUrl) { URL.revokeObjectURL(bannerThumbUrl); bannerThumbUrl = null; }
+        bannerThumbUrl = URL.createObjectURL(pendingReplace.originalItem.blob);
+        thumb = '<div class="bps-thumb-wrap"><img class="bps-thumb" src="' + bannerThumbUrl + '" alt="編集対象"><div class="bps-thumb-cap">この画像</div></div>';
+      }
+    } catch (_) {}
+    // 入力項目を「日本語ラベル：値」で全部見せる（テンプレごとの正しいラベル名で）
+    const rows = ['<div class="bps-kv"><span>つくるもの</span><strong>' + escHtml(tplLabel || '未選択') + '</strong></div>'];
+    ['title', 'main', 'sub', 'mood'].forEach((k) => {
+      if (!vals[k]) return;
+      const label = tf ? tf[k][0] : { title: 'タイトル', main: 'メイン', sub: 'サブ', mood: '配色' }[k];
+      rows.push('<div class="bps-kv"><span>' + escHtml(label) + '</span><strong>' + escHtml(vals[k]) + '</strong></div>');
+    });
+    if (!full) {
+      rows.push('<div class="bps-kv bps-warn">⚠️ プロンプト未作成：上部「プロンプト準備」でテンプレを選んでください</div>');
+    }
     el.innerHTML =
-      '<div class="bps-row">📤 送信内容：' +
-        '<span class="bps-chip">' + escHtml(tplLabel || 'テンプレ未選択') + '</span>' +
-        (title ? '<span class="bps-chip">「' + escHtml(title) + '」</span>' : '') +
-      '</div>' +
-      '<div class="bps-preview">' +
-        (head ? escHtml(head) + '…' : '⚠️ プロンプトが空です。上部「プロンプト準備」でテンプレを選んで作成してください') +
-      '</div>';
+      '<div class="bps-head">📤 いまAIに送る内容</div>' +
+      '<div class="bps-flex">' + thumb + '<div class="bps-rows">' + rows.join('') + '</div></div>' +
+      (full
+        ? '<details class="bps-full"><summary>📄 指示文の全文を見る（' + full.length + '文字）</summary><pre>' + escHtml(full) + '</pre></details>'
+        : '');
   }
   // 上部ヘルパーの編集にライブ追従（リスナーは一度だけ結線）
   ['ai-prompt', 'ai-var-title'].forEach((id) => {
