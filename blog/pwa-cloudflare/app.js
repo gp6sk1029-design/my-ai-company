@@ -840,11 +840,20 @@
     }
 
     // === PC：URLプリフィル＋クリップボード経由 ===
+    // 🛡 画像＋プロンプトを同じClipboardItemに同梱 → ChatGPT/Geminiのチャット欄に
+    // 1回の⌘Vで「画像の添付＋プロンプト本文」が同時に入る（非対応環境は画像のみにフォールバック）
     let copyOK = false;
     try {
       if (navigator.clipboard && window.ClipboardItem) {
         const pngBlob = await blobToPngBlob(item.blob);
-        await navigator.clipboard.write([new ClipboardItem({'image/png': pngBlob})]);
+        try {
+          await navigator.clipboard.write([new ClipboardItem({
+            'image/png': pngBlob,
+            'text/plain': new Blob([prompt], { type: 'text/plain' }),
+          })]);
+        } catch (mixErr) {
+          await navigator.clipboard.write([new ClipboardItem({ 'image/png': pngBlob })]);
+        }
         copyOK = true;
         clipboardMode = 'image';
       }
@@ -1193,9 +1202,18 @@
         if (!pendingReplace || !pendingReplace.originalItem) return;
         try {
           const pngBlob = await blobToPngBlob(pendingReplace.originalItem.blob);
-          await navigator.clipboard.write([new ClipboardItem({'image/png': pngBlob})]);
+          // 画像＋プロンプトを同梱（1回の⌘Vで両方貼れる）。非対応環境は画像のみ
+          try {
+            await navigator.clipboard.write([new ClipboardItem({
+              'image/png': pngBlob,
+              'text/plain': new Blob([currentEditPrompt()], { type: 'text/plain' }),
+            })]);
+            showToast('📋 画像＋プロンプトをコピー（1回の⌘Vで両方貼れます）', 'success');
+          } catch (mixErr) {
+            await navigator.clipboard.write([new ClipboardItem({ 'image/png': pngBlob })]);
+            showToast('📋 クリップボードを「画像」に切替', 'success');
+          }
           clipboardMode = 'image';
-          showToast('📋 クリップボードを「画像」に切替', 'success');
           updateStepChips();
         } catch (e) {
           showToast('画像コピー失敗: ' + (e.message || e), 'error');
@@ -2210,17 +2228,54 @@ ${COMMON_GUARDS}`,
       im.src = u;
     });
   }
+  // Drive上の既存ファイルをBlobとして取得（GAS downloadFile経由・CORS回避）
+  async function fetchDriveBlob(driveFile) {
+    const url = GAS_URL + '?' + new URLSearchParams({
+      token: TOKEN, action: 'downloadFile', fileId: driveFile.id,
+    }).toString();
+    const res = await fetch(url).then(r => r.json());
+    if (!res || !res.ok) throw new Error((res && res.message) || 'downloadFile 失敗');
+    const bin = atob(res.dataBase64);
+    const u8 = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+    return new Blob([u8], { type: res.mimeType || driveFile.mimeType || 'image/png' });
+  }
   async function buildCompareSheet() {
+    // ① 一時保存（キュー）の「⚖️比較」画像（過去の連結シート自体は除外）
     const all = await queueAll();
-    const comps = all
-      .filter(it => normalizeItemRole(it) === 'compare' && !(it.mimeType || '').startsWith('video/') && it.mimeType !== 'application/pdf')
-      .sort((a, b) => ((a.compareIndex || 99) - (b.compareIndex || 99)) || (a.createdAt - b.createdAt));
-    if (comps.length === 0) {
-      showToast('「⚖️比較」役割の画像がキューにありません。一時保存の画像に役割（⚖️）と製品番号を割り当ててから押してください', 'warn');
+    const queueComps = all.filter(it =>
+      normalizeItemRole(it) === 'compare' &&
+      !(it.mimeType || '').startsWith('video/') && it.mimeType !== 'application/pdf' &&
+      !/^compare_sheet_/i.test(it.originalName || '')
+    );
+    // ② アップロード済み（Drive既存ファイル）の比較画像も対象に含める
+    //    同じ製品番号が一時保存にある場合は一時保存を優先（最新を採用）
+    const usedIdx = new Set();
+    const entries = [];
+    for (const c of queueComps) {
+      const idx = c.compareIndex || null;
+      if (idx) usedIdx.add(idx);
+      entries.push({ blob: c.blob, idx, at: c.createdAt });
+    }
+    const driveComps = (lastExistingFiles || []).filter(f =>
+      /^compare_/i.test(f.name || '') && !/^compare_sheet_/i.test(f.name || ''));
+    for (const f of driveComps) {
+      const m = /^compare_p(\d+)_/i.exec(f.name || '');
+      const idx = m ? Number(m[1]) : null;
+      if (idx && usedIdx.has(idx)) continue;
+      if (idx) usedIdx.add(idx);
+      entries.push({ driveFile: f, idx, at: 0 });
+    }
+    if (entries.length === 0) {
+      showToast('「⚖️比較」役割の画像が見つかりません。一時保存 or 既存ファイルの画像に役割（⚖️）と製品番号を割り当ててから押してください', 'warn');
       return null;
     }
+    entries.sort((a, b) => ((a.idx || 99) - (b.idx || 99)) || (a.at - b.at));
+    showToast(`⚖️ 比較画像を集めています…（一時保存${queueComps.length}枚＋Drive${entries.length - queueComps.length}枚）`, 'success');
+    const blobs = await Promise.all(entries.map(e => e.blob ? Promise.resolve(e.blob) : fetchDriveBlob(e.driveFile)));
+    const comps = entries.map((e, i) => ({ compareIndex: e.idx, blob: blobs[i] }));
     const names = getCompareProductNames();
-    const imgs = await Promise.all(comps.map(c => blobToImageEl(c.blob)));
+    const imgs = await Promise.all(blobs.map(b => blobToImageEl(b)));
     const cellH = 512, labelH = 56, pad = 16;
     const widths = imgs.map(im => Math.max(1, Math.round(im.naturalWidth * (cellH / im.naturalHeight))));
     const canvas = document.createElement('canvas');
