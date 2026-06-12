@@ -2789,6 +2789,36 @@ ${COMMON_GUARDS}`,
     if (existingFilesDetails) existingFilesDetails.hidden = true;
   }
 
+  // 既存ファイルの役割を逆引きする。
+  // Drive保存時にファイル名がタイムスタンプ名へ変わることがあるため、
+  // ①ファイル名プレフィックス → ②PROMPT.mdの役割行（fileId優先・なければ名前）の順で照合する。
+  function resolveExistingFileRole(f) {
+    const name = f.name || '';
+    // ① ファイル名プレフィックス
+    const mP = /^compare_p(\d+)_/i.exec(name);
+    if (mP) return { def: getRoleDef('compare'), pnum: Number(mP[1]), pname: '' };
+    for (const def of ROLE_DEFS) {
+      if (def.key === 'none' || !def.prefix) continue;
+      if (new RegExp('^' + def.prefix, 'i').test(name)) return { def, pnum: null, pname: '' };
+    }
+    // ② PROMPT.md の役割行（読み込み済み memos から）
+    for (const m of memos) {
+      const line = (m || '').trim();
+      if (!ROLE_NOTE_RE.test(line)) continue;
+      const hit = (f.id && line.includes(f.id)) || (name && line.includes(name));
+      if (!hit) continue;
+      const label = line.split(/[:：]/)[0].trim();
+      const def = ROLE_DEFS.find(d => d.key !== 'none' && label.indexOf(d.label) === 0)
+        || (label.indexOf('アイキャッチ') === 0 ? getRoleDef('eyecatch') : null);
+      if (def) {
+        const pn = /製品(\d+)/.exec(label);
+        const pname = (/製品\d+（([^）]+)）/.exec(label) || [])[1] || '';
+        return { def, pnum: pn ? Number(pn[1]) : null, pname };
+      }
+    }
+    return null;
+  }
+
   async function loadExistingFiles(folderId) {
     if (!existingFilesDetails) return;
     existingFilesDetails.hidden = false;
@@ -2810,7 +2840,18 @@ ${COMMON_GUARDS}`,
       for (const f of files) {
         const card = document.createElement('div');
         card.className = 'ef-card';
+        // 役割バッジ（キューの一時保存画像と同じ見た目ルール）
+        const role = resolveExistingFileRole(f);
+        const roleLabel = role
+          ? (role.def.key === 'compare'
+              ? `${role.def.emoji} 比較 製品${role.pnum || '?'}${role.pname ? '＝' + role.pname.slice(0, 6) : ''}`
+              : `${role.def.emoji} ${role.def.label}`)
+          : '';
+        const roleBadgeHtml = role
+          ? `<div class="ef-role-badge" style="background:${role.def.color}" title="この画像の役割">${roleLabel}</div>`
+          : '';
         card.innerHTML =
+          roleBadgeHtml +
           `<img loading="lazy" src="${f.thumbnailUrl}" alt="${f.name}" referrerpolicy="no-referrer">` +
           `<div class="ef-name" title="${f.name}">${f.name}</div>` +
           '<div class="ef-buttons">' +
@@ -2871,6 +2912,8 @@ ${COMMON_GUARDS}`,
   btnReloadFiles && btnReloadFiles.addEventListener('click', async () => {
     const folderId = articleSelect.value;
     if (!folderId) { showToast('記事を選択してください', 'warn'); return; }
+    // 役割バッジの逆引きに PROMPT.md の役割行が必要なため、メモも先に静かに再読込
+    await loadExistingPrompt(folderId, { silent: true });
     await loadExistingFiles(folderId);
   });
 

@@ -152,6 +152,24 @@ body {
   flex-direction: column;
   align-items: center;
   gap: 4px;
+  position: relative;
+}
+/* 既存ファイルの役割バッジ（キューの role-badge と同等の見た目） */
+.ef-role-badge {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 2;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 999px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.3);
+  max-width: calc(100% - 16px);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .ef-card img {
   width: 100%;
