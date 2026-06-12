@@ -2302,10 +2302,43 @@ ${COMMON_GUARDS}`,
     btnCompareBundle.addEventListener('click', async () => {
       btnCompareBundle.disabled = true;
       try {
-        const sheet = await buildCompareSheet();
-        if (!sheet || !sheet.blob) return;
-        // 🔄 連結シートを「一時保存」に追加し、実績のある編集バナー経由でAIへ渡す。
-        // （直接クリップボード方式は、画像が大きいと書込が間に合わず貼り付け失敗することがあった）
+        // ⚠️ クリップボード書込と window.open は「ボタンを押した直後（ユーザー操作の権限内）」に
+        // 同期的に予約する必要がある。シート合成（Driveダウンロード含む）を await してから書くと
+        // 権限切れ（約5秒）で拒否され「貼り付けられない」事故になる。
+        // → ClipboardItem に Promise を渡す公式の方法で「先に予約・後から中身」を実現する。
+        // ① プロンプトを先に確定（シート不要・同期）
+        const note = '【添付画像の使い方】添付の連結シートには各製品の実機写真が「製品1」「製品2」…のラベル付きで横に並んでいます。' +
+          '各パネルを切り出して、対応する製品カードのヘッダー画像として使用してください。';
+        if (aiPrompt && !aiPrompt.value.includes('【添付画像の使い方】')) {
+          aiPrompt.value = (aiPrompt.value.trim() ? aiPrompt.value.trim() + '\n\n' : '') + note;
+        }
+        const prompt = aiPrompt ? aiPrompt.value.trim() : note;
+        // ② シート合成を開始（Promise。まだ await しない）
+        const sheetP = buildCompareSheet();
+        let w = null;
+        let copyReserved = false;
+        if (!isMobileDevice()) {
+          // ③ ChatGPT をプロンプト入りURLで即オープン（同期＝ポップアップブロック回避）
+          const url = buildAIUrl('chatgpt', prompt);
+          w = openFreshAI('chatgpt', url, 'width=900,height=900,scrollbars=yes,resizable=yes');
+          if (!w) w = window.open(url, '_blank');
+          // ④ クリップboardへ「Promise渡し」で予約（権限はこの瞬間に確保される）
+          try {
+            if (navigator.clipboard && window.ClipboardItem) {
+              await navigator.clipboard.write([new ClipboardItem({
+                'image/png': sheetP.then(s => {
+                  if (!s || !s.blob) throw new Error('比較画像なし');
+                  return s.blob;
+                }),
+              })]);
+              copyReserved = true;
+              clipboardMode = 'image';
+            }
+          } catch (e) { console.warn('compare sheet clipboard reserve failed:', e); }
+        }
+        // ⑤ シート完成を待って一時保存に追加 → 受取用バナーを表示
+        const sheet = await sheetP;
+        if (!sheet || !sheet.blob) { try { if (w) w.close(); } catch (_) {} return; }
         const id = Date.now() + '_' + (++itemCounter);
         const record = {
           id, createdAt: Date.now(),
@@ -2313,18 +2346,27 @@ ${COMMON_GUARDS}`,
           size: sheet.blob.size,
           originalName: 'compare_sheet_' + id + '.png',
           status: 'pending',
+          editingWith: 'chatgpt',
         };
         await queuePut(record);
+        pendingReplace = {
+          originalId: record.id,
+          originalItem: record,
+          aiEngine: 'chatgpt',
+          prompt: prompt,
+          startedAt: Date.now(),
+          aiWindow: w,
+          aiUrl: buildAIUrl('chatgpt', prompt),
+        };
         await renderQueue();
-        // プロンプトに連結シートの使い方を追記（既にあれば二重追記しない）
-        const note = '【添付画像の使い方】添付の連結シートには各製品の実機写真が「製品1」「製品2」…のラベル付きで横に並んでいます。' +
-          '各パネルを切り出して、対応する製品カードのヘッダー画像として使用してください。';
-        if (aiPrompt && !aiPrompt.value.includes('【添付画像の使い方】')) {
-          aiPrompt.value = (aiPrompt.value.trim() ? aiPrompt.value.trim() + '\n\n' : '') + note;
+        showEditingBanner();
+        if (isMobileDevice() && navigator.share) {
+          showToast(`⚖️ ${sheet.count}枚を連結しました。バナーの「📤 共有」ボタンでAIアプリへ送ってください`, 'success');
+        } else {
+          showToast(copyReserved
+            ? `⚖️ ${sheet.count}枚を連結してコピー済み。ChatGPTのチャット欄で ⌘/Ctrl+V → 送信`
+            : `⚖️ ${sheet.count}枚を連結しました。バナーの「🖼 画像を再コピー」を押してからAIで ⌘V`, 'success');
         }
-        showToast(`⚖️ ${sheet.count}枚を1枚に連結して一時保存に追加 → ChatGPTへ渡します。貼り付かない時はバナーの「🖼 画像を再コピー」`, 'success');
-        // 通常の編集フローを起動（バナー表示・画像コピー・再コピー・受取置換が全部使える）
-        await oneClickEdit(record, 'chatgpt');
       } finally {
         btnCompareBundle.disabled = false;
       }
