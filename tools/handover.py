@@ -238,6 +238,11 @@ def generate_role_prompt(role: str, handover_filename: str) -> str:
 {files_list}
 - handover/{handover_filename}（前セッションからの引き継ぎ）
 
+🎭 このセッションの役割キーは `{role}` です。
+このセッションで引き継ぎ書を作るときは、役割の推測に頼らず必ず
+`python3 tools/handover.py --role {role}` と役割キーを明示して実行してください
+（役割がプロンプト経由で次セッションに自動伝搬し、誤判定を防げます）。
+
 引き継ぎ書を読んでから、「{info['name']}準備OK」と返答してください。
 """
 

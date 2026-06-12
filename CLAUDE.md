@@ -166,9 +166,8 @@ PDMは「万能・何でも対応」がデフォルトモード。
 **Step 1: 引き継ぎ書を生成（前セッションで実行）**
 ```bash
 python3 tools/handover.py --role <pdm|blog|ec|tools|sns|research|infra>
-# または自動推定で：
-python3 tools/handover.py
 ```
+> 🔴 **--role は必須（2026-06-12制定・役割の自己伝搬）**：役割定義プロンプトには「このセッションの役割キー」と「引き継ぎ時は `--role <キー>` で実行せよ」が埋め込まれている。Claudeはそれに従い、**推測（--role省略）に頼らない**こと。役割キー不明の場合（役割定義プロンプトなしで始まった旧セッション等）のみ `python3 tools/handover.py` の自動推定を使い、推定結果が会話の役割と合っているかユーザーに一言確認する。
 
 **Step 2: 引き継ぎ書から「🎭 役割定義プロンプト」をコピー**
 - 引き継ぎ書の冒頭セクションにある
@@ -239,7 +238,7 @@ python3 tools/handover.py
 
 ### 引き継ぎフロー
 1. ユーザーが「引き継ぎ準備して」「ハンドオーバー」等と入力
-2. Claudeが `python3 tools/handover.py --title "適切なタイトル"` を実行
+2. Claudeが `python3 tools/handover.py --role <自分の役割キー> --title "適切なタイトル"` を実行（役割キーはセッション開始時の役割定義プロンプトに記載。**--role省略＝推測は禁止**）
 3. `handover/YYYY-MM-DD-HHMM-xxx.md` が生成される
 4. 🔴 **必須：Claudeはその場でチャットに「貼り付け用プロンプト（役割定義プロンプト全文）」をコードブロックで提示する**。ファイルを開かせない。`handover.py` も同プロンプトを画面出力する（2026-06-09改修）。あわせて「①新しいチャットを開く ②この枠をそのまま貼る ③『準備OK』が返ったら続きを依頼」の3手順を平易に添える。
 5. 新セッションでは貼り付けられた役割定義プロンプト → SKILL.md / MEMORY.md / 引き継ぎ書を読んで作業再開
@@ -249,9 +248,10 @@ python3 tools/handover.py
 # 健康診断（いつでも実行可能）
 python3 tools/session_health.py
 
-# 引き継ぎ書生成
+# 引き継ぎ書生成（--role必須：自分の役割キーを指定）
+python3 tools/handover.py --role blog --title "blog記事3執筆"
+# 役割キー不明の旧セッションのみ自動推定（推定結果の確認必須）
 python3 tools/handover.py
-python3 tools/handover.py --title "blog記事3執筆"
 ```
 
 ### handover アーカイブ運用ルール（2026-05-24制定）
