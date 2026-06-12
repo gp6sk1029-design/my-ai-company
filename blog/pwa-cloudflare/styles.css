@@ -211,6 +211,7 @@ body {
 }
 .banner-prompt-summary .bps-kv strong { word-break: break-word; }
 .banner-prompt-summary .bps-warn { color: #fde68a; font-weight: 700; }
+.banner-prompt-summary .bps-missing { color: #fde68a; opacity: 0.9; font-style: normal; font-size: 12px; }
 .banner-prompt-summary .bps-full { margin-top: 8px; }
 .banner-prompt-summary .bps-full summary { cursor: pointer; font-size: 12px; opacity: 0.9; }
 .banner-prompt-summary .bps-full pre {

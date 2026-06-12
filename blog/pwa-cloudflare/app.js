@@ -935,12 +935,16 @@
         thumb = '<div class="bps-thumb-wrap"><img class="bps-thumb" src="' + bannerThumbUrl + '" alt="編集対象"><div class="bps-thumb-cap">この画像</div></div>';
       }
     } catch (_) {}
-    // 入力項目を「日本語ラベル：値」で全部見せる（テンプレごとの正しいラベル名で）
+    // 入力項目を「日本語ラベル：値」で全部見せる。未入力の欄も「未入力」と明示して気づけるようにする
     const rows = ['<div class="bps-kv"><span>つくるもの</span><strong>' + escHtml(tplLabel || '未選択') + '</strong></div>'];
     ['title', 'main', 'sub', 'mood'].forEach((k) => {
-      if (!vals[k]) return;
       const label = tf ? tf[k][0] : { title: 'タイトル', main: 'メイン', sub: 'サブ', mood: '配色' }[k];
-      rows.push('<div class="bps-kv"><span>' + escHtml(label) + '</span><strong>' + escHtml(vals[k]) + '</strong></div>');
+      if (label && label.indexOf('（使用しない') === 0) return; // このテンプレで使わない欄は出さない
+      if (vals[k]) {
+        rows.push('<div class="bps-kv"><span>' + escHtml(label) + '</span><strong>' + escHtml(vals[k]) + '</strong></div>');
+      } else {
+        rows.push('<div class="bps-kv"><span>' + escHtml(label) + '</span><em class="bps-missing">未入力（例文を参考におまかせ生成）</em></div>');
+      }
     });
     if (!full) {
       rows.push('<div class="bps-kv bps-warn">⚠️ プロンプト未作成：上部「プロンプト準備」でテンプレを選んでください</div>');
@@ -2242,34 +2246,27 @@ ${COMMON_GUARDS}`,
       try {
         const sheet = await buildCompareSheet();
         if (!sheet || !sheet.blob) return;
-        const prompt = (aiPrompt.value.trim() || '') +
-          '\n\n【添付画像の使い方】添付の連結シートには各製品の実機写真が「製品1」「製品2」…のラベル付きで横に並んでいます。' +
+        // 🔄 連結シートを「一時保存」に追加し、実績のある編集バナー経由でAIへ渡す。
+        // （直接クリップボード方式は、画像が大きいと書込が間に合わず貼り付け失敗することがあった）
+        const id = Date.now() + '_' + (++itemCounter);
+        const record = {
+          id, createdAt: Date.now(),
+          blob: sheet.blob, mimeType: 'image/png', ext: 'png',
+          size: sheet.blob.size,
+          originalName: 'compare_sheet_' + id + '.png',
+          status: 'pending',
+        };
+        await queuePut(record);
+        await renderQueue();
+        // プロンプトに連結シートの使い方を追記（既にあれば二重追記しない）
+        const note = '【添付画像の使い方】添付の連結シートには各製品の実機写真が「製品1」「製品2」…のラベル付きで横に並んでいます。' +
           '各パネルを切り出して、対応する製品カードのヘッダー画像として使用してください。';
-        // モバイル：Web Share で画像＋プロンプトを共有
-        if (isMobileDevice() && navigator.share) {
-          try {
-            const file = new File([sheet.blob], 'compare_products.png', { type: 'image/png' });
-            if (!navigator.canShare || navigator.canShare({ files: [file] })) {
-              await navigator.share({ files: [file], text: prompt, title: '比較表ビジュアル生成' });
-              return;
-            }
-          } catch (e) { if (e && e.name === 'AbortError') return; }
+        if (aiPrompt && !aiPrompt.value.includes('【添付画像の使い方】')) {
+          aiPrompt.value = (aiPrompt.value.trim() ? aiPrompt.value.trim() + '\n\n' : '') + note;
         }
-        // PC：連結シートをクリップボードへ → ChatGPTをプロンプト付きで起動
-        let copyOK = false;
-        try {
-          if (navigator.clipboard && window.ClipboardItem) {
-            await navigator.clipboard.write([new ClipboardItem({ 'image/png': sheet.blob })]);
-            copyOK = true;
-            clipboardMode = 'image';
-          }
-        } catch (e) { console.warn('compare sheet clipboard failed:', e); }
-        const url = buildAIUrl('chatgpt', prompt);
-        const w = openFreshAI('chatgpt', url, 'width=900,height=900,scrollbars=yes,resizable=yes');
-        if (!w) window.open(url, '_blank');
-        showToast(copyOK
-          ? `⚖️ ${sheet.count}枚を連結してコピー → ChatGPTのチャット欄に ⌘/Ctrl+V で貼って送信`
-          : '画像コピーに失敗しました。プロンプトのみ自動入力されています', copyOK ? 'success' : 'warn');
+        showToast(`⚖️ ${sheet.count}枚を1枚に連結して一時保存に追加 → ChatGPTへ渡します。貼り付かない時はバナーの「🖼 画像を再コピー」`, 'success');
+        // 通常の編集フローを起動（バナー表示・画像コピー・再コピー・受取置換が全部使える）
+        await oneClickEdit(record, 'chatgpt');
       } finally {
         btnCompareBundle.disabled = false;
       }
