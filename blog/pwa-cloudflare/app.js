@@ -904,6 +904,38 @@
     if (v) { if (pendingReplace) pendingReplace.prompt = v; return v; }
     return (pendingReplace && pendingReplace.prompt) || '';
   }
+  // バナーに「いま送られるプロンプト」の要約を表示（テンプレ名・タイトル・冒頭プレビュー）。
+  // 上部「プロンプト準備」での編集にライブ追従する。
+  function escHtml(s) {
+    return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+  function updateBannerPromptSummary() {
+    if (!editingBanner || editingBanner.style.display === 'none') return;
+    const el = document.getElementById('banner-prompt-summary');
+    if (!el) return;
+    const tplSel = document.getElementById('ai-template-select');
+    const tplLabel = (tplSel && tplSel.selectedIndex >= 0)
+      ? tplSel.options[tplSel.selectedIndex].text : '';
+    const title = ((document.getElementById('ai-var-title') || {}).value || '').trim();
+    const head = currentEditPrompt().replace(/\s+/g, ' ').slice(0, 90);
+    el.innerHTML =
+      '<div class="bps-row">📤 送信内容：' +
+        '<span class="bps-chip">' + escHtml(tplLabel || 'テンプレ未選択') + '</span>' +
+        (title ? '<span class="bps-chip">「' + escHtml(title) + '」</span>' : '') +
+      '</div>' +
+      '<div class="bps-preview">' +
+        (head ? escHtml(head) + '…' : '⚠️ プロンプトが空です。上部「プロンプト準備」でテンプレを選んで作成してください') +
+      '</div>';
+  }
+  // 上部ヘルパーの編集にライブ追従（リスナーは一度だけ結線）
+  ['ai-prompt', 'ai-var-title'].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('input', updateBannerPromptSummary);
+  });
+  (function () {
+    const sel = document.getElementById('ai-template-select');
+    if (sel) sel.addEventListener('change', () => setTimeout(updateBannerPromptSummary, 0));
+  })();
   function showEditingBanner() {
     if (!pendingReplace) return;
     if (!editingBanner) {
@@ -990,6 +1022,8 @@
         '<button type="button" id="banner-cancel">置換キャンセル</button>' +
       '</div>' +
       '<div id="banner-folder-status" class="banner-folder-status"></div>' +
+      // いま送られるプロンプトの要約（テンプレ名・タイトル・冒頭）— 上部での編集にライブ追従
+      '<div id="banner-prompt-summary" class="banner-prompt-summary"></div>' +
       // 📝 プロンプトの編集場所は上部「プロンプト準備」に一本化（旧：バナー内エディタは廃止）
       '<div class="banner-prompt-hint">📝 プロンプトを直したいときは、ページ上部の<strong>「プロンプト準備」</strong>欄で編集してください。' +
       'ここの「📝 プロンプトをコピー」と「🚀 開く」には<strong>常に最新の内容が自動反映</strong>されます。</div>' +
@@ -1150,6 +1184,7 @@
       };
     }
     updateStepChips();
+    updateBannerPromptSummary();
   }
 
   // ─── ステップチップの強調表示 + クリップボード状態追跡 ─────
