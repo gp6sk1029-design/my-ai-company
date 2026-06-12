@@ -38,7 +38,48 @@ function doPost(e) {
   if (p.action === 'replaceFile') return handleReplaceFile_(p);
   if (p.action === 'renameArticle') return handleRenameArticle_(p);
   if (p.action === 'createArticle') return handleCreateArticle_(p);
+  if (p.action === 'renameFile') return handleRenameFile_(p);
   return jsonResponse_({ ok: false, message: 'unknown action: ' + p.action });
+}
+
+// ─── ファイル名変更（画像の役割変更用） ─────────────────────
+// 安全のため「指定した記事フォルダ直下にあるファイル」しかリネームできない
+function handleRenameFile_(p) {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(15000);
+  try {
+    if (!p.fileId || !p.newName || !p.articleFolderId) {
+      return jsonResponse_({ ok: false, message: 'fileId/newName/articleFolderId required' });
+    }
+    const folder = getArticleFolderById(p.articleFolderId);
+    const file = DriveApp.getFileById(p.fileId);
+    // 親フォルダ検証（記事フォルダ外のファイルは触らせない）
+    let inFolder = false;
+    const parents = file.getParents();
+    while (parents.hasNext()) {
+      if (parents.next().getId() === folder.getId()) { inFolder = true; break; }
+    }
+    if (!inFolder) return jsonResponse_({ ok: false, message: 'file is not in the article folder' });
+    let newName = String(p.newName).replace(/[\\/:*?"<>|]/g, '').trim();
+    if (!newName) return jsonResponse_({ ok: false, message: 'invalid newName' });
+    if (newName !== file.getName()) {
+      newName = resolveFilenameConflict(folder, newName);
+      file.setName(newName);
+    }
+    appendLog({
+      articleTitle: folder.getName(),
+      fileName: newName,
+      sizeBytes: 0,
+      result: 'リネーム（役割変更）',
+      note: 'fileId=' + p.fileId,
+    });
+    return jsonResponse_({ ok: true, result: 'renamed', fileId: p.fileId, fileName: newName });
+  } catch (err) {
+    Logger.log('handleRenameFile_ error: ' + err.message);
+    return jsonResponse_({ ok: false, message: err.message });
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 // ─── 記事フォルダだけを作成（転送を待たずに先行作成） ─────────────────────

@@ -2819,6 +2819,93 @@ ${COMMON_GUARDS}`,
     return null;
   }
 
+  // 役割プレフィックスの除去（多重付与も一括で剥がす）
+  const ROLE_PREFIX_STRIP_RE = /^(eyecatch_|hero_|section_|product_|diagram_|compare_p\d+_|compare_|ngsummary_)+/i;
+  function stripRolePrefix(name) { return (name || '').replace(ROLE_PREFIX_STRIP_RE, ''); }
+  // 役割変更セレクタの選択肢（value = 新しいプレフィックス）
+  const EF_ROLE_OPTIONS = [
+    { v: '',            t: '☆ 役割なし' },
+    { v: 'eyecatch_',   t: '⭐ アイキャッチ' },
+    { v: 'hero_',       t: '🎯 ヒーローバナー' },
+    { v: 'section_',    t: '📑 セクション画像' },
+    { v: 'product_',    t: '📸 商品/実機写真' },
+    { v: 'diagram_',    t: '📐 図解/フロー図' },
+    { v: 'compare_p1_', t: '⚖️ 比較 製品1' },
+    { v: 'compare_p2_', t: '⚖️ 比較 製品2' },
+    { v: 'compare_p3_', t: '⚖️ 比較 製品3' },
+    { v: 'compare_p4_', t: '⚖️ 比較 製品4' },
+    { v: 'ngsummary_',  t: '⚠️ NG集サマリ' },
+  ];
+  const UNIQUE_ROLE_PREFIXES = ['eyecatch_', 'hero_', 'ngsummary_']; // 1記事1枚の役割
+  let lastExistingFiles = []; // 直近の一覧（ユニーク役割の重複解消に使う）
+
+  // 既存ファイルの役割を変更する＝Drive上のファイル名のプレフィックスを付け替える
+  // （記事生成スクリプトはファイル名プレフィックスで役割を判定するため、リネームが本体）
+  async function changeExistingFileRole(f, newPrefix, folderId) {
+    const base = stripRolePrefix(f.name);
+    const newName = (newPrefix || '') + base;
+    // ユニーク役割なら、同じ役割の他ファイルを先に「役割なし」へ降格（重複解消）
+    if (newPrefix && UNIQUE_ROLE_PREFIXES.includes(newPrefix)) {
+      const dupRe = new RegExp('^' + newPrefix, 'i');
+      const others = lastExistingFiles.filter(x => x.id !== f.id && dupRe.test(x.name || ''));
+      if (others.length > 0) {
+        const ok = window.confirm(
+          `この役割は1記事1枚です。すでに ${others.length} 枚が同じ役割です。\n\n` +
+          `[OK] この画像に付け替える（他は「役割なし」に降格）\n[キャンセル] やめる`
+        );
+        if (!ok) return false;
+        for (const o of others) {
+          await gasRenameFile(o.id, stripRolePrefix(o.name), folderId);
+        }
+      }
+    }
+    const renamed = await gasRenameFile(f.id, newName, folderId);
+    if (!renamed) return false;
+    // PROMPT.md の役割行も更新（このファイルの記載を消し、新役割行を追記）
+    try {
+      updateRoleLineForFile(f, renamed.fileName, newPrefix);
+      await savePromptToDrive(getSelectedArticleTitle(), folderId);
+    } catch (e) { console.warn('role line update failed:', e); }
+    return true;
+  }
+  async function gasRenameFile(fileId, newName, folderId) {
+    const body = new URLSearchParams({
+      token: TOKEN, action: 'renameFile',
+      fileId: fileId, newName: newName, articleFolderId: folderId,
+    });
+    const res = await fetch(GAS_URL, {
+      method: 'POST', body: body.toString(),
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
+    }).then(r => r.json());
+    if (!res.ok) { showToast('役割変更に失敗: ' + (res.message || ''), 'error'); return null; }
+    return res;
+  }
+  // PROMPT.md 役割行から対象ファイルの記載を取り除き、新しい役割行を追記する
+  function updateRoleLineForFile(f, newName, newPrefix) {
+    // 既存役割行から「このファイルのセグメント」だけ除去（同じ行に他ファイルが載っている場合は残す）
+    memos = memos.map(m => {
+      if (!ROLE_NOTE_RE.test(m)) return m;
+      if (!(m.includes(f.id) || m.includes(f.name))) return m;
+      const head = m.slice(0, m.search(/[:：]/) + 1);
+      const segs = m.slice(head.length).split(',').map(s => s.trim())
+        .filter(s => s && !(s.includes(f.id) || s.includes(f.name)));
+      return segs.length > 0 ? head + ' ' + segs.join(', ') : '';
+    }).filter(m => m !== '');
+    if (newPrefix) {
+      const mP = /^compare_p(\d+)_$/.exec(newPrefix);
+      if (mP) {
+        const pnames = getCompareProductNames();
+        const nm = pnames[Number(mP[1]) - 1] ? `（${pnames[Number(mP[1]) - 1]}）` : '';
+        memos = [`比較/Before-After 製品${mP[1]}${nm}: ${newName} (fileId: ${f.id})`, ...memos];
+      } else {
+        const def = ROLE_DEFS.find(d => d.prefix === newPrefix);
+        if (def) memos = [`${def.label}: ${newName} (fileId: ${f.id})`, ...memos];
+      }
+    }
+    persistMemoState();
+    renderMemos();
+  }
+
   async function loadExistingFiles(folderId) {
     if (!existingFilesDetails) return;
     existingFilesDetails.hidden = false;
@@ -2832,6 +2919,7 @@ ${COMMON_GUARDS}`,
       const res = await fetch(url).then(r => r.json());
       if (!res.ok) throw new Error(res.message);
       const files = res.files || [];
+      lastExistingFiles = files;
       efSummaryStatus.textContent = files.length + '件';
       if (files.length === 0) {
         efEmpty.hidden = false;
@@ -2850,10 +2938,20 @@ ${COMMON_GUARDS}`,
         const roleBadgeHtml = role
           ? `<div class="ef-role-badge" style="background:${role.def.color}" title="この画像の役割">${roleLabel}</div>`
           : '';
+        // 役割変更セレクタの現在値（ファイル名プレフィックスから判定）
+        const curPrefixM = /^(eyecatch_|hero_|section_|product_|diagram_|compare_p\d_|ngsummary_)/i.exec(f.name || '');
+        const curPrefix = curPrefixM ? curPrefixM[1].toLowerCase() : '';
+        const roleSelHtml =
+          '<select class="ef-role-sel" title="この画像の役割を変更（Drive上のファイル名が変わります）">' +
+          EF_ROLE_OPTIONS.map(o =>
+            `<option value="${o.v}"${o.v === curPrefix ? ' selected' : ''}>${o.t}</option>`
+          ).join('') +
+          '</select>';
         card.innerHTML =
           roleBadgeHtml +
           `<img loading="lazy" src="${f.thumbnailUrl}" alt="${f.name}" referrerpolicy="no-referrer">` +
           `<div class="ef-name" title="${f.name}">${f.name}</div>` +
+          roleSelHtml +
           '<div class="ef-buttons">' +
             '<button class="ai-edit-btn" data-action="ef-gpt" title="ChatGPTで再編集">🤖</button>' +
             '<button class="ai-edit-btn ai-edit-gemini" data-action="ef-gem" title="Geminiで再編集">🍌</button>' +
@@ -2862,6 +2960,21 @@ ${COMMON_GUARDS}`,
         card.querySelector('[data-action="ef-gpt"]').onclick = () => editExistingFile(f, 'chatgpt');
         card.querySelector('[data-action="ef-gem"]').onclick = () => editExistingFile(f, 'gemini');
         card.querySelector('[data-action="ef-canva"]').onclick = () => editExistingFile(f, 'canva');
+        const roleSel = card.querySelector('.ef-role-sel');
+        roleSel.addEventListener('change', async () => {
+          const newPrefix = roleSel.value;
+          roleSel.disabled = true;
+          const ok = await changeExistingFileRole(f, newPrefix, folderId);
+          if (ok) {
+            showToast(newPrefix
+              ? `🏷 役割を「${(EF_ROLE_OPTIONS.find(o => o.v === newPrefix) || {}).t}」に変更しました`
+              : '🏷 役割を解除しました', 'success');
+            await loadExistingFiles(folderId); // 一覧を更新（バッジ・名前を反映）
+          } else {
+            roleSel.value = curPrefix; // 失敗・キャンセル時は元に戻す
+            roleSel.disabled = false;
+          }
+        });
         efGrid.appendChild(card);
       }
     } catch (e) {

@@ -154,6 +154,16 @@ body {
   gap: 4px;
   position: relative;
 }
+/* 既存ファイルの役割変更セレクタ */
+.ef-role-sel {
+  width: 100%;
+  font-size: 11px;
+  padding: 3px 4px;
+  border-radius: 6px;
+  border: 1px solid #d1d5db;
+  background: #f9fafb;
+  color: #374151;
+}
 /* 既存ファイルの役割バッジ（キューの role-badge と同等の見た目） */
 .ef-role-badge {
   position: absolute;

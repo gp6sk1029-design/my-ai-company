@@ -5,16 +5,24 @@
  */
 
 /**
- * ファイル名を正規化
+ * 役割プレフィックス（記事生成側の分類キー）。正規化時に必ず保持する。
+ * これを捨てると article_from_meshi.py がアイキャッチ等を判定できなくなる。
+ */
+var ROLE_PREFIX_RE = /^(eyecatch_|hero_|section_|product_|diagram_|compare_p\d+_|compare_|ngsummary_)/i;
+
+/**
+ * ファイル名を正規化（役割プレフィックスは保持）
  * @param {string} originalName - 元のファイル名
  * @param {Date} [capturedAt] - 撮影日時（指定なしなら現在時刻）
- * @return {string} 例: "20260419_023045.jpg"
+ * @return {string} 例: "eyecatch_20260419_023045.jpg" / "20260419_023045.jpg"
  */
 function normalizeFilename(originalName, capturedAt) {
   const ext = getExtension(originalName);
   const date = capturedAt || new Date();
   const timestamp = formatTimestamp(date);
-  return timestamp + '.' + ext;
+  const m = ROLE_PREFIX_RE.exec(originalName || '');
+  const prefix = m ? m[1].toLowerCase() : '';
+  return prefix + timestamp + '.' + ext;
 }
 
 /**

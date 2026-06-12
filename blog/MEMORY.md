@@ -167,6 +167,12 @@
   - 🔶 **残課題（GAS側・要再デプロイのため未着手）**：(a)Deduperが記事をまたいで重複スキップ→別記事に同じ画像を使えない＆キューから消える (b)ハッシュ台帳が削除/差替に追従せず誤スキップ永続 (c)downloadFile/replaceFileがDrive全体の任意fileIdを受ける（トークンは公開JSに露出・要スコープ制限）(d)savePromptの「ゴミ箱→新規作成」方式は作成失敗時にメモが消える窓（setContent上書き化が安全）(e)resumableUrlのみLock無し (f)大容量アップ成功時にfileId/正規化名が返らず役割行が実在しない名前を指す。対応時は clasp push → create-deployment -i <同ID> でURL不変デプロイ。
   - 監査手法メモ：Workflowツールで6視点find→1指摘1反証verifyの2段構え。誤検知2件を棄却でき、修正対象を確定リスト化できた（62エージェント・約15分）。
 
+- 2026/06/09：**記事めしPWA：既存Drive画像の役割表示＋役割変更機能を実装（GAS v20デプロイ込み）**。
+  - 🚨 根本バグ発見：GASの `normalizeFilename` がファイル名をタイムスタンプ化する際に**役割プレフィックス（eyecatch_等）を捨てていた** → article_from_meshi.py はファイル名プレフィックスでしか役割判定しないため、**今までアップした画像は全て「その他」扱いだった**。Normalizer.gsを修正しプレフィックス保持（`eyecatch_20260609_123456.jpg`形式）。
+  - 既存ファイルカードに役割バッジ（①ファイル名プレフィックス→②PROMPT.md役割行のfileId照合の2段逆引き）＋🏷役割変更セレクタを追加。変更＝GAS新アクション`renameFile`でDrive上のファイル名を付け替え（記事フォルダ内のファイル限定・Lock付き）。ユニーク役割（アイキャッチ/ヒーロー/NG集）は重複時に確認→他方を自動降格。PROMPT.md役割行も同期更新。
+  - **GASデプロイ手順の実証（2回目）**：`clasp push -f` → `clasp create-deployment -i AKfycby9BS...（config.jsのGAS_URLと同ID） -d "v20: ..."` でURL不変デプロイ成功。**注意：curlでのPOST疎通確認はGoogleのリダイレクトでHTMLが返り判定不能。GET系アクション（getPrompt等）で確認する**こと。
+  - 仕様メモ：アイキャッチが2枚ある場合、記事生成に「どちらを使うか」選択UIはなくAI任せで曖昧 → 役割変更セレクタで片方を降格して解消するのが正しい運用。
+
 ### 使用ツール
 - WordPress REST API: wp_api.py
 - ブロックビルダー: wp_block_builder.py
