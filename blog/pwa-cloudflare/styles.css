@@ -164,6 +164,15 @@ body {
   background: #f9fafb;
   color: #374151;
 }
+/* バナー内：プロンプト編集場所の案内（編集UIは上部ヘルパーに一本化） */
+.banner-prompt-hint {
+  margin-top: 10px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: rgba(255,255,255,0.12);
+  font-size: 12px;
+  line-height: 1.5;
+}
 /* 役割がファイル名に未反映のときの修復ボタン */
 .ef-heal-btn {
   width: 100%;

@@ -896,6 +896,14 @@
 
   // ─── 編集中バナー（フローティング）────
   let editingBanner = null;
+  // 🔄 プロンプトの単一ソース：上部「プロンプト準備」(#ai-prompt)の現在値を最優先で使う。
+  // 空のときだけ編集開始時のスナップショット(pendingReplace.prompt)にフォールバック。
+  function currentEditPrompt() {
+    const ta = document.getElementById('ai-prompt');
+    const v = ta && ta.value ? ta.value.trim() : '';
+    if (v) { if (pendingReplace) pendingReplace.prompt = v; return v; }
+    return (pendingReplace && pendingReplace.prompt) || '';
+  }
   function showEditingBanner() {
     if (!pendingReplace) return;
     if (!editingBanner) {
@@ -982,61 +990,9 @@
         '<button type="button" id="banner-cancel">置換キャンセル</button>' +
       '</div>' +
       '<div id="banner-folder-status" class="banner-folder-status"></div>' +
-      // ── プロンプトの編集UI（テンプレ・変数・本文） ──
-      '<details class="banner-prompt-builder" id="banner-prompt-builder">' +
-        '<summary>📝 プロンプトを編集（テンプレ・変数・本文）</summary>' +
-        '<div class="banner-pb-body">' +
-          '<div class="banner-pb-row">' +
-            '<label for="banner-tpl">テンプレート：</label>' +
-            '<select id="banner-tpl">' +
-              '<option value="__keep__">— 変更しない（現在のプロンプト）—</option>' +
-              '<optgroup label="── 記事冒頭 ──">' +
-                '<option value="eyecatch">🖼️ ブログアイキャッチ</option>' +
-                '<option value="big_number">💯 数値インパクト</option>' +
-              '</optgroup>' +
-              '<optgroup label="── 製品紹介 ──">' +
-                '<option value="specs_card">📋 スペック表カード</option>' +
-                '<option value="icon_grid">🔲 機能アイコン6個</option>' +
-                '<option value="pros_cons">⚖️ メリット/デメリット</option>' +
-              '</optgroup>' +
-              '<optgroup label="── 図解・概念 ──">' +
-                '<option value="concept">💡 概念図</option>' +
-                '<option value="flow">🔀 フロー図</option>' +
-                '<option value="roi">📐 ROI 流れ図</option>' +
-                '<option value="decision_tree">🌿 使い分けフロー</option>' +
-              '</optgroup>' +
-              '<optgroup label="── まとめ・比較 ──">' +
-                '<option value="compare">📊 比較表</option>' +
-                '<option value="ranking">🥇 ランキング</option>' +
-                '<option value="target_buyer">🎯 こんな人におすすめ</option>' +
-                '<option value="ngsummary">⚠️ NG集サマリ</option>' +
-              '</optgroup>' +
-              '<optgroup label="── 画像加工 ──">' +
-                '<option value="bgremove">🪄 背景除去</option>' +
-                '<option value="colorfix">🎨 配色統一</option>' +
-                '<option value="addtext">✏️ テキスト追加</option>' +
-                '<option value="custom">📝 カスタム</option>' +
-              '</optgroup>' +
-            '</select>' +
-          '</div>' +
-          '<div class="banner-pb-vars">' +
-            '<label class="banner-pb-var"><span>記事タイトル</span>' +
-              '<input type="text" id="banner-var-title" placeholder="例：MX ERGO S 設定編"></label>' +
-            '<label class="banner-pb-var"><span>メイン訴求</span>' +
-              '<input type="text" id="banner-var-main"  placeholder="例：年6万円の時短"></label>' +
-            '<label class="banner-pb-var"><span>サブ訴求</span>' +
-              '<input type="text" id="banner-var-sub"   placeholder="例：Logi Options+ で1個を5職務分の専用機に化かす"></label>' +
-            '<label class="banner-pb-var"><span>配色／雰囲気</span>' +
-              '<input type="text" id="banner-var-mood"  placeholder="例：青系（#1d4ed8）＋アクセントオレンジ #f97316"></label>' +
-          '</div>' +
-          '<div class="banner-research-row">' +
-            '<button type="button" id="banner-research-btn" class="btn-secondary btn-small" title="リサーチ用プロンプトをクリップボードへ">🔍 リサーチプロンプトをコピー</button>' +
-            '<small style="opacity:.75">AIに貼って回答取得 → 上の欄に転記</small>' +
-          '</div>' +
-          '<textarea id="banner-prompt-edit" rows="8" class="banner-prompt-edit"></textarea>' +
-          '<small style="opacity:.75">本文を直接編集してもOK。変更は自動で次回の「🚀 開く」に反映されます。</small>' +
-        '</div>' +
-      '</details>' +
+      // 📝 プロンプトの編集場所は上部「プロンプト準備」に一本化（旧：バナー内エディタは廃止）
+      '<div class="banner-prompt-hint">📝 プロンプトを直したいときは、ページ上部の<strong>「プロンプト準備」</strong>欄で編集してください。' +
+      'ここの「📝 プロンプトをコピー」と「🚀 開く」には<strong>常に最新の内容が自動反映</strong>されます。</div>' +
       '</div>';
     editingBanner.style.display = 'block';
     // 取込元フォルダ名を非同期表示
@@ -1052,71 +1008,9 @@
         ? `📁 取込元：<strong>${h.name}</strong>（「📥 完成画像を取込」で最新画像を自動取込）`
         : '📁 取込元フォルダ未設定 → <strong>「📁 取込元設定」</strong>で Google Drive のダウンロードフォルダを選択してください';
     })();
-    // 編集中は新規生成ヘルパー(#ai-helper)とそのトリガー(#btn-open-ai-helper)を隠す（機能重複の解消）
-    const ah = document.getElementById('ai-helper');
-    if (ah) { ah.style.display = 'none'; if (ah.open) ah.open = false; }
-    const ahBtn = document.getElementById('btn-open-ai-helper');
-    if (ahBtn) ahBtn.style.display = 'none';
-
-    // ── プロンプト編集UIの初期化＆イベント結線 ──
-    (function setupPromptBuilder() {
-      const tplSel = document.getElementById('banner-tpl');
-      const inpT   = document.getElementById('banner-var-title');
-      const inpM   = document.getElementById('banner-var-main');
-      const inpS   = document.getElementById('banner-var-sub');
-      const inpO   = document.getElementById('banner-var-mood');
-      const taPrompt = document.getElementById('banner-prompt-edit');
-      if (!tplSel || !taPrompt) return;
-      // 既存変数値を上部AIヘルパー（#ai-helper側のinput）から引き継ぐ
-      const aiTitle = document.getElementById('ai-var-title');
-      const aiMain  = document.getElementById('ai-var-main');
-      const aiSub   = document.getElementById('ai-var-sub');
-      const aiMood  = document.getElementById('ai-var-mood');
-      if (aiTitle && inpT) inpT.value = aiTitle.value || '';
-      if (aiMain  && inpM) inpM.value = aiMain.value  || '';
-      if (aiSub   && inpS) inpS.value = aiSub.value   || '';
-      if (aiMood  && inpO) inpO.value = aiMood.value  || '';
-      // 現在のプロンプトを反映
-      taPrompt.value = pendingReplace.prompt || '';
-
-      function regen() {
-        let key = tplSel.value;
-        // 変数入力時に「__keep__」のままなら自動で eyecatch に切替（変数が無視されないように）
-        if (key === '__keep__') {
-          key = 'eyecatch';
-          tplSel.value = key;
-        }
-        // テンプレに合わせて入力欄のラベル・プレースホルダーを更新
-        if (typeof applyTemplateFields === 'function') applyTemplateFields(key, 'banner');
-        const tpl = (typeof AI_TEMPLATES !== 'undefined') ? AI_TEMPLATES[key] : null;
-        if (!tpl) return;
-        const vars = {
-          title: (inpT.value || '').trim(),
-          main:  (inpM.value || '').trim(),
-          sub:   (inpS.value || '').trim(),
-          mood:  (inpO.value || '').trim(),
-        };
-        taPrompt.value = tpl(vars);
-        pendingReplace.prompt = taPrompt.value;
-      }
-      // バナー表示直後にもラベル更新（__keep__ の時は eyecatch をデフォルト相当として）
-      if (tplSel.value && tplSel.value !== '__keep__') applyTemplateFields(tplSel.value, 'banner');
-      tplSel.addEventListener('change', () => {
-        // セレクト変更時もラベルを更新（再生成しない場合でも）
-        const k = tplSel.value === '__keep__' ? 'eyecatch' : tplSel.value;
-        applyTemplateFields(k, 'banner');
-        regen();
-      });
-      [inpT, inpM, inpS, inpO].forEach(el => el && el.addEventListener('input', () => {
-        if (tplSel.value !== 'custom') regen(); // __keep__ も含めて変数入力時は再生成
-      }));
-      taPrompt.addEventListener('input', () => {
-        pendingReplace.prompt = taPrompt.value;
-      });
-      // 🔍 リサーチプロンプト生成（バナー内）
-      const researchBtn = document.getElementById('banner-research-btn');
-      if (researchBtn) researchBtn.onclick = () => copyResearchPromptForCurrent('banner');
-    })();
+    // 🔄 統合（2026-06-09）：プロンプト編集は上部「プロンプト準備」(#ai-helper)に一本化。
+    // 編集中もヘルパーは隠さない（バナーを開いたまま上で直せる）。
+    // バナーの「📝 プロンプトをコピー」「🚀 開く」は常にヘルパーの最新値を使う（currentEditPrompt）。
 
     document.getElementById('banner-cancel').onclick = cancelPendingReplace;
     const btnCloseX = document.getElementById('banner-close-x');
@@ -1168,7 +1062,7 @@
         const ok = await mobileShareEdit(
           pendingReplace.originalItem,
           pendingReplace.aiEngine || 'chatgpt',
-          pendingReplace.prompt || ''
+          currentEditPrompt()
         );
         if (!ok) showToast('共有に失敗しました。下の「📋 画像」「📋 プロンプト」で個別に渡してください', 'warn');
       };
@@ -1180,7 +1074,7 @@
         const engine = pendingReplace.aiEngine || 'chatgpt';
 
         // ① ★最重要: window.open は最初に「同期で」呼ぶ。await 後に呼ぶと popup blocker に弾かれる
-        const url = buildAIUrl(engine, pendingReplace.prompt || '');
+        const url = buildAIUrl(engine, currentEditPrompt());
         pendingReplace.aiUrl = url;
 
         // 既存窓があれば閉じて開き直す（古いプロンプトURLが残るのを防ぐ）
@@ -1196,7 +1090,7 @@
           try {
             if (pendingReplace.originalItem && navigator.clipboard && window.ClipboardItem) {
               const pngBlob = await blobToPngBlob(pendingReplace.originalItem.blob);
-              const promptText = pendingReplace.prompt || '';
+              const promptText = currentEditPrompt();
               try {
                 await navigator.clipboard.write([new ClipboardItem({
                   'image/png': pngBlob,
@@ -1246,7 +1140,7 @@
       btnCopyPrompt.onclick = async () => {
         if (!pendingReplace) return;
         try {
-          await navigator.clipboard.writeText(pendingReplace.prompt || '');
+          await navigator.clipboard.writeText(currentEditPrompt());
           clipboardMode = 'prompt';
           showToast('📋 クリップボードを「プロンプト」に切替', 'success');
           updateStepChips();
