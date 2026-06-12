@@ -164,6 +164,19 @@ body {
   background: #f9fafb;
   color: #374151;
 }
+/* 役割がファイル名に未反映のときの修復ボタン */
+.ef-heal-btn {
+  width: 100%;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 6px;
+  border-radius: 6px;
+  border: 1px solid #f97316;
+  background: #fff7ed;
+  color: #c2410c;
+  cursor: pointer;
+}
+.ef-heal-btn:disabled { opacity: 0.5; }
 /* 既存ファイルの役割バッジ（キューの role-badge と同等の見た目） */
 .ef-role-badge {
   position: absolute;

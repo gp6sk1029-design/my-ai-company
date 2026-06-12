@@ -2938,15 +2938,27 @@ ${COMMON_GUARDS}`,
         const roleBadgeHtml = role
           ? `<div class="ef-role-badge" style="background:${role.def.color}" title="この画像の役割">${roleLabel}</div>`
           : '';
-        // 役割変更セレクタの現在値（ファイル名プレフィックスから判定）
-        const curPrefixM = /^(eyecatch_|hero_|section_|product_|diagram_|compare_p\d_|ngsummary_)/i.exec(f.name || '');
-        const curPrefix = curPrefixM ? curPrefixM[1].toLowerCase() : '';
+        // 役割変更セレクタの現在値：バッジと同じ2段逆引き（ファイル名→PROMPT.md）に合わせる。
+        // 古い保存分はファイル名に役割が無いため、名前だけ見ると「役割なし」と誤表示されてしまう。
+        const namePrefixM = /^(eyecatch_|hero_|section_|product_|diagram_|compare_p\d_|ngsummary_)/i.exec(f.name || '');
+        const namePrefix = namePrefixM ? namePrefixM[1].toLowerCase() : '';
+        let curPrefix = namePrefix;
+        if (!curPrefix && role) {
+          curPrefix = role.def.key === 'compare'
+            ? (role.pnum ? 'compare_p' + role.pnum + '_' : '')
+            : (role.def.prefix || '');
+        }
+        // PROMPT.md上は役割があるのにファイル名に未反映 → 記事生成に効かないので修復ボタンを出す
+        const needsHeal = !!curPrefix && namePrefix !== curPrefix;
         const roleSelHtml =
           '<select class="ef-role-sel" title="この画像の役割を変更（Drive上のファイル名が変わります）">' +
           EF_ROLE_OPTIONS.map(o =>
             `<option value="${o.v}"${o.v === curPrefix ? ' selected' : ''}>${o.t}</option>`
           ).join('') +
-          '</select>';
+          '</select>' +
+          (needsHeal
+            ? '<button class="ef-heal-btn" title="役割がファイル名に未反映のため、このままでは記事生成に効きません。タップで反映">🏷 役割を名前に反映</button>'
+            : '');
         card.innerHTML =
           roleBadgeHtml +
           `<img loading="lazy" src="${f.thumbnailUrl}" alt="${f.name}" referrerpolicy="no-referrer">` +
@@ -2960,6 +2972,17 @@ ${COMMON_GUARDS}`,
         card.querySelector('[data-action="ef-gpt"]').onclick = () => editExistingFile(f, 'chatgpt');
         card.querySelector('[data-action="ef-gem"]').onclick = () => editExistingFile(f, 'gemini');
         card.querySelector('[data-action="ef-canva"]').onclick = () => editExistingFile(f, 'canva');
+        const healBtn = card.querySelector('.ef-heal-btn');
+        if (healBtn) healBtn.onclick = async () => {
+          healBtn.disabled = true;
+          const ok = await changeExistingFileRole(f, curPrefix, folderId);
+          if (ok) {
+            showToast('🏷 役割をファイル名に反映しました（記事生成に効くようになります）', 'success');
+            await loadExistingFiles(folderId);
+          } else {
+            healBtn.disabled = false;
+          }
+        };
         const roleSel = card.querySelector('.ef-role-sel');
         roleSel.addEventListener('change', async () => {
           const newPrefix = roleSel.value;
