@@ -2058,6 +2058,9 @@ ${COMMON_GUARDS}`,
     const key = aiTemplateSelect.value;
     // テンプレに合わせて入力欄のラベル・プレースホルダーを更新（直感的なUX）
     applyTemplateFields(key, 'helper');
+    // 比較表テンプレのときだけ「⚖️ 比較画像をまとめてAIへ」を表示
+    const cmpBtn = document.getElementById('btn-compare-bundle');
+    if (cmpBtn) cmpBtn.hidden = (key !== 'compare');
     const tpl = AI_TEMPLATES[key];
     if (!tpl) return;
     const vars = {
@@ -2231,6 +2234,91 @@ ${COMMON_GUARDS}`,
       const w = openFreshAI('chatgpt', url, 'width=900,height=900,scrollbars=yes,resizable=yes');
       if (!w) window.open(url, '_blank');
       showToast('✨ ChatGPTを開きました。プロンプトは自動入力済み → 送信するだけ', 'success');
+    });
+  }
+
+  // ─── ⚖️ 比較画像をまとめてAIへ（連結シート） ─────────────────
+  // AI編集（🤖🍌）は1枚しか渡せないため、比較表生成用に「⚖️比較」役割の画像を
+  // 製品ラベル付きで1枚に連結し、画像＋プロンプトをセットでAIへ渡す。
+  function blobToImageEl(blob) {
+    return new Promise((res, rej) => {
+      const u = URL.createObjectURL(blob);
+      const im = new Image();
+      im.onload = () => { res(im); URL.revokeObjectURL(u); };
+      im.onerror = (e) => { URL.revokeObjectURL(u); rej(e); };
+      im.src = u;
+    });
+  }
+  async function buildCompareSheet() {
+    const all = await queueAll();
+    const comps = all
+      .filter(it => normalizeItemRole(it) === 'compare' && !(it.mimeType || '').startsWith('video/') && it.mimeType !== 'application/pdf')
+      .sort((a, b) => ((a.compareIndex || 99) - (b.compareIndex || 99)) || (a.createdAt - b.createdAt));
+    if (comps.length === 0) {
+      showToast('「⚖️比較」役割の画像がキューにありません。一時保存の画像に役割（⚖️）と製品番号を割り当ててから押してください', 'warn');
+      return null;
+    }
+    const names = getCompareProductNames();
+    const imgs = await Promise.all(comps.map(c => blobToImageEl(c.blob)));
+    const cellH = 512, labelH = 56, pad = 16;
+    const widths = imgs.map(im => Math.max(1, Math.round(im.naturalWidth * (cellH / im.naturalHeight))));
+    const canvas = document.createElement('canvas');
+    canvas.width = widths.reduce((a, b) => a + b, 0) + pad * (imgs.length + 1);
+    canvas.height = cellH + labelH + pad * 2;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    let x = pad;
+    imgs.forEach((im, i) => {
+      ctx.drawImage(im, x, pad, widths[i], cellH);
+      const pn = comps[i].compareIndex || (i + 1);
+      const label = `製品${pn}` + (names[pn - 1] ? `：${names[pn - 1]}` : '');
+      ctx.fillStyle = '#1d4ed8';
+      ctx.font = 'bold 28px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(label, x + widths[i] / 2, pad + cellH + 38);
+      x += widths[i] + pad;
+    });
+    return { blob: await new Promise(res => canvas.toBlob(res, 'image/png')), count: comps.length };
+  }
+  const btnCompareBundle = $('btn-compare-bundle');
+  if (btnCompareBundle) {
+    btnCompareBundle.addEventListener('click', async () => {
+      btnCompareBundle.disabled = true;
+      try {
+        const sheet = await buildCompareSheet();
+        if (!sheet || !sheet.blob) return;
+        const prompt = (aiPrompt.value.trim() || '') +
+          '\n\n【添付画像の使い方】添付の連結シートには各製品の実機写真が「製品1」「製品2」…のラベル付きで横に並んでいます。' +
+          '各パネルを切り出して、対応する製品カードのヘッダー画像として使用してください。';
+        // モバイル：Web Share で画像＋プロンプトを共有
+        if (isMobileDevice() && navigator.share) {
+          try {
+            const file = new File([sheet.blob], 'compare_products.png', { type: 'image/png' });
+            if (!navigator.canShare || navigator.canShare({ files: [file] })) {
+              await navigator.share({ files: [file], text: prompt, title: '比較表ビジュアル生成' });
+              return;
+            }
+          } catch (e) { if (e && e.name === 'AbortError') return; }
+        }
+        // PC：連結シートをクリップボードへ → ChatGPTをプロンプト付きで起動
+        let copyOK = false;
+        try {
+          if (navigator.clipboard && window.ClipboardItem) {
+            await navigator.clipboard.write([new ClipboardItem({ 'image/png': sheet.blob })]);
+            copyOK = true;
+            clipboardMode = 'image';
+          }
+        } catch (e) { console.warn('compare sheet clipboard failed:', e); }
+        const url = buildAIUrl('chatgpt', prompt);
+        const w = openFreshAI('chatgpt', url, 'width=900,height=900,scrollbars=yes,resizable=yes');
+        if (!w) window.open(url, '_blank');
+        showToast(copyOK
+          ? `⚖️ ${sheet.count}枚を連結してコピー → ChatGPTのチャット欄に ⌘/Ctrl+V で貼って送信`
+          : '画像コピーに失敗しました。プロンプトのみ自動入力されています', copyOK ? 'success' : 'warn');
+      } finally {
+        btnCompareBundle.disabled = false;
+      }
     });
   }
 
