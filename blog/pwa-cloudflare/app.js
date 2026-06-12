@@ -932,7 +932,10 @@
       if (pendingReplace && pendingReplace.originalItem && pendingReplace.originalItem.blob) {
         if (bannerThumbUrl) { URL.revokeObjectURL(bannerThumbUrl); bannerThumbUrl = null; }
         bannerThumbUrl = URL.createObjectURL(pendingReplace.originalItem.blob);
-        thumb = '<div class="bps-thumb-wrap"><img class="bps-thumb" src="' + bannerThumbUrl + '" alt="編集対象"><div class="bps-thumb-cap">この画像</div></div>';
+        // 比較の連結シートは横長のまま全パネルを表示（正方形に切り抜くと1枚しか見えない）
+        const isSheet = /^compare_sheet_/.test(pendingReplace.originalItem.originalName || '');
+        thumb = '<div class="bps-thumb-wrap"><img class="bps-thumb' + (isSheet ? ' bps-thumb-sheet' : '') + '" src="' + bannerThumbUrl + '" alt="編集対象">' +
+          '<div class="bps-thumb-cap">' + (isSheet ? '連結シート（全製品入り）' : 'この画像') + '</div></div>';
       }
     } catch (_) {}
     // 入力項目を「日本語ラベル：値」で全部見せる。未入力の欄も「未入力」と明示して気づけるようにする

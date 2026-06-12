@@ -193,6 +193,15 @@ body {
   display: block;
 }
 .banner-prompt-summary .bps-thumb-cap { font-size: 10px; opacity: 0.85; margin-top: 3px; }
+/* 比較の連結シート：横長のまま全パネルを見せる */
+.banner-prompt-summary .bps-thumb-sheet {
+  width: 180px;
+  max-width: 45vw;
+  height: auto;
+  max-height: 96px;
+  object-fit: contain;
+  background: #fff;
+}
 .banner-prompt-summary .bps-rows { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px; }
 .banner-prompt-summary .bps-kv {
   display: flex;
