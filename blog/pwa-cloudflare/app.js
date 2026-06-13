@@ -305,7 +305,7 @@
       const roleBtnHtml = (isVideo || isPdf) ? '' :
         '<button class="role-btn' + (curRoleKey !== 'none' ? ' active' : '') + '" type="button" ' +
         'style="' + (curRoleKey !== 'none' ? `background:${roleDef.color};color:#fff;border-color:${roleDef.color};` : '') + '" ' +
-        'title="' + (curRoleKey === 'none' ? 'タップして用途を割当' : `${roleDef.label}（タップで次の用途へ）`) + '" ' +
+        'title="' + (curRoleKey === 'none' ? 'タップして用途を選ぶ' : `${roleDef.label}（タップで用途を選び直す）`) + '" ' +
         'data-action="cycle-role">' + roleDef.emoji + '</button>';
       const editingBadge = (item.editingWith ? '<div class="editing-badge">編集中…</div>' : '');
       const replaceBadge = (item.replaceDriveFileId ? '<div class="replace-badge" title="転送時に既存ファイルを上書き">↻ 上書き</div>' : '');
@@ -352,7 +352,7 @@
       if (canvaBtn) canvaBtn.addEventListener('click', async (e) => { e.stopPropagation(); await confirmThenEdit(item, 'canva'); });
       if (roleBtn) roleBtn.addEventListener('click', async (e) => {
         e.stopPropagation();
-        await cycleRole(item.id);
+        await openRolePickerForItem(item.id);
       });
       const cmpSel = div.querySelector('.compare-idx-sel');
       if (cmpSel) {
@@ -878,6 +878,78 @@
     compare: 'compare', ranking: 'section', target_buyer: 'section', ngsummary: 'ngsummary',
     bgremove: 'product', colorfix: 'product', addtext: 'none', custom: 'none',
   };
+
+  // 役割→代表テンプレ（ピッカーの初期選択用。templateKey 未記録の旧アイテム向け）
+  const ROLE_TO_TEMPLATE = {
+    eyecatch: 'eyecatch', hero: 'big_number', section: 'specs_card',
+    diagram: 'concept', compare: 'compare', ngsummary: 'ngsummary', product: 'colorfix',
+  };
+
+  // ─── 役割を与える選択（16テンプレ一覧のポップアップ）─────────────
+  // 役割ボタンのタップで開く。編集確認ポップアップと同じ選択肢に統一。
+  async function openRolePickerForItem(targetId) {
+    if (serverBusy) { showToast('いまサーバ通信中です。終わるまでお待ちください', 'warn'); return; }
+    const all = await queueAll();
+    const item = all.find(x => x.id === targetId);
+    if (!item) { showToast('この画像はすでに削除されています', 'warn'); return; }
+    const tplSrc = document.getElementById('ai-template-select');
+    const curRole = normalizeItemRole(item);
+    const curTpl = item.templateKey || ROLE_TO_TEMPLATE[curRole] || '';
+    const cmpVal = String(item.compareIndex || '');
+    const cmpOptsHtml = ['', '1', '2', '3', '4'].map(v =>
+      '<option value="' + v + '"' + (cmpVal === v ? ' selected' : '') + '>' + (v ? '製品' + v : '未割当') + '</option>'
+    ).join('');
+    const body =
+      '<label class="km-edit-field"><span>この画像の用途（つくるもの）</span>' +
+        '<select id="km-role-tpl"><option value="">☆ 役割なし</option>' + (tplSrc ? tplSrc.innerHTML : '') + '</select></label>' +
+      '<label class="km-edit-field" id="km-rp-cmp-wrap"' + (curTpl === 'compare' ? '' : ' style="display:none"') + '>' +
+        '<span>比較の製品番号</span><select id="km-rp-cmp">' + cmpOptsHtml + '</select></label>';
+    const res = await openModal({
+      title: '🏷 この画像の用途を選ぶ',
+      bodyHTML: body,
+      buttons: [
+        { label: 'キャンセル', value: null },
+        { label: '✅ 決定', primary: true, onClick: (rootEl) => {
+            const ts = rootEl.querySelector('#km-role-tpl');
+            const cs = rootEl.querySelector('#km-rp-cmp');
+            return { tpl: ts ? ts.value : '', cmp: cs ? cs.value : '' };
+          } },
+      ],
+      onRender: (rootEl) => {
+        const ts = rootEl.querySelector('#km-role-tpl');
+        const wrap = rootEl.querySelector('#km-rp-cmp-wrap');
+        if (ts) ts.value = curTpl;
+        if (ts && wrap) ts.addEventListener('change', () => { wrap.style.display = ts.value === 'compare' ? '' : 'none'; });
+      },
+    });
+    if (res === null) return; // キャンセル
+    const tpl = res.tpl;
+    if (!tpl) {
+      // 役割なし
+      await queueUpdate(targetId, (x) => { x.role = 'none'; x.isEyecatch = false; x.compareIndex = null; x.templateKey = ''; });
+      await renderQueue();
+      showToast('役割をクリアしました', 'success');
+      return;
+    }
+    const newRole = TEMPLATE_TO_ROLE[tpl] || 'none';
+    const def = getRoleDef(newRole);
+    if (def.unique) {
+      for (const it of all) {
+        if (it.id !== targetId && normalizeItemRole(it) === newRole) {
+          await queueUpdate(it.id, (x) => { x.role = 'none'; x.isEyecatch = false; });
+        }
+      }
+    }
+    await queueUpdate(targetId, (x) => {
+      x.role = newRole;
+      x.templateKey = tpl;
+      x.isEyecatch = (newRole === 'eyecatch');
+      x.compareIndex = (newRole === 'compare') ? (res.cmp ? Number(res.cmp) : (x.compareIndex || null)) : null;
+    });
+    await renderQueue();
+    const label = (tplSrc && Array.from(tplSrc.options).find(o => o.value === tpl) || {}).text || tpl;
+    showToast('🏷 用途を「' + label + '」に設定しました', 'success');
+  }
 
   // ─── 編集前の確認ポップアップ → 了承で編集開始 ───────────────
   // queue画像: つくるもの（テンプレ）を選んでから開始。既存ファイル: 確認のみ。
