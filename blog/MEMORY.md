@@ -202,6 +202,8 @@
 
 - 2026/06/13：**別画像の編集に切り替えた時に前回の編集データをリセット**。`discardPreviousEdit(exceptId)`を新設：前対象の編集中フラグ解除＋自動生成連結シート(compare_sheet_)の残骸をキューから削除＋pendingReplace破棄。oneClickEdit冒頭・stageCompareSheet冒頭で呼ぶ。confirmThenEditは毎回regenerateAIPromptでプロンプトを作り直し（前回の比較注記等の追記を消す）。あわせて編集バナーの比較ギャラリーに「⚖️比較画像をまとめてAIへ」ボタンを追加し、上部ボタンと共通の`runCompareBundle()`に集約。**学び：編集は対象ごとに状態(pendingReplace/prompt/一時シート)を必ずクリアしてから開始。切替時リセットしないと前の連結シートやプロンプト追記が残る**。
 
+- 2026/06/13：**編集ポップアップに「変数入力欄＋🔍リサーチプロンプト」を追加**し、上部「プロンプト準備」と機能を揃えた。テンプレに応じた変数欄(TEMPLATE_FIELDSのlabel/placeholder)を動的描画、テンプレ切替で欄を作り替え（値は ai-var-* 経由で保持）、確定時にポップアップの入力を ai-var-* へ書き戻して regenerate。リサーチボタンは値をヘルパーへ同期してから既存 copyResearchPromptForCurrent('helper') を流用。あわせて**編集ポップアップの初期テンプレは画像のtemplateKey/役割を引き継ぐ**よう修正（毎回リセットされない）。**学び：同じ編集UIを複数画面に置くときは「入力の真実=ai-var-*/ai-prompt」に集約し、各画面はそこへ読み書きするだけにする（コピーを持たせない）**。
+
 ### 使用ツール
 - WordPress REST API: wp_api.py
 - ブロックビルダー: wp_block_builder.py

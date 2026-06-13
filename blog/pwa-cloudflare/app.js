@@ -995,6 +995,23 @@
     const cmpOptsHtml = ['', '1', '2', '3', '4'].map(v =>
       '<option value="' + v + '"' + (cmpVal === v ? ' selected' : '') + '>' + (v ? '製品' + v : '未割当') + '</option>'
     ).join('');
+    // テンプレに応じた変数入力欄（タイトル等）を作る。値は上部ヘルパー(ai-var-*)から引き継ぐ。
+    function varFieldsHtml(tplKey) {
+      const tf = (typeof TEMPLATE_FIELDS !== 'undefined' && TEMPLATE_FIELDS[tplKey]) ? TEMPLATE_FIELDS[tplKey] : null;
+      if (!tf) return '';
+      const cur = {
+        title: ((document.getElementById('ai-var-title') || {}).value || ''),
+        main: ((document.getElementById('ai-var-main') || {}).value || ''),
+        sub: ((document.getElementById('ai-var-sub') || {}).value || ''),
+        mood: ((document.getElementById('ai-var-mood') || {}).value || ''),
+      };
+      return ['title', 'main', 'sub', 'mood'].map((k) => {
+        const lbl = tf[k][0], ph = tf[k][1];
+        if (!lbl || lbl.indexOf('（使用しない') === 0) return '';
+        return '<label class="km-edit-field"><span>' + escHtml(lbl) + '</span>' +
+          '<input type="text" class="km-var" data-k="' + k + '" value="' + escHtml(cur[k]).replace(/"/g, '&quot;') + '" placeholder="' + escHtml(ph) + '"></label>';
+      }).join('');
+    }
     const body =
       '<div class="km-edit-confirm">' +
         '<img class="km-edit-thumb" src="' + url + '" alt="">' +
@@ -1004,7 +1021,10 @@
             ? '<label class="km-edit-field"><span>つくるもの／用途</span>' +
                 '<select id="km-tpl-sel">' + tplOptsHtml + '</select></label>' +
               '<label class="km-edit-field" id="km-cmp-wrap"' + (curTpl === 'compare' ? '' : ' style="display:none"') + '>' +
-                '<span>比較の製品番号</span><select id="km-cmp-sel">' + cmpOptsHtml + '</select></label>'
+                '<span>比較の製品番号</span><select id="km-cmp-sel">' + cmpOptsHtml + '</select></label>' +
+              '<div id="km-vars">' + varFieldsHtml(curTpl) + '</div>' +
+              '<button type="button" id="km-research" class="km-research-btn">🔍 リサーチプロンプトをコピー</button>' +
+              '<div class="km-research-hint">↑ ChatGPT/Gemini/Claudeに貼って回答取得 → 上の欄に転記</div>'
             : '<div class="km-edit-note">「' + escHtml(item.originalName || 'この画像') + '」を再編集します</div>') +
         '</div>' +
       '</div>';
@@ -1016,22 +1036,50 @@
         { label: '✏️ 編集を開始', primary: true, onClick: (rootEl) => {
             const ts = rootEl.querySelector('#km-tpl-sel');
             const cs = rootEl.querySelector('#km-cmp-sel');
-            return { tpl: ts ? ts.value : null, cmp: cs ? cs.value : '' };
+            const vars = {};
+            rootEl.querySelectorAll('.km-var').forEach((inp) => { vars[inp.dataset.k] = inp.value; });
+            return { tpl: ts ? ts.value : null, cmp: cs ? cs.value : '', vars };
           } },
       ],
       onRender: (rootEl) => {
         const ts = rootEl.querySelector('#km-tpl-sel');
         const wrap = rootEl.querySelector('#km-cmp-wrap');
+        const varsBox = rootEl.querySelector('#km-vars');
         if (ts) ts.value = curTpl; // 実行時の選択値を反映（innerHTMLにはselected属性が無いため）
-        if (ts && wrap) ts.addEventListener('change', () => { wrap.style.display = ts.value === 'compare' ? '' : 'none'; });
+        // ポップアップ内の変数入力 → 上部ヘルパー(ai-var-*)へ同期（テンプレ切替で値を保つ＆リサーチに使う）
+        const syncVarsToHelper = () => {
+          rootEl.querySelectorAll('.km-var').forEach((inp) => {
+            const t = document.getElementById('ai-var-' + inp.dataset.k);
+            if (t) t.value = inp.value;
+          });
+        };
+        if (ts) ts.addEventListener('change', () => {
+          if (wrap) wrap.style.display = ts.value === 'compare' ? '' : 'none';
+          syncVarsToHelper();                 // 今の入力を保存してから
+          if (varsBox) varsBox.innerHTML = varFieldsHtml(ts.value); // 新テンプレの欄に作り替え
+        });
+        const rb = rootEl.querySelector('#km-research');
+        if (rb) rb.addEventListener('click', () => {
+          // ポップアップの値をヘルパーへ反映 → テンプレも合わせて → 既存のリサーチ生成を流用
+          syncVarsToHelper();
+          if (tplSrc && ts) { tplSrc.value = ts.value; }
+          copyResearchPromptForCurrent('helper');
+        });
       },
     });
     try { URL.revokeObjectURL(url); } catch (_) {}
     if (!res) return;  // キャンセル
     // テンプレ → ①プロンプト種別 ②画像の役割（ファイル名）両方に反映（queue画像のみ）
     if (allowRole && res.tpl && !opts.skipQueueLookup) {
-      // ① 上部ヘルパーのテンプレを合わせ、毎回プロンプトを作り直す
-      //    （前回の追記＝比較注記などをリセットして、新しい編集をまっさらから始める）
+      // ① ポップアップで入力した変数（タイトル等）を上部ヘルパーへ書き戻す
+      if (res.vars) {
+        ['title', 'main', 'sub', 'mood'].forEach((k) => {
+          if (res.vars[k] === undefined) return;
+          const t = document.getElementById('ai-var-' + k);
+          if (t) t.value = res.vars[k];
+        });
+      }
+      // ② テンプレを合わせ、毎回プロンプトを作り直す（前回の追記をリセット）
       if (tplSrc) {
         tplSrc.value = res.tpl;
         if (typeof regenerateAIPrompt === 'function') regenerateAIPrompt();
