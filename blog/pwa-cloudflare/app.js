@@ -919,20 +919,36 @@
     return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   }
   let bannerThumbUrl = null;
+  let bannerThumbKey = '';
+  // 🔄 描画方針（2026-06-13再設計）：
+  //  - 「構造」（テンプレ種別・編集対象の画像）が変わった時だけ全再描画する
+  //  - それ以外（文字入力等）は軽量同期のみ：全文プレビュー・文字数・非フォーカス欄の値
+  //  → 打鍵ごとの再描画ストーム／フォーカス喪失／開いた全文プレビューが閉じる問題を根治
   function updateBannerPromptSummary() {
     if (!editingBanner || editingBanner.style.display === 'none') return;
     const el = document.getElementById('banner-prompt-summary');
     if (!el) return;
-    // 🖊 カード内の入力中に全再描画するとフォーカスが飛ぶ → 全文プレビューだけ軽量更新して抜ける
-    if (el.contains(document.activeElement) && document.activeElement.classList.contains('bps-edit')) {
+    const tplSel0 = document.getElementById('ai-template-select');
+    const structureKey = (tplSel0 ? tplSel0.value : '') + '|' +
+      (pendingReplace ? (pendingReplace.originalId + ':' + ((pendingReplace.originalItem || {}).editedAt || 0)) : '');
+    if (el.dataset.structureKey === structureKey) {
+      // ── 軽量同期パス（再描画しない）──
       const full0 = currentEditPrompt();
       const pre0 = el.querySelector('.bps-full pre');
-      const sum0 = el.querySelector('.bps-full summary');
+      const sum0 = el.querySelector('.bps-full summary .bps-full-label');
       if (pre0) pre0.textContent = full0;
       if (sum0) sum0.textContent = '📄 指示文の全文を見る（' + full0.length + '文字）';
+      // 非フォーカスの欄値をヘルパーと同期（フォーカス中の欄は触らない＝入力を邪魔しない）
+      el.querySelectorAll('.bps-input').forEach((inp) => {
+        if (inp === document.activeElement) return;
+        const src = document.getElementById('ai-var-' + inp.dataset.k);
+        if (src && inp.value !== src.value) inp.value = src.value;
+      });
+      const cardTpl0 = el.querySelector('.bps-tpl');
+      if (cardTpl0 && tplSel0 && cardTpl0 !== document.activeElement) cardTpl0.value = tplSel0.value;
       return;
     }
-    const tplSel = document.getElementById('ai-template-select');
+    const tplSel = tplSel0;
     const key = tplSel ? tplSel.value : '';
     const tf = (typeof TEMPLATE_FIELDS !== 'undefined' && TEMPLATE_FIELDS[key]) ? TEMPLATE_FIELDS[key] : null;
     const vals = {
@@ -942,12 +958,16 @@
       mood:  ((document.getElementById('ai-var-mood')  || {}).value || '').trim(),
     };
     const full = currentEditPrompt();
-    // 編集対象のサムネイル（どの画像をAIに渡すかを見える化）
+    // 編集対象のサムネイル（どの画像をAIに渡すかを見える化）。同じ画像なら ObjectURL を再利用
     let thumb = '';
     try {
       if (pendingReplace && pendingReplace.originalItem && pendingReplace.originalItem.blob) {
-        if (bannerThumbUrl) { URL.revokeObjectURL(bannerThumbUrl); bannerThumbUrl = null; }
-        bannerThumbUrl = URL.createObjectURL(pendingReplace.originalItem.blob);
+        const tKey = pendingReplace.originalId + ':' + (pendingReplace.originalItem.editedAt || 0);
+        if (bannerThumbKey !== tKey || !bannerThumbUrl) {
+          if (bannerThumbUrl) { URL.revokeObjectURL(bannerThumbUrl); bannerThumbUrl = null; }
+          bannerThumbUrl = URL.createObjectURL(pendingReplace.originalItem.blob);
+          bannerThumbKey = tKey;
+        }
         // 比較の連結シートは横長のまま全パネルを表示（正方形に切り抜くと1枚しか見えない）
         const isSheet = /^compare_sheet_/.test(pendingReplace.originalItem.originalName || '');
         thumb = '<div class="bps-thumb-wrap"><img class="bps-thumb' + (isSheet ? ' bps-thumb-sheet' : '') + '" src="' + bannerThumbUrl + '" alt="編集対象">' +
@@ -969,12 +989,22 @@
     if (!full) {
       rows.push('<div class="bps-kv bps-warn">⚠️ プロンプト未作成：上の「つくるもの」でテンプレを選んでください</div>');
     }
+    // 開いていた全文プレビューの開閉状態を維持
+    const prevFull = el.querySelector('.bps-full');
+    const fullOpen = !!(prevFull && prevFull.open);
+    const articleName = (typeof getSelectedArticleTitle === 'function' && getSelectedArticleTitle())
+      ? '<span class="bps-head-article">📝 ' + escHtml(getSelectedArticleTitle()) + '</span>' : '';
     el.innerHTML =
-      '<div class="bps-head">📤 いまAIに送る内容 <span class="bps-head-hint">（この場で書き換えOK・上の準備欄と自動同期）</span></div>' +
+      '<div class="bps-head">📤 いまAIに送る内容 ' + articleName +
+        '<span class="bps-head-hint">（この場で書き換えOK・上の準備欄と自動同期）</span></div>' +
       '<div class="bps-flex">' + thumb + '<div class="bps-rows">' + rows.join('') + '</div></div>' +
       (full
-        ? '<details class="bps-full"><summary>📄 指示文の全文を見る（' + full.length + '文字）</summary><pre>' + escHtml(full) + '</pre></details>'
+        ? '<details class="bps-full"' + (fullOpen ? ' open' : '') + '>' +
+          '<summary><span class="bps-full-label">📄 指示文の全文を見る（' + full.length + '文字）</span>' +
+          '<button type="button" class="bps-copy-full" title="全文をコピー">📋 全文コピー</button></summary>' +
+          '<pre>' + escHtml(full) + '</pre></details>'
         : '');
+    el.dataset.structureKey = structureKey;
     // ── カード内編集 → 上部ヘルパーへ書き戻し（イベント転送で再生成まで自動） ──
     const cardTpl = el.querySelector('.bps-tpl');
     if (cardTpl) {
@@ -982,8 +1012,9 @@
       cardTpl.addEventListener('change', () => {
         if (!tplSel) return;
         tplSel.value = cardTpl.value;
-        tplSel.dispatchEvent(new Event('change'));   // → regenerateAIPrompt
-        updateBannerPromptSummary();                 // ラベル・欄構成を新テンプレで再描画
+        tplSel.dispatchEvent(new Event('change'));   // → regenerateAIPrompt → structureKey変化で全再描画
+        const nt = el.querySelector('.bps-tpl');     // 再描画後のselectへフォーカスを戻す
+        if (nt) try { nt.focus(); } catch (_) {}
       });
     }
     el.querySelectorAll('.bps-input').forEach((inp) => {
@@ -991,24 +1022,24 @@
         const target = document.getElementById('ai-var-' + inp.dataset.k);
         if (!target) return;
         target.value = inp.value;
-        target.dispatchEvent(new Event('input'));    // → regenerateAIPrompt → 全文プレビュー更新
+        target.dispatchEvent(new Event('input'));    // → regenerateAIPrompt → 軽量同期で全文プレビュー更新
       });
     });
-    el.addEventListener('focusout', () => {
-      // カードから完全にフォーカスが出たら整形のため再描画
-      setTimeout(() => {
-        if (!el.contains(document.activeElement)) updateBannerPromptSummary();
-      }, 120);
-    }, { once: true });
+    const copyFullBtn = el.querySelector('.bps-copy-full');
+    if (copyFullBtn) copyFullBtn.addEventListener('click', async (e) => {
+      e.preventDefault(); e.stopPropagation();
+      try {
+        await navigator.clipboard.writeText(currentEditPrompt());
+        showToast('📋 指示文の全文をコピーしました', 'success');
+      } catch (err) { showToast('コピー失敗: ' + (err.message || err), 'error'); }
+    });
   }
-  // 上部ヘルパーの編集にライブ追従（リスナーは一度だけ結線）
-  ['ai-prompt', 'ai-var-title'].forEach((id) => {
-    const el = document.getElementById(id);
-    if (el) el.addEventListener('input', updateBannerPromptSummary);
-  });
+  // 上部ヘルパーの編集にライブ追従：
+  //  - 変数欄・テンプレ変更は regenerateAIPrompt の末尾から呼ばれる（main/sub/mood含め全欄カバー）
+  //  - #ai-prompt 本文の直接編集だけは regenerate を通らないのでここで結線
   (function () {
-    const sel = document.getElementById('ai-template-select');
-    if (sel) sel.addEventListener('change', () => setTimeout(updateBannerPromptSummary, 0));
+    const el = document.getElementById('ai-prompt');
+    if (el) el.addEventListener('input', updateBannerPromptSummary);
   })();
   function showEditingBanner() {
     if (!pendingReplace) return;
@@ -1035,7 +1066,7 @@
           : (pendingReplace.needsPromptPaste
             ? '<strong>編集中（プロジェクトURL）：</strong> プロンプトは2段階で貼付。<br>' +
               '<span class="step-chip is-active">①AIを開く</span><span class="arrow">→</span>' +
-              '<span class="step-chip">②画像 <kbd>⌘V</kbd></span><span class="arrow">→</span>' +
+              '<span class="step-chip" data-clip-chip>②画像 <kbd>⌘V</kbd></span><span class="arrow">→</span>' +
               '<span class="step-chip">③PWAで📋プロンプト切替</span><span class="arrow">→</span>' +
               '<span class="step-chip">④AIで <kbd>⌘V</kbd>（プロンプト）</span><span class="arrow">→</span>' +
               '<span class="step-chip submit-chip">⑤送信→受取</span>'
@@ -1047,7 +1078,7 @@
               '<span class="step-chip submit-chip">④受取</span>'
             : '<strong>編集中：</strong> プロンプトはURLにプリフィル済み。<br>' +
               '<span class="step-chip is-active">①AIを開く</span><span class="arrow">→</span>' +
-              '<span class="step-chip">②画像 <kbd>⌘V</kbd></span><span class="arrow">→</span>' +
+              '<span class="step-chip" data-clip-chip>②画像 <kbd>⌘V</kbd></span><span class="arrow">→</span>' +
               '<span class="step-chip">③送信</span><span class="arrow">→</span>' +
               '<span class="step-chip submit-chip">④受取</span>'))) +
       '</div>' +
@@ -1274,19 +1305,16 @@
   let clipboardMode = 'image'; // 'image' | 'prompt'
   function updateStepChips() {
     if (!editingBanner) return;
-    const chips = editingBanner.querySelectorAll('.step-chip');
-    if (!chips.length) return;
-    // ①AIを開く ②画像 ③送信 の3チップ構成。クリップボード状態で②のラベルを切替
-    const secondChip = chips[1];
-    if (secondChip) {
-      if (clipboardMode === 'prompt') {
-        secondChip.innerHTML = '②プロンプト <kbd>⌘V</kbd>';
-        secondChip.classList.add('is-active');
-      } else {
-        secondChip.innerHTML = '②画像 <kbd>⌘V</kbd>';
-        secondChip.classList.add('is-active');
-      }
+    // 🛡 data-clip-chip の目印が付いたチップだけ更新する。
+    // chips[1]を無条件で書き換えると、スマホ（②AIアプリ選択）やCanvaのチップ構成を壊す
+    const clipChip = editingBanner.querySelector('[data-clip-chip]');
+    if (!clipChip) return;
+    if (clipboardMode === 'prompt') {
+      clipChip.innerHTML = '②プロンプト <kbd>⌘V</kbd>';
+    } else {
+      clipChip.innerHTML = '②画像 <kbd>⌘V</kbd>';
     }
+    clipChip.classList.add('is-active');
   }
 
   // 旧仕様の autoSwitchToPrompt は廃止
@@ -1302,6 +1330,8 @@
     }
     pendingReplace = null;
     if (editingBanner) editingBanner.style.display = 'none';
+    // サムネ用ObjectURLの後片付け
+    if (bannerThumbUrl) { try { URL.revokeObjectURL(bannerThumbUrl); } catch (_) {} bannerThumbUrl = null; bannerThumbKey = ''; }
     // 隠していた新規生成ヘルパーを復活
     const ah = document.getElementById('ai-helper');
     if (ah) ah.style.display = '';
@@ -2086,6 +2116,8 @@ ${COMMON_GUARDS}`,
     if (key !== 'custom' || !aiPrompt.value.trim()) {
       aiPrompt.value = generated;
     }
+    // バナーの「いまAIに送る内容」カードを最新化（プログラム代入はinputイベントを発火しないため明示呼出）
+    if (typeof updateBannerPromptSummary === 'function') updateBannerPromptSummary();
   }
 
   // 4つ目の丸ボタンクリックでヘルパーを開く（and 自動でプロンプト生成）
@@ -2290,7 +2322,8 @@ ${COMMON_GUARDS}`,
       if (idx) usedIdx.add(idx);
       entries.push({ blob: c.blob, idx, at: c.createdAt });
     }
-    const driveComps = (lastExistingFiles || []).filter(f =>
+    // 記事を選択しているときだけDrive既存分を対象にする（別記事の画像混入防止）
+    const driveComps = (getSelectedArticleFolderId() ? (lastExistingFiles || []) : []).filter(f =>
       /^compare_/i.test(f.name || '') && !/^compare_sheet_/i.test(f.name || ''));
     for (const f of driveComps) {
       const m = /^compare_p(\d+)_/i.exec(f.name || '');
@@ -2370,8 +2403,18 @@ ${COMMON_GUARDS}`,
           } catch (e) { console.warn('compare sheet clipboard reserve failed:', e); }
         }
         // ⑤ シート完成を待って一時保存に追加 → 受取用バナーを表示
-        const sheet = await sheetP;
+        let sheet = null;
+        try {
+          sheet = await sheetP;
+        } catch (e) {
+          console.error('buildCompareSheet failed:', e);
+          showToast('連結シートの作成に失敗しました: ' + (e.message || e), 'error');
+        }
         if (!sheet || !sheet.blob) { try { if (w) w.close(); } catch (_) {} return; }
+        // 🛡 直前の編集待機が残っていたら、前画像の「編集中…」を解除してから上書き
+        if (pendingReplace && pendingReplace.originalId != null) {
+          try { await queueUpdate(pendingReplace.originalId, (it) => { delete it.editingWith; }); } catch (_) {}
+        }
         const id = Date.now() + '_' + (++itemCounter);
         const record = {
           id, createdAt: Date.now(),
@@ -2699,11 +2742,9 @@ ${COMMON_GUARDS}`,
     const roleKeys = Object.keys(roleUploadMap);
     if (roleKeys.length > 0 && (articleFolderId || articleTitle)) {
       try {
-        // 既存の「画像役割:」「アイキャッチ:」始まり行を全削除して書き直す（ROLE_NOTE_REは全箇所共通定義）
-        memos = memos.filter(m => !ROLE_NOTE_RE.test(m));
         // 🛡 メモ消失防止：ローカルメモが空（アップロード後のクリア等）なのに
-        // Drive の PROMPT.md にユーザーメモが残っている場合、先に取り込んでから書き直す。
-        // これを怠ると savePrompt の全書き直しでユーザーメモが画像役割行だけに置き換わって消える。
+        // Drive の PROMPT.md にメモが残っている場合、先に取り込んでから書き直す。
+        // （役割行も含めて救出する＝下のマージ処理が過去分を正しく保持できる）
         if (getValidMemos().length === 0 && articleFolderId) {
           try {
             const gp = await fetch(GAS_URL + '?' + new URLSearchParams({
@@ -2712,7 +2753,7 @@ ${COMMON_GUARDS}`,
             if (gp.ok && gp.exists) {
               const rescued = (Array.isArray(gp.memos) ? gp.memos : [])
                 .map(m => String(m || '').trim())
-                .filter(m => m.length > 0 && !ROLE_NOTE_RE.test(m));
+                .filter(m => m.length > 0);
               if (rescued.length > 0) memos = [...memos, ...rescued];
               if (!articleTypeSelect.value && gp.articleType) {
                 if (!articleTypes.includes(gp.articleType)) {
@@ -2748,6 +2789,28 @@ ${COMMON_GUARDS}`,
             newNotes.push(`${def.label}: ${desc}`);
           }
         }
+        // 🛡 役割行はマージ方式（2026-06-13改定）：「全削除→今回分のみ」だと過去アップ分の記録が消える。
+        // 除去するのは ①今回転送したファイルの行 ②今回ユニーク役割を登録した役割の旧行
+        // ③今回と同じ製品番号の比較行 だけ。他の役割行（過去分）は保持する。
+        const batchKeys = [];
+        Object.values(roleUploadMap).forEach(list => list.forEach(f => {
+          if (f.fileId) batchKeys.push(f.fileId);
+          if (f.name) batchKeys.push(f.name);
+        }));
+        const uniqueLabelsNew = ROLE_DEFS.filter(d => d.unique && roleUploadMap[d.key]).map(d => d.label);
+        const newCompareIdx = new Set();
+        (roleUploadMap.compare || []).forEach(f => {
+          const m = /compare_p(\d+)_/i.exec(f.name || '');
+          if (m) newCompareIdx.add(Number(m[1]));
+        });
+        memos = memos.filter(m => {
+          if (!ROLE_NOTE_RE.test(m)) return true;            // ユーザーメモは常に保持
+          if (batchKeys.some(k => k && m.includes(k))) return false;
+          if (uniqueLabelsNew.some(lb => m.indexOf(lb) === 0)) return false;
+          const pm = /^比較\/Before-After\s*製品(\d+)/.exec(m);
+          if (pm && newCompareIdx.has(Number(pm[1]))) return false;
+          return true;
+        });
         // 上部に挿入（優先度高い扱い）
         memos = [...newNotes, ...memos];
         persistMemoState();
@@ -2959,6 +3022,7 @@ ${COMMON_GUARDS}`,
 
   function hideExistingFiles() {
     if (existingFilesDetails) existingFilesDetails.hidden = true;
+    lastExistingFiles = []; // 🛡 記事未選択時に前記事の一覧が比較シート等へ混入しないようクリア
   }
 
   // 既存ファイルの役割を逆引きする。
@@ -3027,7 +3091,11 @@ ${COMMON_GUARDS}`,
         );
         if (!ok) return false;
         for (const o of others) {
-          await gasRenameFile(o.id, stripRolePrefix(o.name), folderId);
+          const r = await gasRenameFile(o.id, stripRolePrefix(o.name), folderId);
+          // 🛡 降格した側のPROMPT.md役割行も除去（残すとバッジ重複・「役割を名前に反映」の誤誘導になる）
+          if (r) {
+            try { updateRoleLineForFile(o, r.fileName, ''); } catch (e) { console.warn('demote line cleanup failed:', e); }
+          }
         }
       }
     }
@@ -3084,6 +3152,7 @@ ${COMMON_GUARDS}`,
     efSummaryStatus.textContent = '読込中…';
     efGrid.innerHTML = '';
     efEmpty.hidden = true;
+    lastExistingFiles = []; // 🛡 取得失敗時に前記事の一覧が残らないよう先にクリア
     try {
       const url = GAS_URL + '?' + new URLSearchParams({
         token: TOKEN, action: 'listArticleFiles', articleFolderId: folderId,
