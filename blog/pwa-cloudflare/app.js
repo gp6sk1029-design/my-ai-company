@@ -347,9 +347,9 @@
       const gemBtn = div.querySelector('[data-action="ai-gem"]');
       const canvaBtn = div.querySelector('[data-action="ai-canva"]');
       const roleBtn = div.querySelector('[data-action="cycle-role"]');
-      if (gptBtn) gptBtn.addEventListener('click', async (e) => { e.stopPropagation(); await oneClickEdit(item, 'chatgpt'); });
-      if (gemBtn) gemBtn.addEventListener('click', async (e) => { e.stopPropagation(); await oneClickEdit(item, 'gemini'); });
-      if (canvaBtn) canvaBtn.addEventListener('click', async (e) => { e.stopPropagation(); await oneClickEdit(item, 'canva'); });
+      if (gptBtn) gptBtn.addEventListener('click', async (e) => { e.stopPropagation(); await confirmThenEdit(item, 'chatgpt'); });
+      if (gemBtn) gemBtn.addEventListener('click', async (e) => { e.stopPropagation(); await confirmThenEdit(item, 'gemini'); });
+      if (canvaBtn) canvaBtn.addEventListener('click', async (e) => { e.stopPropagation(); await confirmThenEdit(item, 'canva'); });
       if (roleBtn) roleBtn.addEventListener('click', async (e) => {
         e.stopPropagation();
         await cycleRole(item.id);
@@ -796,6 +796,157 @@
       console.warn('Web Share failed:', err);
     }
     return false;
+  }
+
+  // ─── 汎用モーダル（ポップアップ）─────────────────────────
+  // openModal({title, bodyHTML, buttons:[{label, value?, primary?, danger?, onClick?(root)}], onRender?})
+  // → クリックしたボタンの value（または onClick の戻り値）で解決。背景クリック/✕ は null。
+  function openModal(opts) {
+    return new Promise((resolve) => {
+      const root = document.createElement('div');
+      root.className = 'km-modal-backdrop';
+      const btns = (opts.buttons || []).map((b, i) =>
+        '<button type="button" data-i="' + i + '" class="km-modal-btn' +
+        (b.primary ? ' km-primary' : '') + (b.danger ? ' km-danger' : '') + '">' +
+        escHtml(b.label) + '</button>').join('');
+      root.innerHTML =
+        '<div class="km-modal" role="dialog" aria-modal="true">' +
+          '<button type="button" class="km-modal-x" aria-label="閉じる">✕</button>' +
+          '<div class="km-modal-title">' + escHtml(opts.title || '') + '</div>' +
+          '<div class="km-modal-body">' + (opts.bodyHTML || '') + '</div>' +
+          '<div class="km-modal-actions">' + btns + '</div>' +
+        '</div>';
+      document.body.appendChild(root);
+      const close = (val) => { try { root.remove(); } catch (_) {} resolve(val); };
+      root.addEventListener('click', (e) => { if (e.target === root) close(null); });
+      root.querySelector('.km-modal-x').addEventListener('click', () => close(null));
+      root.querySelectorAll('.km-modal-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const b = (opts.buttons || [])[Number(btn.dataset.i)];
+          if (b.onClick) {
+            const r = b.onClick(root);
+            if (r === false) return;           // バリデーション失敗 → 閉じない
+            close(r === undefined ? (b.value !== undefined ? b.value : true) : r);
+          } else {
+            close(b.value !== undefined ? b.value : true);
+          }
+        });
+      });
+      if (typeof opts.onRender === 'function') opts.onRender(root, close);
+    });
+  }
+
+  // ─── サーバ（Google Drive）通信中の操作ロック ─────────────
+  // 通信中に画面を触ると再描画とぶつかって操作しづらいため、全画面オーバーレイで一時的に操作を止める。
+  let serverBusy = false;
+  function lockUI(msg) {
+    serverBusy = true;
+    let ov = document.getElementById('server-lock-overlay');
+    if (!ov) {
+      ov = document.createElement('div');
+      ov.id = 'server-lock-overlay';
+      ov.className = 'server-lock-overlay';
+      document.body.appendChild(ov);
+    }
+    ov.innerHTML =
+      '<div class="slo-box">' +
+        '<div class="slo-spin"></div>' +
+        '<div class="slo-msg">' + escHtml(msg || '処理中…') + '</div>' +
+        '<div class="slo-sub">📡 サーバ通信中は操作できません（終わるまでお待ちください）</div>' +
+      '</div>';
+    ov.style.display = 'flex';
+  }
+  function unlockUI() {
+    serverBusy = false;
+    const ov = document.getElementById('server-lock-overlay');
+    if (ov) ov.style.display = 'none';
+  }
+  // 通信処理を必ずロック付きで実行する。多重起動は弾く。
+  async function withServerLock(msg, fn) {
+    if (serverBusy) { showToast('いまサーバ通信中です。終わるまでお待ちください', 'warn'); return undefined; }
+    lockUI(msg);
+    try { return await fn(); }
+    finally { unlockUI(); }
+  }
+
+  // ─── 編集前の確認ポップアップ → 了承で編集開始 ───────────────
+  // queue画像: 役割（アイキャッチ等）を選んでから開始。既存ファイル: 確認のみ。
+  async function confirmThenEdit(item, engine, opts) {
+    opts = opts || {};
+    if (serverBusy) { showToast('いまサーバ通信中です。終わるまでお待ちください', 'warn'); return; }
+    const allowRole = opts.allowRole !== false;
+    // 最新レコードを取得（queue画像のみ。既存ファイル取込direct時は item をそのまま使う）
+    if (!opts.skipQueueLookup) {
+      const all = await queueAll();
+      const latest = all.find(x => x.id === item.id);
+      if (!latest) { showToast('この画像はすでに削除されています', 'warn'); return; }
+      item = latest;
+    }
+    const aiName = getEngineLabel(engine);
+    const url = URL.createObjectURL(item.blob);
+    const curRole = normalizeItemRole(item);
+    const roleOptsHtml = ROLE_DEFS.map(r =>
+      '<option value="' + r.key + '"' + (r.key === curRole ? ' selected' : '') + '>' + r.emoji + ' ' + r.label + '</option>'
+    ).join('');
+    const cmpVal = String(item.compareIndex || '');
+    const cmpOptsHtml = ['', '1', '2', '3', '4'].map(v =>
+      '<option value="' + v + '"' + (cmpVal === v ? ' selected' : '') + '>' + (v ? '製品' + v : '未割当') + '</option>'
+    ).join('');
+    const body =
+      '<div class="km-edit-confirm">' +
+        '<img class="km-edit-thumb" src="' + url + '" alt="">' +
+        '<div class="km-edit-info">' +
+          '<div class="km-edit-engine">' + escHtml(aiName) + ' で編集します</div>' +
+          (allowRole
+            ? '<label class="km-edit-field"><span>この画像の用途</span>' +
+                '<select id="km-role-sel">' + roleOptsHtml + '</select></label>' +
+              '<label class="km-edit-field" id="km-cmp-wrap"' + (curRole === 'compare' ? '' : ' style="display:none"') + '>' +
+                '<span>比較の製品番号</span><select id="km-cmp-sel">' + cmpOptsHtml + '</select></label>'
+            : '<div class="km-edit-note">「' + escHtml(item.originalName || 'この画像') + '」を再編集します</div>') +
+        '</div>' +
+      '</div>';
+    const res = await openModal({
+      title: '🖼 この方法で編集してもいいですか？',
+      bodyHTML: body,
+      buttons: [
+        { label: 'キャンセル', value: null },
+        { label: '✏️ 編集を開始', primary: true, onClick: (rootEl) => {
+            const rs = rootEl.querySelector('#km-role-sel');
+            const cs = rootEl.querySelector('#km-cmp-sel');
+            return { role: rs ? rs.value : null, cmp: cs ? cs.value : '' };
+          } },
+      ],
+      onRender: (rootEl) => {
+        const rs = rootEl.querySelector('#km-role-sel');
+        const wrap = rootEl.querySelector('#km-cmp-wrap');
+        if (rs && wrap) rs.addEventListener('change', () => { wrap.style.display = rs.value === 'compare' ? '' : 'none'; });
+      },
+    });
+    try { URL.revokeObjectURL(url); } catch (_) {}
+    if (!res) return;  // キャンセル
+    // 役割を反映（queue画像のみ）
+    if (allowRole && res.role && !opts.skipQueueLookup) {
+      const newRole = res.role;
+      const def = getRoleDef(newRole);
+      // ユニーク役割なら他を解除
+      if (def.unique) {
+        const all2 = await queueAll();
+        for (const it of all2) {
+          if (it.id !== item.id && normalizeItemRole(it) === newRole) {
+            await queueUpdate(it.id, (x) => { x.role = 'none'; x.isEyecatch = false; });
+          }
+        }
+      }
+      await queueUpdate(item.id, (x) => {
+        x.role = newRole;
+        x.isEyecatch = (newRole === 'eyecatch');
+        x.compareIndex = (newRole === 'compare') ? (res.cmp ? Number(res.cmp) : (x.compareIndex || null)) : null;
+      });
+      const all3 = await queueAll();
+      item = all3.find(x => x.id === item.id) || item;
+      await renderQueue();
+    }
+    await oneClickEdit(item, engine);
   }
 
   async function oneClickEdit(item, engine) {
@@ -2305,39 +2456,39 @@ ${COMMON_GUARDS}`,
     for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
     return new Blob([u8], { type: res.mimeType || driveFile.mimeType || 'image/png' });
   }
-  async function buildCompareSheet() {
-    // ① 一時保存（キュー）の「⚖️比較」画像（過去の連結シート自体は除外）
-    const all = await queueAll();
-    const queueComps = all.filter(it =>
-      normalizeItemRole(it) === 'compare' &&
-      !(it.mimeType || '').startsWith('video/') && it.mimeType !== 'application/pdf' &&
-      !/^compare_sheet_/i.test(it.originalName || '')
-    );
-    // ② アップロード済み（Drive既存ファイル）の比較画像も対象に含める
-    //    同じ製品番号が一時保存にある場合は一時保存を優先（最新を採用）
-    const usedIdx = new Set();
-    const entries = [];
-    for (const c of queueComps) {
-      const idx = c.compareIndex || null;
-      if (idx) usedIdx.add(idx);
-      entries.push({ blob: c.blob, idx, at: c.createdAt });
+  // entries: [{blob?, driveFile?, idx}] を渡すとその画像で連結シートを作る。
+  // 省略時は従来通り「⚖️比較」役割の画像を自動収集（後方互換）。
+  async function buildCompareSheet(entries) {
+    if (!Array.isArray(entries)) {
+      // ── 自動収集モード（後方互換）──
+      const all = await queueAll();
+      const queueComps = all.filter(it =>
+        normalizeItemRole(it) === 'compare' &&
+        !(it.mimeType || '').startsWith('video/') && it.mimeType !== 'application/pdf' &&
+        !/^compare_sheet_/i.test(it.originalName || '')
+      );
+      const usedIdx = new Set();
+      entries = [];
+      for (const c of queueComps) {
+        const idx = c.compareIndex || null;
+        if (idx) usedIdx.add(idx);
+        entries.push({ blob: c.blob, idx, at: c.createdAt });
+      }
+      const driveComps = (getSelectedArticleFolderId() ? (lastExistingFiles || []) : []).filter(f =>
+        /^compare_/i.test(f.name || '') && !/^compare_sheet_/i.test(f.name || ''));
+      for (const f of driveComps) {
+        const m = /^compare_p(\d+)_/i.exec(f.name || '');
+        const idx = m ? Number(m[1]) : null;
+        if (idx && usedIdx.has(idx)) continue;
+        if (idx) usedIdx.add(idx);
+        entries.push({ driveFile: f, idx, at: 0 });
+      }
     }
-    // 記事を選択しているときだけDrive既存分を対象にする（別記事の画像混入防止）
-    const driveComps = (getSelectedArticleFolderId() ? (lastExistingFiles || []) : []).filter(f =>
-      /^compare_/i.test(f.name || '') && !/^compare_sheet_/i.test(f.name || ''));
-    for (const f of driveComps) {
-      const m = /^compare_p(\d+)_/i.exec(f.name || '');
-      const idx = m ? Number(m[1]) : null;
-      if (idx && usedIdx.has(idx)) continue;
-      if (idx) usedIdx.add(idx);
-      entries.push({ driveFile: f, idx, at: 0 });
-    }
-    if (entries.length === 0) {
-      showToast('「⚖️比較」役割の画像が見つかりません。一時保存 or 既存ファイルの画像に役割（⚖️）と製品番号を割り当ててから押してください', 'warn');
+    if (!entries || entries.length === 0) {
+      showToast('比較する画像が選ばれていません', 'warn');
       return null;
     }
-    entries.sort((a, b) => ((a.idx || 99) - (b.idx || 99)) || (a.at - b.at));
-    showToast(`⚖️ 比較画像を集めています…（一時保存${queueComps.length}枚＋Drive${entries.length - queueComps.length}枚）`, 'success');
+    entries = entries.slice().sort((a, b) => ((a.idx || 99) - (b.idx || 99)) || ((a.at || 0) - (b.at || 0)));
     const blobs = await Promise.all(entries.map(e => e.blob ? Promise.resolve(e.blob) : fetchDriveBlob(e.driveFile)));
     const comps = entries.map((e, i) => ({ compareIndex: e.idx, blob: blobs[i] }));
     const names = getCompareProductNames();
@@ -2363,55 +2514,115 @@ ${COMMON_GUARDS}`,
     });
     return { blob: await new Promise(res => canvas.toBlob(res, 'image/png')), count: comps.length };
   }
+  // 比較候補（一時保存＋既存Driveファイル）を集める。各候補にプレビューURLを付ける。
+  async function gatherCompareCandidates() {
+    const all = await queueAll();
+    const queueCands = all
+      .filter(it => !(it.mimeType || '').startsWith('video/') && it.mimeType !== 'application/pdf'
+        && !/^compare_sheet_/i.test(it.originalName || ''))
+      .map(it => ({
+        kind: 'queue', id: it.id, blob: it.blob,
+        name: it.originalName || '一時保存の画像',
+        thumb: URL.createObjectURL(it.blob),
+        idx: it.compareIndex || null,
+        preselect: normalizeItemRole(it) === 'compare',
+        at: it.createdAt,
+      }));
+    const driveCands = (getSelectedArticleFolderId() ? (lastExistingFiles || []) : [])
+      .filter(f => (/image/i.test(f.mimeType || '') || /\.(png|jpe?g|webp|gif)$/i.test(f.name || ''))
+        && !/^compare_sheet_/i.test(f.name || ''))
+      .map(f => {
+        const m = /^compare_p(\d+)_/i.exec(f.name || '');
+        return {
+          kind: 'drive', driveFile: f, name: f.name,
+          thumb: f.thumbnailUrl, idx: m ? Number(m[1]) : null,
+          preselect: /^compare_/i.test(f.name || ''), at: 0,
+        };
+      });
+    return queueCands.concat(driveCands);
+  }
+
+  // 比較する画像を「2枚以上」任意に選び、各製品番号を割り当てるモーダル
+  async function chooseCompareImages(cands) {
+    const tiles = cands.map((c, i) => {
+      const idxOpts = ['', '1', '2', '3', '4'].map(v =>
+        '<option value="' + v + '"' + (String(c.idx || '') === v ? ' selected' : '') + '>' + (v ? '製品' + v : '番号なし') + '</option>'
+      ).join('');
+      return '<label class="km-cmp-tile' + (c.preselect ? ' is-on' : '') + '" data-i="' + i + '">' +
+        '<input type="checkbox" class="km-cmp-chk"' + (c.preselect ? ' checked' : '') + '>' +
+        '<img src="' + (c.thumb || '') + '" referrerpolicy="no-referrer" alt="">' +
+        '<div class="km-cmp-name">' + escHtml(c.name) + '</div>' +
+        '<select class="km-cmp-idx">' + idxOpts + '</select>' +
+        '<span class="km-cmp-src">' + (c.kind === 'queue' ? '一時保存' : 'Drive') + '</span>' +
+      '</label>';
+    }).join('');
+    const body =
+      '<div class="km-cmp-help">比較表に並べたい画像を<strong>2枚以上</strong>選び、それぞれ「製品番号」を割り当ててください。</div>' +
+      '<div class="km-cmp-grid">' + tiles + '</div>' +
+      '<div class="km-cmp-msg" id="km-cmp-msg"></div>';
+    const result = await openModal({
+      title: '⚖️ 比較する画像を選ぶ',
+      bodyHTML: body,
+      buttons: [
+        { label: 'キャンセル', value: null },
+        { label: '選択した画像で開始', primary: true, onClick: (rootEl) => {
+            const picks = [];
+            rootEl.querySelectorAll('.km-cmp-tile').forEach((tile) => {
+              const chk = tile.querySelector('.km-cmp-chk');
+              if (!chk.checked) return;
+              const c = cands[Number(tile.dataset.i)];
+              const idxV = tile.querySelector('.km-cmp-idx').value;
+              picks.push({ blob: c.blob, driveFile: c.driveFile, idx: idxV ? Number(idxV) : (c.idx || null), at: c.at });
+            });
+            if (picks.length < 2) {
+              const msg = rootEl.querySelector('#km-cmp-msg');
+              if (msg) msg.textContent = '⚠️ 2枚以上選んでください（今 ' + picks.length + ' 枚）';
+              return false; // 閉じない
+            }
+            return picks;
+          } },
+      ],
+      onRender: (rootEl) => {
+        // チェック状態を見た目に反映
+        rootEl.querySelectorAll('.km-cmp-tile').forEach((tile) => {
+          const chk = tile.querySelector('.km-cmp-chk');
+          const sync = () => tile.classList.toggle('is-on', chk.checked);
+          chk.addEventListener('change', sync); sync();
+        });
+      },
+    });
+    // queue候補のプレビューURLを解放
+    cands.forEach(c => { if (c.kind === 'queue' && c.thumb) { try { URL.revokeObjectURL(c.thumb); } catch (_) {} } });
+    return result; // picks[] か null
+  }
+
   const btnCompareBundle = $('btn-compare-bundle');
   if (btnCompareBundle) {
     btnCompareBundle.addEventListener('click', async () => {
+      if (serverBusy) { showToast('いまサーバ通信中です。終わるまでお待ちください', 'warn'); return; }
       btnCompareBundle.disabled = true;
       try {
-        // ⚠️ クリップボード書込と window.open は「ボタンを押した直後（ユーザー操作の権限内）」に
-        // 同期的に予約する必要がある。シート合成（Driveダウンロード含む）を await してから書くと
-        // 権限切れ（約5秒）で拒否され「貼り付けられない」事故になる。
-        // → ClipboardItem に Promise を渡す公式の方法で「先に予約・後から中身」を実現する。
-        // ① プロンプトを先に確定（シート不要・同期）
+        // ① 候補を集める
+        const cands = await gatherCompareCandidates();
+        if (cands.length < 2) {
+          showToast('比較するには画像が2枚以上必要です。一時保存に追加するか、記事を選んで既存ファイルを読み込んでください', 'warn');
+          return;
+        }
+        // ② 「2枚以上」を任意選択 → 製品番号割り当て
+        const picks = await chooseCompareImages(cands);
+        if (!picks) return; // キャンセル
+        // ③ プロンプトに連結シートの使い方を追記
         const note = '【添付画像の使い方】添付の連結シートには各製品の実機写真が「製品1」「製品2」…のラベル付きで横に並んでいます。' +
           '各パネルを切り出して、対応する製品カードのヘッダー画像として使用してください。';
         if (aiPrompt && !aiPrompt.value.includes('【添付画像の使い方】')) {
           aiPrompt.value = (aiPrompt.value.trim() ? aiPrompt.value.trim() + '\n\n' : '') + note;
         }
         const prompt = aiPrompt ? aiPrompt.value.trim() : note;
-        // ② シート合成を開始（Promise。まだ await しない）
-        const sheetP = buildCompareSheet();
-        let w = null;
-        let copyReserved = false;
-        if (!isMobileDevice()) {
-          // ③ ChatGPT をプロンプト入りURLで即オープン（同期＝ポップアップブロック回避）
-          const url = buildAIUrl('chatgpt', prompt);
-          w = openFreshAI('chatgpt', url, 'width=900,height=900,scrollbars=yes,resizable=yes');
-          if (!w) w = window.open(url, '_blank');
-          // ④ クリップboardへ「Promise渡し」で予約（権限はこの瞬間に確保される）
-          try {
-            if (navigator.clipboard && window.ClipboardItem) {
-              await navigator.clipboard.write([new ClipboardItem({
-                'image/png': sheetP.then(s => {
-                  if (!s || !s.blob) throw new Error('比較画像なし');
-                  return s.blob;
-                }),
-              })]);
-              copyReserved = true;
-              clipboardMode = 'image';
-            }
-          } catch (e) { console.warn('compare sheet clipboard reserve failed:', e); }
-        }
-        // ⑤ シート完成を待って一時保存に追加 → 受取用バナーを表示
-        let sheet = null;
-        try {
-          sheet = await sheetP;
-        } catch (e) {
-          console.error('buildCompareSheet failed:', e);
-          showToast('連結シートの作成に失敗しました: ' + (e.message || e), 'error');
-        }
-        if (!sheet || !sheet.blob) { try { if (w) w.close(); } catch (_) {} return; }
-        // 🛡 直前の編集待機が残っていたら、前画像の「編集中…」を解除してから上書き
+        // ④ 連結シートを合成（Drive取得を含むのでロック付き＝通信中は操作不可）
+        const sheet = await withServerLock('比較画像を1枚に連結中…', () => buildCompareSheet(picks))
+          .catch((e) => { showToast('連結シートの作成に失敗しました: ' + (e.message || e), 'error'); return null; });
+        if (!sheet || !sheet.blob) return;
+        // ⑤ 直前の編集待機が残っていたら解除 → 一時保存に追加 → 受取用バナー表示
         if (pendingReplace && pendingReplace.originalId != null) {
           try { await queueUpdate(pendingReplace.originalId, (it) => { delete it.editingWith; }); } catch (_) {}
         }
@@ -2421,28 +2632,18 @@ ${COMMON_GUARDS}`,
           blob: sheet.blob, mimeType: 'image/png', ext: 'png',
           size: sheet.blob.size,
           originalName: 'compare_sheet_' + id + '.png',
-          status: 'pending',
-          editingWith: 'chatgpt',
+          status: 'pending', editingWith: 'chatgpt',
         };
         await queuePut(record);
         pendingReplace = {
-          originalId: record.id,
-          originalItem: record,
-          aiEngine: 'chatgpt',
-          prompt: prompt,
-          startedAt: Date.now(),
-          aiWindow: w,
+          originalId: record.id, originalItem: record,
+          aiEngine: 'chatgpt', prompt: prompt,
+          startedAt: Date.now(), aiWindow: null,
           aiUrl: buildAIUrl('chatgpt', prompt),
         };
         await renderQueue();
         showEditingBanner();
-        if (isMobileDevice() && navigator.share) {
-          showToast(`⚖️ ${sheet.count}枚を連結しました。バナーの「📤 共有」ボタンでAIアプリへ送ってください`, 'success');
-        } else {
-          showToast(copyReserved
-            ? `⚖️ ${sheet.count}枚を連結してコピー済み。ChatGPTのチャット欄で ⌘/Ctrl+V → 送信`
-            : `⚖️ ${sheet.count}枚を連結しました。バナーの「🖼 画像を再コピー」を押してからAIで ⌘V`, 'success');
-        }
+        showToast(`⚖️ ${sheet.count}枚を1枚に連結しました。バナーの「🖼 画像を再コピー」→「🚀 ${getEngineLabel('chatgpt')}を開く」でAIへ送れます`, 'success');
       } finally {
         btnCompareBundle.disabled = false;
       }
@@ -2634,8 +2835,9 @@ ${COMMON_GUARDS}`,
       return;
     }
 
-    // 🛡 ここから転送中ロック（✕削除・役割変更・編集の誤操作防止）
+    // 🛡 ここから転送中ロック（✕削除・役割変更・編集の誤操作防止）＋全画面オーバーレイ
     isUploading = true;
+    lockUI('画像をDriveへ転送中…');
     await renderQueue();
 
     // 役割（アイキャッチ/セクション/図解 等）が指定された画像は、ファイル名にプレフィックス付与
@@ -2822,6 +3024,7 @@ ${COMMON_GUARDS}`,
       }
     }
     isUploading = false; // 🛡 転送中ロック解除
+    unlockUI();
     await renderQueue();
     uploadAllBtn.disabled = false;
     let msg = '✅成功 ' + success + ' / スキップ ' + skipped + ' / 失敗 ' + failed;
@@ -3004,8 +3207,10 @@ ${COMMON_GUARDS}`,
         memoFolderId = folderId;
       }
       localStorage.setItem(LS_LAST_FOLDER_KEY, folderId);
-      await loadExistingPrompt(folderId);
-      await loadExistingFiles(folderId);
+      await withServerLock('Driveから記事データを読み込み中…', async () => {
+        await loadExistingPrompt(folderId);
+        await loadExistingFiles(folderId);
+      });
     } else {
       localStorage.removeItem(LS_LAST_FOLDER_KEY);
       hideExistingFiles();
@@ -3215,25 +3420,30 @@ ${COMMON_GUARDS}`,
         card.querySelector('[data-action="ef-canva"]').onclick = () => editExistingFile(f, 'canva');
         const healBtn = card.querySelector('.ef-heal-btn');
         if (healBtn) healBtn.onclick = async () => {
+          if (serverBusy) { showToast('いまサーバ通信中です。終わるまでお待ちください', 'warn'); return; }
           healBtn.disabled = true;
-          const ok = await changeExistingFileRole(f, curPrefix, folderId);
-          if (ok) {
-            showToast('🏷 役割をファイル名に反映しました（記事生成に効くようになります）', 'success');
-            await loadExistingFiles(folderId);
-          } else {
-            healBtn.disabled = false;
-          }
+          const ok = await withServerLock('役割をファイル名に反映中…', async () => {
+            const r = await changeExistingFileRole(f, curPrefix, folderId);
+            if (r) await loadExistingFiles(folderId);
+            return r;
+          });
+          if (ok) showToast('🏷 役割をファイル名に反映しました（記事生成に効くようになります）', 'success');
+          else healBtn.disabled = false;
         };
         const roleSel = card.querySelector('.ef-role-sel');
         roleSel.addEventListener('change', async () => {
+          if (serverBusy) { showToast('いまサーバ通信中です。終わるまでお待ちください', 'warn'); roleSel.value = curPrefix; return; }
           const newPrefix = roleSel.value;
           roleSel.disabled = true;
-          const ok = await changeExistingFileRole(f, newPrefix, folderId);
+          const ok = await withServerLock('役割を更新中…', async () => {
+            const r = await changeExistingFileRole(f, newPrefix, folderId);
+            if (r) await loadExistingFiles(folderId); // 一覧を更新（バッジ・名前を反映）
+            return r;
+          });
           if (ok) {
             showToast(newPrefix
               ? `🏷 役割を「${(EF_ROLE_OPTIONS.find(o => o.v === newPrefix) || {}).t}」に変更しました`
               : '🏷 役割を解除しました', 'success');
-            await loadExistingFiles(folderId); // 一覧を更新（バッジ・名前を反映）
           } else {
             roleSel.value = curPrefix; // 失敗・キャンセル時は元に戻す
             roleSel.disabled = false;
@@ -3249,60 +3459,71 @@ ${COMMON_GUARDS}`,
 
   // Drive 画像を GAS経由でフルサイズ取得 → キューに追加（上書きモード）→ AI 編集起動
   async function editExistingFile(driveFile, engine) {
-    try {
-      showToast(`「${driveFile.name}」を取込中…`, 'success');
-      // GAS の downloadFile action で base64 取得（CORS回避＆フル解像度維持）
+    if (serverBusy) { showToast('いまサーバ通信中です。終わるまでお待ちください', 'warn'); return; }
+    // ① 確認ポップアップ（サムネは Drive のサムネイルURL）
+    const ok = await openModal({
+      title: '🖼 この方法で編集してもいいですか？',
+      bodyHTML:
+        '<div class="km-edit-confirm">' +
+          '<img class="km-edit-thumb" src="' + (driveFile.thumbnailUrl || '') + '" referrerpolicy="no-referrer" alt="">' +
+          '<div class="km-edit-info">' +
+            '<div class="km-edit-engine">' + escHtml(getEngineLabel(engine)) + ' で再編集します</div>' +
+            '<div class="km-edit-note">「' + escHtml(driveFile.name) + '」をDriveから取り込んで編集し、<strong>同じファイルに上書き保存</strong>します</div>' +
+          '</div>' +
+        '</div>',
+      buttons: [
+        { label: 'キャンセル', value: null },
+        { label: '✏️ 取り込んで編集', primary: true, value: true },
+      ],
+    });
+    if (!ok) return;
+    // ② ダウンロード（ロック付き＝通信中は操作不可）
+    const item = await withServerLock('「' + driveFile.name + '」を取得中…', async () => {
       const url = GAS_URL + '?' + new URLSearchParams({
-        token: TOKEN,
-        action: 'downloadFile',
-        fileId: driveFile.id,
+        token: TOKEN, action: 'downloadFile', fileId: driveFile.id,
       }).toString();
       const res = await fetch(url).then(r => r.json());
       if (!res || !res.ok) throw new Error((res && res.message) || 'downloadFile 失敗');
-      // base64 → Blob 変換
       const bin = atob(res.dataBase64);
-      const len = bin.length;
-      const u8 = new Uint8Array(len);
-      for (let i = 0; i < len; i++) u8[i] = bin.charCodeAt(i);
+      const u8 = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
       const blob = new Blob([u8], { type: res.mimeType || driveFile.mimeType });
       const ext = (driveFile.name.split('.').pop() || 'png').toLowerCase();
-      const item = {
+      const it = {
         id: 'edit-' + driveFile.id + '-' + Date.now(),
-        blob: blob,
-        mimeType: blob.type,
-        ext: ext,
-        size: blob.size,
-        originalName: driveFile.name,
-        createdAt: Date.now(),
+        blob, mimeType: blob.type, ext, size: blob.size,
+        originalName: driveFile.name, createdAt: Date.now(),
         replaceDriveFileId: driveFile.id, // ← 上書き保存マーカー
       };
-      await queuePut(item);
-      await renderQueue();
-      // 取込んだ item を引数に AI 編集起動
-      await oneClickEdit(item, engine);
-    } catch (e) {
-      showToast('取込失敗: ' + (e.message || e), 'error');
-      console.error('editExistingFile error:', e);
-    }
+      await queuePut(it);
+      return it;
+    }).catch((e) => { showToast('取込失敗: ' + (e.message || e), 'error'); return null; });
+    if (!item) return;
+    await renderQueue();
+    // ③ 確認は済んでいるので編集を直接起動（role選択不要＝allowRole無視）
+    await oneClickEdit(item, engine);
   }
 
   btnReloadFiles && btnReloadFiles.addEventListener('click', async () => {
     const folderId = articleSelect.value;
     if (!folderId) { showToast('記事を選択してください', 'warn'); return; }
     // 役割バッジの逆引きに PROMPT.md の役割行が必要なため、メモも先に静かに再読込
-    await loadExistingPrompt(folderId, { silent: true });
-    await loadExistingFiles(folderId);
+    await withServerLock('Driveからファイル一覧を読み込み中…', async () => {
+      await loadExistingPrompt(folderId, { silent: true });
+      await loadExistingFiles(folderId);
+    });
   });
 
   const btnMemoReload = $('btn-memo-reload');
   btnMemoReload && btnMemoReload.addEventListener('click', async () => {
     const folderId = articleSelect.value;
     if (!folderId) { showToast('記事を選択してください', 'warn'); return; }
-    await loadExistingPrompt(folderId);
+    await withServerLock('Driveからメモを読み込み中…', () => loadExistingPrompt(folderId));
   });
 
   const btnMemoSave = $('btn-memo-save');
   btnMemoSave && btnMemoSave.addEventListener('click', async () => {
+    if (serverBusy) { showToast('いまサーバ通信中です。終わるまでお待ちください', 'warn'); return; }
     const folderId = articleSelect.value;
     const title = getSelectedArticleTitle();
     if (!folderId && !title) {
@@ -3318,7 +3539,7 @@ ${COMMON_GUARDS}`,
     btnMemoSave.textContent = '保存中…';
     let saved = false;
     try {
-      const res = await savePromptToDrive(title, folderId);
+      const res = await withServerLock('メモをDriveに保存中…', () => savePromptToDrive(title, folderId));
       console.log('[memo save] response:', res);
       if (!res || (!res.ok && !res.skipped)) {
         throw new Error((res && res.message) || 'savePrompt 失敗');

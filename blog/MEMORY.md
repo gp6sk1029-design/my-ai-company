@@ -185,6 +185,13 @@
   - その他修正：regenerateAIPrompt末尾でカード明示更新（プログラム代入はinputイベント非発火）／updateStepChipsはdata-clip-chip限定（スマホ・Canvaのチップ構成を壊さない）／比較まとめ送りのエラー処理＋前編集待機の孤児化防止／**uploadAll役割行を全削除→マージ方式に**（過去アップ分の役割記録を保持。今回分・新ユニーク役割・同製品番号のみ置換）／ユニーク役割付替えで降格側の役割行も除去／lastExistingFilesの記事切替残留クリア／サムネObjectURLキャッシュ＋クローズ時解放／全文コピーボタン・記事名表示。
   - 残課題：GAS側6バグ（Deduper記事跨ぎ等・前回記録済み）＋UX改善案10件（監査出力 wyt6f908a 参照）。UX担当エージェント1体はAPI利用上限で停止。
 
+- 2026/06/13：**記事めしPWA：編集確認ポップアップ＋比較2枚以上選択＋通信中ロックの3機能を実装**。
+  - 汎用モーダル `openModal({title,bodyHTML,buttons,onRender})`（Promise解決・背景/✕でnull・onClickでバリデーション/値返し）を新設し全UIで再利用。
+  - ① 画像の🤖🍌🎨を押すと即開始せず `confirmThenEdit` で確認ポップアップ（サムネ＋用途=役割select＋compare時は製品番号）→了承で `oneClickEdit`。既存ファイルは確認のみ→ロック付きDLして編集。ユニーク役割は他を自動降格。
+  - ② 比較まとめ送りは `gatherCompareCandidates`（一時保存＋既存Drive画像）→ `chooseCompareImages` モーダルでチェックボックス選択（2枚以上必須・製品番号割当）→ `buildCompareSheet(entries)`（entries引数対応に拡張）。**学び：モーダルで操作を挟むとユーザー操作権限(transient activation)が切れるので、比較フローはauto-open/clipboard予約をやめ、連結シートを一時保存に入れてバナーの「🖼再コピー」「🚀開く」（実ジェスチャー）で渡す方式に統一**＝paste失敗の根治。
+  - ③ サーバ通信中ロック：`serverBusy`＋全画面オーバーレイ `lockUI/unlockUI/withServerLock(msg,fn)`。記事切替・メモ再読込/保存・既存ファイルDL・役割変更・転送(uploadAll)を全部ロック付きに。通信中に触ると再描画と衝突して操作しづらい問題を解消。多重起動はトーストで弾く。各ボタンにも `if(serverBusy)return` ガード。
+  - 検証：構文＋選択ロジック机上テスト＋本番マーカー（openModal/confirmThenEdit/withServerLock/chooseCompareImages/CSS）確認。
+
 ### 使用ツール
 - WordPress REST API: wp_api.py
 - ブロックビルダー: wp_block_builder.py
