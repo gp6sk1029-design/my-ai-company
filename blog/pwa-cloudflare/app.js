@@ -869,8 +869,18 @@
     finally { unlockUI(); }
   }
 
+  // テンプレ（プロンプト種別）→ 画像の役割（ファイル名プレフィックス用）への対応表。
+  // 役割は記事生成スクリプトの分類キー（eyecatch_/hero_/section_/diagram_/compare_/ngsummary_/product_）。
+  const TEMPLATE_TO_ROLE = {
+    eyecatch: 'eyecatch', big_number: 'hero',
+    specs_card: 'section', icon_grid: 'section', pros_cons: 'section',
+    concept: 'diagram', flow: 'diagram', roi: 'diagram', decision_tree: 'diagram',
+    compare: 'compare', ranking: 'section', target_buyer: 'section', ngsummary: 'ngsummary',
+    bgremove: 'product', colorfix: 'product', addtext: 'none', custom: 'none',
+  };
+
   // ─── 編集前の確認ポップアップ → 了承で編集開始 ───────────────
-  // queue画像: 役割（アイキャッチ等）を選んでから開始。既存ファイル: 確認のみ。
+  // queue画像: つくるもの（テンプレ）を選んでから開始。既存ファイル: 確認のみ。
   async function confirmThenEdit(item, engine, opts) {
     opts = opts || {};
     if (serverBusy) { showToast('いまサーバ通信中です。終わるまでお待ちください', 'warn'); return; }
@@ -884,10 +894,10 @@
     }
     const aiName = getEngineLabel(engine);
     const url = URL.createObjectURL(item.blob);
-    const curRole = normalizeItemRole(item);
-    const roleOptsHtml = ROLE_DEFS.map(r =>
-      '<option value="' + r.key + '"' + (r.key === curRole ? ' selected' : '') + '>' + r.emoji + ' ' + r.label + '</option>'
-    ).join('');
+    // 「用途」の選択肢は上部「プロンプト準備」のテンプレ一覧（多い方）に統一する。
+    const tplSrc = document.getElementById('ai-template-select');
+    const tplOptsHtml = tplSrc ? tplSrc.innerHTML : '';
+    const curTpl = tplSrc ? tplSrc.value : 'eyecatch';
     const cmpVal = String(item.compareIndex || '');
     const cmpOptsHtml = ['', '1', '2', '3', '4'].map(v =>
       '<option value="' + v + '"' + (cmpVal === v ? ' selected' : '') + '>' + (v ? '製品' + v : '未割当') + '</option>'
@@ -898,9 +908,9 @@
         '<div class="km-edit-info">' +
           '<div class="km-edit-engine">' + escHtml(aiName) + ' で編集します</div>' +
           (allowRole
-            ? '<label class="km-edit-field"><span>この画像の用途</span>' +
-                '<select id="km-role-sel">' + roleOptsHtml + '</select></label>' +
-              '<label class="km-edit-field" id="km-cmp-wrap"' + (curRole === 'compare' ? '' : ' style="display:none"') + '>' +
+            ? '<label class="km-edit-field"><span>つくるもの／用途</span>' +
+                '<select id="km-tpl-sel">' + tplOptsHtml + '</select></label>' +
+              '<label class="km-edit-field" id="km-cmp-wrap"' + (curTpl === 'compare' ? '' : ' style="display:none"') + '>' +
                 '<span>比較の製品番号</span><select id="km-cmp-sel">' + cmpOptsHtml + '</select></label>'
             : '<div class="km-edit-note">「' + escHtml(item.originalName || 'この画像') + '」を再編集します</div>') +
         '</div>' +
@@ -911,24 +921,30 @@
       buttons: [
         { label: 'キャンセル', value: null },
         { label: '✏️ 編集を開始', primary: true, onClick: (rootEl) => {
-            const rs = rootEl.querySelector('#km-role-sel');
+            const ts = rootEl.querySelector('#km-tpl-sel');
             const cs = rootEl.querySelector('#km-cmp-sel');
-            return { role: rs ? rs.value : null, cmp: cs ? cs.value : '' };
+            return { tpl: ts ? ts.value : null, cmp: cs ? cs.value : '' };
           } },
       ],
       onRender: (rootEl) => {
-        const rs = rootEl.querySelector('#km-role-sel');
+        const ts = rootEl.querySelector('#km-tpl-sel');
         const wrap = rootEl.querySelector('#km-cmp-wrap');
-        if (rs && wrap) rs.addEventListener('change', () => { wrap.style.display = rs.value === 'compare' ? '' : 'none'; });
+        if (ts) ts.value = curTpl; // 実行時の選択値を反映（innerHTMLにはselected属性が無いため）
+        if (ts && wrap) ts.addEventListener('change', () => { wrap.style.display = ts.value === 'compare' ? '' : 'none'; });
       },
     });
     try { URL.revokeObjectURL(url); } catch (_) {}
     if (!res) return;  // キャンセル
-    // 役割を反映（queue画像のみ）
-    if (allowRole && res.role && !opts.skipQueueLookup) {
-      const newRole = res.role;
+    // テンプレ → ①プロンプト種別 ②画像の役割（ファイル名）両方に反映（queue画像のみ）
+    if (allowRole && res.tpl && !opts.skipQueueLookup) {
+      // ① 上部ヘルパーのテンプレを合わせてプロンプトを再生成
+      if (tplSrc && tplSrc.value !== res.tpl) {
+        tplSrc.value = res.tpl;
+        tplSrc.dispatchEvent(new Event('change'));
+      }
+      // ② テンプレ→役割（ファイル名プレフィックス用）に変換
+      const newRole = TEMPLATE_TO_ROLE[res.tpl] || 'none';
       const def = getRoleDef(newRole);
-      // ユニーク役割なら他を解除
       if (def.unique) {
         const all2 = await queueAll();
         for (const it of all2) {
