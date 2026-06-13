@@ -985,7 +985,12 @@
     // 「用途」の選択肢は上部「プロンプト準備」のテンプレ一覧（多い方）に統一する。
     const tplSrc = document.getElementById('ai-template-select');
     const tplOptsHtml = tplSrc ? tplSrc.innerHTML : '';
-    const curTpl = tplSrc ? tplSrc.value : 'eyecatch';
+    // この画像に既に付けた用途（テンプレ）を最優先で初期選択にする＝最初のカテゴリ選択を引き継ぐ。
+    // 記録が無ければ役割から逆引き、それも無ければ上部ヘルパーの現在値。
+    const curTpl = item.templateKey
+      || ROLE_TO_TEMPLATE[normalizeItemRole(item)]
+      || (tplSrc ? tplSrc.value : '')
+      || 'eyecatch';
     const cmpVal = String(item.compareIndex || '');
     const cmpOptsHtml = ['', '1', '2', '3', '4'].map(v =>
       '<option value="' + v + '"' + (cmpVal === v ? ' selected' : '') + '>' + (v ? '製品' + v : '未割当') + '</option>'
@@ -1044,6 +1049,7 @@
       }
       await queueUpdate(item.id, (x) => {
         x.role = newRole;
+        x.templateKey = res.tpl; // 次回ポップアップで引き継げるよう用途を記録
         x.isEyecatch = (newRole === 'eyecatch');
         x.compareIndex = (newRole === 'compare') ? (res.cmp ? Number(res.cmp) : (x.compareIndex || null)) : null;
       });
