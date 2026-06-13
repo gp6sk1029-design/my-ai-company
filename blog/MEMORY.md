@@ -200,6 +200,8 @@
 
 - 2026/06/13：**比較表：製品番号の重複警告＋編集開始時の自動合体を実装**。①`duplicateIdxList`/`warnIfCompareDuplicates`で重複番号を検出→割り当て時（インライン製品セレクタ・役割ピッカー）・比較ギャラリー（赤バナー）・合体直前の3箇所で警告。重複のまま合体すると同番号ラベルが2つ出るため合体をブロック。②編集確認ポップアップで「比較表」を選んで開始すると、単体編集ではなく`stageCompareSheetFromAssigned`で**割り当て済み比較画像を自動で1枚に合体**→その合体シートを編集対象(pendingReplace)に載せてバナー表示。手動「⚖️まとめてAIへ」ボタンと共通の`stageCompareSheet`/`ensureCompareNote`に集約。**学び：比較は最初から「1枚の合体画像」を編集単位にする（AIには1画像しか確実に貼れないため）。単体画像のまま編集させない**。
 
+- 2026/06/13：**別画像の編集に切り替えた時に前回の編集データをリセット**。`discardPreviousEdit(exceptId)`を新設：前対象の編集中フラグ解除＋自動生成連結シート(compare_sheet_)の残骸をキューから削除＋pendingReplace破棄。oneClickEdit冒頭・stageCompareSheet冒頭で呼ぶ。confirmThenEditは毎回regenerateAIPromptでプロンプトを作り直し（前回の比較注記等の追記を消す）。あわせて編集バナーの比較ギャラリーに「⚖️比較画像をまとめてAIへ」ボタンを追加し、上部ボタンと共通の`runCompareBundle()`に集約。**学び：編集は対象ごとに状態(pendingReplace/prompt/一時シート)を必ずクリアしてから開始。切替時リセットしないと前の連結シートやプロンプト追記が残る**。
+
 ### 使用ツール
 - WordPress REST API: wp_api.py
 - ブロックビルダー: wp_block_builder.py

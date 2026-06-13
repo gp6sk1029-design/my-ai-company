@@ -953,6 +953,20 @@
     if (newRole === 'compare') await warnIfCompareDuplicates(); // 同じ製品番号が複数あれば警告
   }
 
+  // 🔄 別の画像を編集し始めるとき、前回の編集データをリセットする。
+  // ・前の編集対象の「編集中…」フラグを解除
+  // ・前回が自動生成の連結シート(compare_sheet_)で未送信なら、その残骸をキューから削除
+  // ・pendingReplace を破棄（exceptId と同じ対象なら何もしない）
+  async function discardPreviousEdit(exceptId) {
+    if (!pendingReplace || pendingReplace.originalId === exceptId) return false;
+    const prevId = pendingReplace.originalId;
+    const prevName = (pendingReplace.originalItem && pendingReplace.originalItem.originalName) || '';
+    try { await queueUpdate(prevId, (it) => { delete it.editingWith; }); } catch (_) {}
+    if (/^compare_sheet_/i.test(prevName)) { try { await queueDelete(prevId); } catch (_) {} }
+    pendingReplace = null;
+    return true;
+  }
+
   // ─── 編集前の確認ポップアップ → 了承で編集開始 ───────────────
   // queue画像: つくるもの（テンプレ）を選んでから開始。既存ファイル: 確認のみ。
   async function confirmThenEdit(item, engine, opts) {
@@ -1011,10 +1025,11 @@
     if (!res) return;  // キャンセル
     // テンプレ → ①プロンプト種別 ②画像の役割（ファイル名）両方に反映（queue画像のみ）
     if (allowRole && res.tpl && !opts.skipQueueLookup) {
-      // ① 上部ヘルパーのテンプレを合わせてプロンプトを再生成
-      if (tplSrc && tplSrc.value !== res.tpl) {
+      // ① 上部ヘルパーのテンプレを合わせ、毎回プロンプトを作り直す
+      //    （前回の追記＝比較注記などをリセットして、新しい編集をまっさらから始める）
+      if (tplSrc) {
         tplSrc.value = res.tpl;
-        tplSrc.dispatchEvent(new Event('change'));
+        if (typeof regenerateAIPrompt === 'function') regenerateAIPrompt();
       }
       // ② テンプレ→役割（ファイル名プレフィックス用）に変換
       const newRole = TEMPLATE_TO_ROLE[res.tpl] || 'none';
@@ -1054,10 +1069,8 @@
       if (!latest) { showToast('この画像はすでに削除されています', 'warn'); return; }
       item = latest;
     }
-    // 🛡 別画像の編集待機が残っていたら、前の画像の「編集中…」を確実に解除してから上書き
-    if (pendingReplace && pendingReplace.originalId !== item.id) {
-      try { await queueUpdate(pendingReplace.originalId, (it) => { delete it.editingWith; }); } catch (_) {}
-    }
+    // 🔄 別画像の編集に切り替わるなら、前回の編集データをリセット（編集中フラグ解除・連結シート残骸削除）
+    await discardPreviousEdit(item.id);
     const prompt = (aiPrompt && aiPrompt.value.trim()) || defaultEditPrompt();
     const aiName = getEngineLabel(engine);
 
@@ -2763,9 +2776,8 @@ ${COMMON_GUARDS}`,
   }
   // 連結シート(blob)を一時保存に入れて編集対象(pendingReplace)にし、受取バナーを表示する
   async function stageCompareSheet(sheetBlob, count, prompt) {
-    if (pendingReplace && pendingReplace.originalId != null) {
-      try { await queueUpdate(pendingReplace.originalId, (it) => { delete it.editingWith; }); } catch (_) {}
-    }
+    // 前回の編集データ（古い連結シート等）を破棄してから新しいシートを載せる
+    await discardPreviousEdit(null);
     const id = Date.now() + '_' + (++itemCounter);
     const record = {
       id, createdAt: Date.now(),
