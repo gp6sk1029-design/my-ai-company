@@ -366,6 +366,7 @@
             t.compareIndex = v ? Number(v) : null;
             await queuePut(t);
             showToast(v ? `この写真を「製品${v}」に割り当て` : '製品割当を解除', 'success');
+            if (v) await warnIfCompareDuplicates(); // 同じ番号が複数あれば警告
           }
         });
       }
@@ -949,6 +950,7 @@
     await renderQueue();
     const label = (tplSrc && Array.from(tplSrc.options).find(o => o.value === tpl) || {}).text || tpl;
     showToast('🏷 用途を「' + label + '」に設定しました', 'success');
+    if (newRole === 'compare') await warnIfCompareDuplicates(); // 同じ製品番号が複数あれば警告
   }
 
   // ─── 編集前の確認ポップアップ → 了承で編集開始 ───────────────
@@ -1033,6 +1035,12 @@
       const all3 = await queueAll();
       item = all3.find(x => x.id === item.id) || item;
       await renderQueue();
+      // 🔗 比較表は「割り当て済みの比較画像を自動で1枚に合体」してから編集する。
+      // （単体画像のままだとAIに比較全体を渡せないため）
+      if (res.tpl === 'compare') {
+        await stageCompareSheetFromAssigned();
+        return; // 合体シートを編集対象にしたので単体編集はしない
+      }
     }
     await oneClickEdit(item, engine);
   }
@@ -1182,8 +1190,13 @@
     }
     items.sort((a, b) => ((a.idx || 99) - (b.idx || 99)));
     const names = getCompareProductNames();
+    const dup = duplicateIdxList(items);
+    const dupWarn = dup.length
+      ? '<div class="bps-cmp-dup">⚠️ 製品番号が重複しています（製品' + dup.join('・') + '）。同じ番号は1枚ずつに直してください</div>'
+      : '';
     box.innerHTML =
       '<div class="bps-cmp-title">⚖️ この比較に使う画像（' + items.length + '枚）</div>' +
+      dupWarn +
       '<div class="bps-cmp-row">' +
         items.map((it) => {
           const nm = (it.idx && names[it.idx - 1]) ? '：' + escHtml(names[it.idx - 1].slice(0, 6)) : '';
@@ -2704,6 +2717,98 @@ ${COMMON_GUARDS}`,
     return result; // picks[] か null
   }
 
+  // 比較entriesの中で重複している製品番号の一覧を返す（[2,3]など）
+  function duplicateIdxList(entries) {
+    const counts = {};
+    entries.forEach(e => { if (e.idx) counts[e.idx] = (counts[e.idx] || 0) + 1; });
+    return Object.keys(counts).filter(k => counts[k] > 1).map(Number).sort((a, b) => a - b);
+  }
+  // 現在「⚖️比較」が割り当たっている画像（一時保存＋既存Drive）を集める
+  async function gatherAssignedCompareEntries() {
+    const all = await queueAll();
+    const entries = [];
+    all.forEach(it => {
+      if (normalizeItemRole(it) === 'compare'
+        && !/^compare_sheet_/i.test(it.originalName || '')
+        && !(it.mimeType || '').startsWith('video/') && it.mimeType !== 'application/pdf') {
+        entries.push({ blob: it.blob, idx: it.compareIndex || null, at: it.createdAt });
+      }
+    });
+    const usedIdx = new Set(entries.map(e => e.idx).filter(Boolean));
+    (getSelectedArticleFolderId() ? (lastExistingFiles || []) : []).forEach(f => {
+      if (/^compare_/i.test(f.name || '') && !/^compare_sheet_/i.test(f.name || '')) {
+        const m = /^compare_p(\d+)_/i.exec(f.name || '');
+        const idx = m ? Number(m[1]) : null;
+        if (idx && usedIdx.has(idx)) return;
+        if (idx) usedIdx.add(idx);
+        entries.push({ driveFile: f, idx, at: 0 });
+      }
+    });
+    return entries;
+  }
+  // 割り当て済み比較画像に重複番号があればトースト警告して true を返す
+  async function warnIfCompareDuplicates() {
+    const dup = duplicateIdxList(await gatherAssignedCompareEntries());
+    if (dup.length) {
+      showToast('⚠️ 製品番号が重複しています（製品' + dup.join('・') + '）。同じ番号は1枚ずつにしてください', 'error');
+      return true;
+    }
+    return false;
+  }
+  // 連結シート(blob)を一時保存に入れて編集対象(pendingReplace)にし、受取バナーを表示する
+  async function stageCompareSheet(sheetBlob, count, prompt) {
+    if (pendingReplace && pendingReplace.originalId != null) {
+      try { await queueUpdate(pendingReplace.originalId, (it) => { delete it.editingWith; }); } catch (_) {}
+    }
+    const id = Date.now() + '_' + (++itemCounter);
+    const record = {
+      id, createdAt: Date.now(),
+      blob: sheetBlob, mimeType: 'image/png', ext: 'png',
+      size: sheetBlob.size,
+      originalName: 'compare_sheet_' + id + '.png',
+      status: 'pending', editingWith: 'chatgpt',
+    };
+    await queuePut(record);
+    pendingReplace = {
+      originalId: record.id, originalItem: record,
+      aiEngine: 'chatgpt', prompt: prompt,
+      startedAt: Date.now(), aiWindow: null,
+      aiUrl: buildAIUrl('chatgpt', prompt),
+    };
+    await renderQueue();
+    showEditingBanner();
+    showToast(`⚖️ ${count}枚を1枚に合体しました。バナーの「🖼 画像を再コピー」→「🚀 ${getEngineLabel('chatgpt')}を開く」でAIへ送れます`, 'success');
+  }
+  // プロンプトに「連結シートの使い方」注記を足す（共通）
+  function ensureCompareNote() {
+    const note = '【添付画像の使い方】添付の連結シートには各製品の実機写真が「製品1」「製品2」…のラベル付きで横に並んでいます。' +
+      '各パネルを切り出して、対応する製品カードのヘッダー画像として使用してください。';
+    if (aiPrompt && !aiPrompt.value.includes('【添付画像の使い方】')) {
+      aiPrompt.value = (aiPrompt.value.trim() ? aiPrompt.value.trim() + '\n\n' : '') + note;
+    }
+    return aiPrompt ? aiPrompt.value.trim() : note;
+  }
+  // 割り当て済み比較画像を自動で1枚に合体して編集対象にする（選択モーダルなし）
+  // 比較表テンプレで「編集を開始」したときに使う。
+  async function stageCompareSheetFromAssigned() {
+    const entries = await gatherAssignedCompareEntries();
+    if (entries.length < 2) {
+      showToast('比較には画像が2枚以上必要です。一時保存の画像に「⚖️比較」を2枚以上割り当ててください', 'warn');
+      return false;
+    }
+    const dup = duplicateIdxList(entries);
+    if (dup.length) {
+      showToast('⚠️ 製品番号が重複しています（製品' + dup.join('・') + '）。同じ番号は1枚ずつにしてから編集してください', 'error');
+      return false;
+    }
+    const prompt = ensureCompareNote();
+    const sheet = await withServerLock('比較画像を1枚に合体中…', () => buildCompareSheet(entries))
+      .catch((e) => { showToast('連結シートの作成に失敗しました: ' + (e.message || e), 'error'); return null; });
+    if (!sheet || !sheet.blob) return false;
+    await stageCompareSheet(sheet.blob, sheet.count, prompt);
+    return true;
+  }
+
   const btnCompareBundle = $('btn-compare-bundle');
   if (btnCompareBundle) {
     btnCompareBundle.addEventListener('click', async () => {
@@ -2719,39 +2824,18 @@ ${COMMON_GUARDS}`,
         // ② 「2枚以上」を任意選択 → 製品番号割り当て
         const picks = await chooseCompareImages(cands);
         if (!picks) return; // キャンセル
-        // ③ プロンプトに連結シートの使い方を追記
-        const note = '【添付画像の使い方】添付の連結シートには各製品の実機写真が「製品1」「製品2」…のラベル付きで横に並んでいます。' +
-          '各パネルを切り出して、対応する製品カードのヘッダー画像として使用してください。';
-        if (aiPrompt && !aiPrompt.value.includes('【添付画像の使い方】')) {
-          aiPrompt.value = (aiPrompt.value.trim() ? aiPrompt.value.trim() + '\n\n' : '') + note;
+        // ②.5 製品番号の重複チェック（重複したまま合体すると同番号ラベルが2つ出るため）
+        const dup = duplicateIdxList(picks);
+        if (dup.length) {
+          showToast('⚠️ 製品番号が重複しています（製品' + dup.join('・') + '）。番号を割り当て直してください', 'error');
+          return;
         }
-        const prompt = aiPrompt ? aiPrompt.value.trim() : note;
-        // ④ 連結シートを合成（Drive取得を含むのでロック付き＝通信中は操作不可）
-        const sheet = await withServerLock('比較画像を1枚に連結中…', () => buildCompareSheet(picks))
+        // ③ プロンプト注記 → ④ 合体 → ⑤ 編集対象に載せる
+        const prompt = ensureCompareNote();
+        const sheet = await withServerLock('比較画像を1枚に合体中…', () => buildCompareSheet(picks))
           .catch((e) => { showToast('連結シートの作成に失敗しました: ' + (e.message || e), 'error'); return null; });
         if (!sheet || !sheet.blob) return;
-        // ⑤ 直前の編集待機が残っていたら解除 → 一時保存に追加 → 受取用バナー表示
-        if (pendingReplace && pendingReplace.originalId != null) {
-          try { await queueUpdate(pendingReplace.originalId, (it) => { delete it.editingWith; }); } catch (_) {}
-        }
-        const id = Date.now() + '_' + (++itemCounter);
-        const record = {
-          id, createdAt: Date.now(),
-          blob: sheet.blob, mimeType: 'image/png', ext: 'png',
-          size: sheet.blob.size,
-          originalName: 'compare_sheet_' + id + '.png',
-          status: 'pending', editingWith: 'chatgpt',
-        };
-        await queuePut(record);
-        pendingReplace = {
-          originalId: record.id, originalItem: record,
-          aiEngine: 'chatgpt', prompt: prompt,
-          startedAt: Date.now(), aiWindow: null,
-          aiUrl: buildAIUrl('chatgpt', prompt),
-        };
-        await renderQueue();
-        showEditingBanner();
-        showToast(`⚖️ ${sheet.count}枚を1枚に連結しました。バナーの「🖼 画像を再コピー」→「🚀 ${getEngineLabel('chatgpt')}を開く」でAIへ送れます`, 'success');
+        await stageCompareSheet(sheet.blob, sheet.count, prompt);
       } finally {
         btnCompareBundle.disabled = false;
       }
