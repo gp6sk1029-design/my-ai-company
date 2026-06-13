@@ -1152,6 +1152,47 @@
   }
   let bannerThumbUrl = null;
   let bannerThumbKey = '';
+  let bannerCmpUrls = []; // 比較ギャラリー用 ObjectURL（再描画/閉じる時に解放）
+  // 比較表のとき「この比較に使う画像」一覧をバナーに並べる（一時保存＋既存Drive）
+  async function renderCompareGalleryInto(box) {
+    if (!box) return;
+    const items = [];
+    try {
+      const all = await queueAll();
+      all.forEach((it) => {
+        if (normalizeItemRole(it) === 'compare'
+          && !/^compare_sheet_/i.test(it.originalName || '')
+          && !(it.mimeType || '').startsWith('video/') && it.mimeType !== 'application/pdf') {
+          items.push({ idx: it.compareIndex || null, url: URL.createObjectURL(it.blob), src: '一時保存', revoke: true });
+        }
+      });
+      (getSelectedArticleFolderId() ? (lastExistingFiles || []) : []).forEach((f) => {
+        if (/^compare_/i.test(f.name || '') && !/^compare_sheet_/i.test(f.name || '')) {
+          const m = /^compare_p(\d+)_/i.exec(f.name || '');
+          items.push({ idx: m ? Number(m[1]) : null, url: f.thumbnailUrl || '', src: 'Drive', revoke: false });
+        }
+      });
+    } catch (e) { console.warn('compare gallery gather failed:', e); }
+    // 前回分のURLを解放
+    bannerCmpUrls.forEach((u) => { try { URL.revokeObjectURL(u); } catch (_) {} });
+    bannerCmpUrls = items.filter((i) => i.revoke).map((i) => i.url);
+    if (items.length === 0) {
+      box.innerHTML = '<div class="bps-cmp-empty">⚖️ この比較に使う画像がまだありません。一時保存の画像に「⚖️比較」を割り当ててください</div>';
+      return;
+    }
+    items.sort((a, b) => ((a.idx || 99) - (b.idx || 99)));
+    const names = getCompareProductNames();
+    box.innerHTML =
+      '<div class="bps-cmp-title">⚖️ この比較に使う画像（' + items.length + '枚）</div>' +
+      '<div class="bps-cmp-row">' +
+        items.map((it) => {
+          const nm = (it.idx && names[it.idx - 1]) ? '：' + escHtml(names[it.idx - 1].slice(0, 6)) : '';
+          return '<div class="bps-cmp-cell">' +
+            '<img src="' + it.url + '" referrerpolicy="no-referrer" alt="">' +
+            '<span>製品' + (it.idx || '?') + nm + '</span></div>';
+        }).join('') +
+      '</div>';
+  }
   // 🔄 描画方針（2026-06-13再設計）：
   //  - 「構造」（テンプレ種別・編集対象の画像）が変わった時だけ全再描画する
   //  - それ以外（文字入力等）は軽量同期のみ：全文プレビュー・文字数・非フォーカス欄の値
@@ -1226,10 +1267,15 @@
     const fullOpen = !!(prevFull && prevFull.open);
     const articleName = (typeof getSelectedArticleTitle === 'function' && getSelectedArticleTitle())
       ? '<span class="bps-head-article">📝 ' + escHtml(getSelectedArticleTitle()) + '</span>' : '';
+    // 比較表のときは「この比較に使う他の画像」も並べて表示する
+    const isCompare = (key === 'compare')
+      || (pendingReplace && pendingReplace.originalItem && (normalizeItemRole(pendingReplace.originalItem) === 'compare'
+        || /^compare_sheet_/.test(pendingReplace.originalItem.originalName || '')));
     el.innerHTML =
       '<div class="bps-head">📤 いまAIに送る内容 ' + articleName +
         '<span class="bps-head-hint">（この場で書き換えOK・上の準備欄と自動同期）</span></div>' +
       '<div class="bps-flex">' + thumb + '<div class="bps-rows">' + rows.join('') + '</div></div>' +
+      (isCompare ? '<div class="bps-compare-gallery" id="bps-cmp-gallery"><div class="bps-cmp-loading">比較画像を読み込み中…</div></div>' : '') +
       (full
         ? '<details class="bps-full"' + (fullOpen ? ' open' : '') + '>' +
           '<summary><span class="bps-full-label">📄 指示文の全文を見る（' + full.length + '文字）</span>' +
@@ -1237,6 +1283,10 @@
           '<pre>' + escHtml(full) + '</pre></details>'
         : '');
     el.dataset.structureKey = structureKey;
+    if (isCompare) {
+      const gal = el.querySelector('#bps-cmp-gallery');
+      if (gal) renderCompareGalleryInto(gal); // 非同期で埋める
+    }
     // ── カード内編集 → 上部ヘルパーへ書き戻し（イベント転送で再生成まで自動） ──
     const cardTpl = el.querySelector('.bps-tpl');
     if (cardTpl) {
@@ -1537,8 +1587,10 @@
     }
     pendingReplace = null;
     if (editingBanner) editingBanner.style.display = 'none';
-    // サムネ用ObjectURLの後片付け
+    // サムネ用・比較ギャラリー用 ObjectURL の後片付け
     if (bannerThumbUrl) { try { URL.revokeObjectURL(bannerThumbUrl); } catch (_) {} bannerThumbUrl = null; bannerThumbKey = ''; }
+    bannerCmpUrls.forEach((u) => { try { URL.revokeObjectURL(u); } catch (_) {} });
+    bannerCmpUrls = [];
     // 隠していた新規生成ヘルパーを復活
     const ah = document.getElementById('ai-helper');
     if (ah) ah.style.display = '';

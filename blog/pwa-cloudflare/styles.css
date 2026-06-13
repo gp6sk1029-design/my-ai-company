@@ -293,6 +293,15 @@ body {
 .banner-prompt-summary .bps-kv strong { word-break: break-word; }
 .banner-prompt-summary .bps-warn { color: #fde68a; font-weight: 700; }
 .banner-prompt-summary .bps-head-hint { font-size: 10.5px; font-weight: 400; opacity: 0.8; }
+/* 比較表：この比較に使う画像のギャラリー */
+.banner-prompt-summary .bps-compare-gallery { margin-top: 12px; padding-top: 10px; border-top: 1px dashed rgba(255,255,255,0.25); }
+.banner-prompt-summary .bps-cmp-title { font-size: 12px; font-weight: 700; margin-bottom: 6px; }
+.banner-prompt-summary .bps-cmp-row { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; }
+.banner-prompt-summary .bps-cmp-cell { flex: 0 0 auto; width: 72px; text-align: center; }
+.banner-prompt-summary .bps-cmp-cell img { width: 72px; height: 72px; object-fit: cover; border-radius: 8px; background: #fff; border: 1px solid rgba(255,255,255,0.3); display: block; }
+.banner-prompt-summary .bps-cmp-cell span { display: block; font-size: 10px; margin-top: 3px; line-height: 1.2; }
+.banner-prompt-summary .bps-cmp-empty,
+.banner-prompt-summary .bps-cmp-loading { font-size: 11.5px; opacity: 0.85; }
 .banner-prompt-summary .bps-head-article {
   font-size: 11px;
   background: rgba(255,255,255,0.18);
