@@ -1450,52 +1450,40 @@
       btnOpenAI.onclick = () => {
         if (!pendingReplace) return;
         const engine = pendingReplace.aiEngine || 'chatgpt';
-
-        // ① ★最重要: window.open は最初に「同期で」呼ぶ。await 後に呼ぶと popup blocker に弾かれる
-        const url = buildAIUrl(engine, currentEditPrompt());
+        const promptText = currentEditPrompt();
+        const url = buildAIUrl(engine, promptText);
         pendingReplace.aiUrl = url;
 
-        // 既存窓があれば閉じて開き直す（古いプロンプトURLが残るのを防ぐ）
-        const existing = pendingReplace.aiWindow;
-        if (existing && !existing.closed) {
-          try { existing.close(); } catch (_) {}
-        }
-        const w = window.open(url, '_blank', 'width=1000,height=900,scrollbars=yes,resizable=yes');
-
-        // ② 画像クリップボードへの再コピーは非同期で後追い（window.open が同期で済んでいれば popup blocker 通過）
-        let imageReady = false;
-        (async () => {
-          try {
-            if (pendingReplace.originalItem && navigator.clipboard && window.ClipboardItem) {
-              const pngBlob = await blobToPngBlob(pendingReplace.originalItem.blob);
-              const promptText = currentEditPrompt();
-              try {
-                await navigator.clipboard.write([new ClipboardItem({
-                  'image/png': pngBlob,
-                  'text/plain': new Blob([promptText], { type: 'text/plain' }),
-                })]);
-              } catch (mixErr) {
-                await navigator.clipboard.write([new ClipboardItem({ 'image/png': pngBlob })]);
-              }
-              imageReady = true;
-              clipboardMode = 'image';
-              updateStepChips && updateStepChips();
-            }
-          } catch (e) { console.warn('clipboard refresh failed:', e); }
-        })();
-
-        if (w) {
-          pendingReplace.aiWindow = w;
-          try { w.focus(); } catch(_) {}
-          if (imageReady) {
-            showToast(
-              '🚀 AI画面を開きました。<kbd>⌘V</kbd>で画像貼付。プロンプトが入力欄に出ない場合は<strong>📋 プロンプト</strong>ボタン→AIで再度<kbd>⌘V</kbd>',
-              'success'
-            );
-          } else {
-            showToast('🚀 AI画面を開きました。プロンプトはURL埋込済み', 'success');
+        // ① ★最重要: クリップボード書き込みは「window.open より前」に予約する。
+        // window.open すると新タブにフォーカスが移り、元画面の clipboard.write が
+        // 「Document is not focused」で失敗する（＝⌘Vしても画像が入らない原因）。
+        // → フォーカスがある今の瞬間に、Promise渡しの ClipboardItem で予約する（中身は後から確定）。
+        let reserved = false;
+        try {
+          if (pendingReplace.originalItem && navigator.clipboard && window.ClipboardItem) {
+            const pngP = blobToPngBlob(pendingReplace.originalItem.blob);
+            navigator.clipboard.write([new ClipboardItem({
+              'image/png': pngP,
+              'text/plain': new Blob([promptText], { type: 'text/plain' }),
+            })]).catch(async () => {
+              // 画像＋テキスト同梱が不可な環境は画像のみで再試行
+              try { await navigator.clipboard.write([new ClipboardItem({ 'image/png': await pngP })]); } catch (_) {}
+            });
+            reserved = true;
+            clipboardMode = 'image';
+            updateStepChips && updateStepChips();
           }
-        }
+        } catch (e) { console.warn('clipboard reserve failed:', e); }
+
+        // ② 既存窓を閉じて開き直す（古いプロンプトURLが残るのを防ぐ）→ そのあとウィンドウを開く
+        const existing = pendingReplace.aiWindow;
+        if (existing && !existing.closed) { try { existing.close(); } catch (_) {} }
+        const w = window.open(url, '_blank', 'width=1000,height=900,scrollbars=yes,resizable=yes');
+        if (w) { pendingReplace.aiWindow = w; try { w.focus(); } catch (_) {} }
+
+        showToast(reserved
+          ? `🚀 ${getEngineLabel(engine)}を開きました。チャット欄で <kbd>⌘/Ctrl+V</kbd> → 画像が貼り付きます（プロンプトはURLに自動入力済み。入っていなければ「📝 プロンプトをコピー」→⌘V）`
+          : `🚀 ${getEngineLabel(engine)}を開きました。プロンプトはURLに自動入力済み`, 'success');
       };
     }
     const btnCopyImage = document.getElementById('banner-copy-image');

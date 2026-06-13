@@ -194,6 +194,8 @@
 
 - 2026/06/13：**記事めしPWA：用途/役割の選択肢を全UIで16テンプレ一覧に統一**。①編集確認ポップアップの「用途」を8役割→16テンプレ（上部#ai-template-selectのinnerHTML流用）に統一、TEMPLATE_TO_ROLEでファイル名役割へ変換＋テンプレ選択でプロンプトも連動。②キュー画像の役割ボタンを「サイクル式(cycleRole)」→「16テンプレのポップアップ(openRolePickerForItem)」に変更。item.templateKeyを保存し再オープン時の初期選択に使用（旧アイテムはROLE_TO_TEMPLATEで代表テンプレに逆引き）。「☆役割なし」を先頭に付加（テンプレ一覧には無い状態のため）。**学び：役割(8・ファイル名プレフィックス)とテンプレ(16・プロンプト種別)は本来別軸だが、ユーザーには1つの語彙に統一した方が分かりやすい。テンプレ→役割の一方向マップ＋templateKey保存で両立**。
 
+- 2026/06/13：**バナー「🚀 AIを開く」で⌘Vしても画像が入らないバグを修正**。原因＝`window.open`→新タブにフォーカス移動→その後の元画面 `clipboard.write` が「Document is not focused」で失敗していた。修正＝**clipboard.write を window.open より前**に、Promise渡しClipboardItem（中身は後確定）で予約してから開く。**学び：クリップボード書き込みは window.open の前（フォーカスがある間）に呼ぶ。順序が命**。なお「外部サイト(ChatGPT)の入力欄へ完全自動paste」はブラウザのクロスオリジン制約で不可能＝できるのは「⌘V一発で確実に画像が入る＋プロンプトはURL自動入力」までが上限（ユーザーにも明示）。
+
 ### 使用ツール
 - WordPress REST API: wp_api.py
 - ブロックビルダー: wp_block_builder.py
