@@ -210,6 +210,15 @@ body {
 }
 .km-research-btn:active { transform: scale(0.98); }
 .km-research-hint { font-size: 10.5px; opacity: 0.8; margin-top: 4px; }
+.km-edit-note2 { font-size: 11px; opacity: 0.75; margin-top: 4px; }
+/* 「いまAIに送る内容」カード内のリサーチボタン */
+.banner-prompt-summary .bps-research-btn {
+  margin-top: 10px; width: 100%; padding: 9px; border-radius: 8px; cursor: pointer;
+  font-size: 13px; font-weight: 700; color: #166534;
+  background: #f0fdf4; border: 1px solid #22c55e;
+}
+.banner-prompt-summary .bps-research-btn:active { transform: scale(0.98); }
+.banner-prompt-summary .bps-research-hint { font-size: 10.5px; opacity: 0.8; margin-top: 4px; }
 .km-cmp-help { margin-bottom: 10px; font-size: 13px; }
 .km-cmp-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; }
 .km-cmp-tile {
