@@ -1079,20 +1079,13 @@
     }
 
     // === PC：URLプリフィル＋クリップボード経由 ===
-    // 🛡 画像＋プロンプトを同じClipboardItemに同梱 → ChatGPT/Geminiのチャット欄に
-    // 1回の⌘Vで「画像の添付＋プロンプト本文」が同時に入る（非対応環境は画像のみにフォールバック）
+    // 🛡 クリップボードには「画像だけ」を入れる（テキストを混ぜると貼付時にAIが文字を優先して
+    //   画像が無視される）。プロンプトはURLに自動入力されるので画像専用にする。
     let copyOK = false;
     try {
       if (navigator.clipboard && window.ClipboardItem) {
         const pngBlob = await blobToPngBlob(item.blob);
-        try {
-          await navigator.clipboard.write([new ClipboardItem({
-            'image/png': pngBlob,
-            'text/plain': new Blob([prompt], { type: 'text/plain' }),
-          })]);
-        } catch (mixErr) {
-          await navigator.clipboard.write([new ClipboardItem({ 'image/png': pngBlob })]);
-        }
+        await navigator.clipboard.write([new ClipboardItem({ 'image/png': pngBlob })]);
         copyOK = true;
         clipboardMode = 'image';
       }
@@ -1447,43 +1440,38 @@
     }
     const btnOpenAI = document.getElementById('banner-open-ai');
     if (btnOpenAI) {
-      btnOpenAI.onclick = () => {
+      btnOpenAI.onclick = async () => {
         if (!pendingReplace) return;
         const engine = pendingReplace.aiEngine || 'chatgpt';
         const promptText = currentEditPrompt();
         const url = buildAIUrl(engine, promptText);
         pendingReplace.aiUrl = url;
 
-        // ① ★最重要: クリップボード書き込みは「window.open より前」に予約する。
-        // window.open すると新タブにフォーカスが移り、元画面の clipboard.write が
-        // 「Document is not focused」で失敗する（＝⌘Vしても画像が入らない原因）。
-        // → フォーカスがある今の瞬間に、Promise渡しの ClipboardItem で予約する（中身は後から確定）。
-        let reserved = false;
+        // ① ★最重要: クリップボードには「画像だけ」を入れる（テキストを混ぜると貼付時に
+        //   AI側が文字を優先して画像が無視される＝⌘Vで画像が入らない原因だった）。
+        //   プロンプトはURLに自動入力されるので、クリップボードは画像専用にする。
+        //   また window.open より前に、フォーカスがある今のうちに確実に書き込む。
+        let copied = false;
         try {
           if (pendingReplace.originalItem && navigator.clipboard && window.ClipboardItem) {
-            const pngP = blobToPngBlob(pendingReplace.originalItem.blob);
-            navigator.clipboard.write([new ClipboardItem({
-              'image/png': pngP,
-              'text/plain': new Blob([promptText], { type: 'text/plain' }),
-            })]).catch(async () => {
-              // 画像＋テキスト同梱が不可な環境は画像のみで再試行
-              try { await navigator.clipboard.write([new ClipboardItem({ 'image/png': await pngP })]); } catch (_) {}
-            });
-            reserved = true;
+            const pngBlob = await blobToPngBlob(pendingReplace.originalItem.blob);
+            await navigator.clipboard.write([new ClipboardItem({ 'image/png': pngBlob })]);
+            copied = true;
             clipboardMode = 'image';
             updateStepChips && updateStepChips();
           }
-        } catch (e) { console.warn('clipboard reserve failed:', e); }
+        } catch (e) { console.warn('image clipboard copy failed:', e); }
 
-        // ② 既存窓を閉じて開き直す（古いプロンプトURLが残るのを防ぐ）→ そのあとウィンドウを開く
+        // ② 既存窓を閉じて開き直す → ウィンドウを開く（直前のawaitは短く操作権限は維持される）
         const existing = pendingReplace.aiWindow;
         if (existing && !existing.closed) { try { existing.close(); } catch (_) {} }
         const w = window.open(url, '_blank', 'width=1000,height=900,scrollbars=yes,resizable=yes');
         if (w) { pendingReplace.aiWindow = w; try { w.focus(); } catch (_) {} }
+        else { showToast('⚠️ ポップアップがブロックされました。ブラウザでこのサイトのポップアップを許可してください', 'warn'); }
 
-        showToast(reserved
-          ? `🚀 ${getEngineLabel(engine)}を開きました。チャット欄で <kbd>⌘/Ctrl+V</kbd> → 画像が貼り付きます（プロンプトはURLに自動入力済み。入っていなければ「📝 プロンプトをコピー」→⌘V）`
-          : `🚀 ${getEngineLabel(engine)}を開きました。プロンプトはURLに自動入力済み`, 'success');
+        showToast(copied
+          ? `🚀 ${getEngineLabel(engine)}を開きました。チャット欄で <kbd>⌘/Ctrl+V</kbd> → 画像が貼り付きます（プロンプトは入力欄に自動入力済み）`
+          : `🚀 ${getEngineLabel(engine)}を開きました。プロンプトは自動入力済み（このブラウザは画像の自動コピー不可）`, 'success');
       };
     }
     const btnCopyImage = document.getElementById('banner-copy-image');
@@ -1492,19 +1480,11 @@
       btnCopyImage.onclick = async () => {
         if (!pendingReplace || !pendingReplace.originalItem) return;
         try {
+          // 画像だけをコピー（テキストを混ぜると貼付時にAIが文字を優先し画像が無視されるため）
           const pngBlob = await blobToPngBlob(pendingReplace.originalItem.blob);
-          // 画像＋プロンプトを同梱（1回の⌘Vで両方貼れる）。非対応環境は画像のみ
-          try {
-            await navigator.clipboard.write([new ClipboardItem({
-              'image/png': pngBlob,
-              'text/plain': new Blob([currentEditPrompt()], { type: 'text/plain' }),
-            })]);
-            showToast('📋 画像＋プロンプトをコピー（1回の⌘Vで両方貼れます）', 'success');
-          } catch (mixErr) {
-            await navigator.clipboard.write([new ClipboardItem({ 'image/png': pngBlob })]);
-            showToast('📋 クリップボードを「画像」に切替', 'success');
-          }
+          await navigator.clipboard.write([new ClipboardItem({ 'image/png': pngBlob })]);
           clipboardMode = 'image';
+          showToast('📋 画像をコピーしました → AIのチャット欄で ⌘/Ctrl+V', 'success');
           updateStepChips();
         } catch (e) {
           showToast('画像コピー失敗: ' + (e.message || e), 'error');
