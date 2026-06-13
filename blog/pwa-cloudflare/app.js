@@ -1204,7 +1204,13 @@
             '<img src="' + it.url + '" referrerpolicy="no-referrer" alt="">' +
             '<span>製品' + (it.idx || '?') + nm + '</span></div>';
         }).join('') +
-      '</div>';
+      '</div>' +
+      '<button type="button" class="bps-cmp-bundle-btn">⚖️ 比較画像をまとめてAIへ（1枚に合体）</button>';
+    const bundleBtn = box.querySelector('.bps-cmp-bundle-btn');
+    if (bundleBtn) bundleBtn.addEventListener('click', async () => {
+      bundleBtn.disabled = true;
+      try { await runCompareBundle(); } finally { bundleBtn.disabled = false; }
+    });
   }
   // 🔄 描画方針（2026-06-13再設計）：
   //  - 「構造」（テンプレ種別・編集対象の画像）が変わった時だけ全再描画する
@@ -2809,36 +2815,34 @@ ${COMMON_GUARDS}`,
     return true;
   }
 
+  // 「⚖️ 比較画像をまとめてAIへ」の本体（上部ボタン・編集バナー内ボタン共通）
+  // 候補を集める → 2枚以上を任意選択＆製品番号割当 → 重複チェック → 1枚に合体 → 編集対象に載せる
+  async function runCompareBundle() {
+    if (serverBusy) { showToast('いまサーバ通信中です。終わるまでお待ちください', 'warn'); return; }
+    const cands = await gatherCompareCandidates();
+    if (cands.length < 2) {
+      showToast('比較するには画像が2枚以上必要です。一時保存に追加するか、記事を選んで既存ファイルを読み込んでください', 'warn');
+      return;
+    }
+    const picks = await chooseCompareImages(cands);
+    if (!picks) return; // キャンセル
+    const dup = duplicateIdxList(picks);
+    if (dup.length) {
+      showToast('⚠️ 製品番号が重複しています（製品' + dup.join('・') + '）。番号を割り当て直してください', 'error');
+      return;
+    }
+    const prompt = ensureCompareNote();
+    const sheet = await withServerLock('比較画像を1枚に合体中…', () => buildCompareSheet(picks))
+      .catch((e) => { showToast('連結シートの作成に失敗しました: ' + (e.message || e), 'error'); return null; });
+    if (!sheet || !sheet.blob) return;
+    await stageCompareSheet(sheet.blob, sheet.count, prompt);
+  }
+
   const btnCompareBundle = $('btn-compare-bundle');
   if (btnCompareBundle) {
     btnCompareBundle.addEventListener('click', async () => {
-      if (serverBusy) { showToast('いまサーバ通信中です。終わるまでお待ちください', 'warn'); return; }
       btnCompareBundle.disabled = true;
-      try {
-        // ① 候補を集める
-        const cands = await gatherCompareCandidates();
-        if (cands.length < 2) {
-          showToast('比較するには画像が2枚以上必要です。一時保存に追加するか、記事を選んで既存ファイルを読み込んでください', 'warn');
-          return;
-        }
-        // ② 「2枚以上」を任意選択 → 製品番号割り当て
-        const picks = await chooseCompareImages(cands);
-        if (!picks) return; // キャンセル
-        // ②.5 製品番号の重複チェック（重複したまま合体すると同番号ラベルが2つ出るため）
-        const dup = duplicateIdxList(picks);
-        if (dup.length) {
-          showToast('⚠️ 製品番号が重複しています（製品' + dup.join('・') + '）。番号を割り当て直してください', 'error');
-          return;
-        }
-        // ③ プロンプト注記 → ④ 合体 → ⑤ 編集対象に載せる
-        const prompt = ensureCompareNote();
-        const sheet = await withServerLock('比較画像を1枚に合体中…', () => buildCompareSheet(picks))
-          .catch((e) => { showToast('連結シートの作成に失敗しました: ' + (e.message || e), 'error'); return null; });
-        if (!sheet || !sheet.blob) return;
-        await stageCompareSheet(sheet.blob, sheet.count, prompt);
-      } finally {
-        btnCompareBundle.disabled = false;
-      }
+      try { await runCompareBundle(); } finally { btnCompareBundle.disabled = false; }
     });
   }
 

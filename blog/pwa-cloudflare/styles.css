@@ -306,6 +306,14 @@ body {
   font-size: 11.5px; font-weight: 700; color: #fff;
   background: #b45309; border-radius: 6px; padding: 5px 8px; margin-bottom: 6px;
 }
+.banner-prompt-summary .bps-cmp-bundle-btn {
+  margin-top: 10px; width: 100%;
+  padding: 9px 12px; border-radius: 8px; cursor: pointer;
+  font-size: 13px; font-weight: 700; color: #fff;
+  background: #ec4899; border: 1px solid #ec4899;
+}
+.banner-prompt-summary .bps-cmp-bundle-btn:active { transform: scale(0.98); }
+.banner-prompt-summary .bps-cmp-bundle-btn:disabled { opacity: 0.5; }
 .banner-prompt-summary .bps-head-article {
   font-size: 11px;
   background: rgba(255,255,255,0.18);
