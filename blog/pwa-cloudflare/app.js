@@ -1199,13 +1199,13 @@
         if (normalizeItemRole(it) === 'compare'
           && !/^compare_sheet_/i.test(it.originalName || '')
           && !(it.mimeType || '').startsWith('video/') && it.mimeType !== 'application/pdf') {
-          items.push({ idx: it.compareIndex || null, url: URL.createObjectURL(it.blob), src: '一時保存', revoke: true });
+          items.push({ idx: it.compareIndex || null, url: URL.createObjectURL(it.blob), src: '一時保存', revoke: true, queueId: it.id });
         }
       });
       (getSelectedArticleFolderId() ? (lastExistingFiles || []) : []).forEach((f) => {
         if (/^compare_/i.test(f.name || '') && !/^compare_sheet_/i.test(f.name || '')) {
           const m = /^compare_p(\d+)_/i.exec(f.name || '');
-          items.push({ idx: m ? Number(m[1]) : null, url: f.thumbnailUrl || '', src: 'Drive', revoke: false });
+          items.push({ idx: m ? Number(m[1]) : null, url: f.thumbnailUrl || '', src: 'Drive', revoke: false, driveFile: f });
         }
       });
     } catch (e) { console.warn('compare gallery gather failed:', e); }
@@ -1220,20 +1220,50 @@
     const names = getCompareProductNames();
     const dup = duplicateIdxList(items);
     const dupWarn = dup.length
-      ? '<div class="bps-cmp-dup">⚠️ 製品番号が重複しています（製品' + dup.join('・') + '）。同じ番号は1枚ずつに直してください</div>'
+      ? '<div class="bps-cmp-dup">⚠️ 製品番号が重複しています（製品' + dup.join('・') + '）。下の番号を直してください</div>'
       : '';
+    // 各セルに「製品番号セレクタ」を付け、その場で番号を直せる＆即更新する
     box.innerHTML =
       '<div class="bps-cmp-title">⚖️ この比較に使う画像（' + items.length + '枚）</div>' +
       dupWarn +
       '<div class="bps-cmp-row">' +
-        items.map((it) => {
-          const nm = (it.idx && names[it.idx - 1]) ? '：' + escHtml(names[it.idx - 1].slice(0, 6)) : '';
-          return '<div class="bps-cmp-cell">' +
+        items.map((it, i) => {
+          const nm = (it.idx && names[it.idx - 1]) ? names[it.idx - 1].slice(0, 6) : '';
+          const dupCell = (it.idx && dup.indexOf(it.idx) >= 0) ? ' bps-cmp-cell-dup' : '';
+          const opts = ['', '1', '2', '3', '4'].map((v) =>
+            '<option value="' + v + '"' + (String(it.idx || '') === v ? ' selected' : '') + '>' + (v ? '製品' + v : '番号なし') + '</option>'
+          ).join('');
+          return '<div class="bps-cmp-cell' + dupCell + '" data-i="' + i + '">' +
             '<img src="' + it.url + '" referrerpolicy="no-referrer" alt="">' +
-            '<span>製品' + (it.idx || '?') + nm + '</span></div>';
+            '<select class="bps-cmp-idx">' + opts + '</select>' +
+            (nm ? '<span class="bps-cmp-pname">' + escHtml(nm) + '</span>' : '') +
+            '<span class="bps-cmp-src">' + escHtml(it.src) + '</span></div>';
         }).join('') +
       '</div>' +
       '<button type="button" class="bps-cmp-bundle-btn">⚖️ 比較画像をまとめてAIへ（1枚に合体）</button>';
+    // 製品番号セレクタの変更 → その場で反映＆即更新
+    box.querySelectorAll('.bps-cmp-cell').forEach((cell) => {
+      const sel = cell.querySelector('.bps-cmp-idx');
+      const it = items[Number(cell.dataset.i)];
+      if (!sel || !it) return;
+      sel.addEventListener('change', async () => {
+        const v = sel.value;
+        if (it.queueId) {
+          // 一時保存の画像：番号を更新（renderQueue がギャラリーも再描画する）
+          await queueUpdate(it.queueId, (x) => { x.compareIndex = v ? Number(v) : null; });
+          await renderQueue();
+        } else if (it.driveFile) {
+          // Drive既存画像：ファイル名の番号を付け替える（サーバ通信＝ロック付き）
+          const folderId = getSelectedArticleFolderId();
+          await withServerLock('製品番号を変更中…', async () => {
+            const ok = await changeExistingFileRole(it.driveFile, v ? ('compare_p' + v + '_') : 'compare_', folderId);
+            if (ok) await loadExistingFiles(folderId);
+          });
+          refreshCompareGallery();
+        }
+        await warnIfCompareDuplicates();
+      });
+    });
     const bundleBtn = box.querySelector('.bps-cmp-bundle-btn');
     if (bundleBtn) bundleBtn.addEventListener('click', async () => {
       bundleBtn.disabled = true;
