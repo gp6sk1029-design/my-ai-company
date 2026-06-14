@@ -366,12 +366,21 @@
             t.compareIndex = v ? Number(v) : null;
             await queuePut(t);
             showToast(v ? `この写真を「製品${v}」に割り当て` : '製品割当を解除', 'success');
+            refreshCompareGallery(); // 比較ギャラリーを即更新
             if (v) await warnIfCompareDuplicates(); // 同じ番号が複数あれば警告
           }
         });
       }
       queueList.appendChild(div);
     }
+    // キュー内容が変わるたびに、編集バナーの比較ギャラリーも更新する（都度更新）
+    refreshCompareGallery();
+  }
+  // 編集バナーの比較ギャラリーを今のキュー状態で再描画（表示中のときだけ）
+  function refreshCompareGallery() {
+    if (!editingBanner || editingBanner.style.display === 'none') return;
+    const gal = document.getElementById('bps-cmp-gallery');
+    if (gal) renderCompareGalleryInto(gal);
   }
   // ─── 画像役割（用途別タグ）──────────────────
   // 1記事につきユニーク（アイキャッチ）／複数可（他）でルールが異なる
