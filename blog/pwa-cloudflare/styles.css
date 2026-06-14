@@ -784,8 +784,9 @@ body {
   padding: 22px 20px 20px; box-shadow: var(--shadow-sm);
   margin-bottom: 14px;
 }
-.section-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 16px; }
+.section-header { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
 .section-header h2 { font-size: 20px; font-weight: 700; letter-spacing: -0.3px; }
+#btn-jump-existing { margin-left: auto; }
 .queue-count { font-size: 15px; color: var(--text-muted); font-weight: 600; }
 .queue-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 .queue-item {

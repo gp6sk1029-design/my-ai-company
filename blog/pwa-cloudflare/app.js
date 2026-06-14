@@ -3676,27 +3676,24 @@ ${COMMON_GUARDS}`,
   }
 
   // Drive 画像を GAS経由でフルサイズ取得 → キューに追加（上書きモード）→ AI 編集起動
+  // ファイル名の役割プレフィックスから role / 製品番号 / 代表テンプレ を判定
+  function parseRoleFromName(name) {
+    const n = name || '';
+    let m;
+    if ((m = /^compare_p(\d+)_/i.exec(n))) return { role: 'compare', compareIndex: Number(m[1]), templateKey: ROLE_TO_TEMPLATE.compare };
+    if (/^compare_/i.test(n)) return { role: 'compare', compareIndex: null, templateKey: ROLE_TO_TEMPLATE.compare };
+    const map = { 'eyecatch_': 'eyecatch', 'hero_': 'hero', 'section_': 'section', 'product_': 'product', 'diagram_': 'diagram', 'ngsummary_': 'ngsummary' };
+    for (const p in map) {
+      if (new RegExp('^' + p, 'i').test(n)) { const role = map[p]; return { role, compareIndex: null, templateKey: ROLE_TO_TEMPLATE[role] || '' }; }
+    }
+    return { role: 'none', compareIndex: null, templateKey: '' };
+  }
+
+  // 既存ファイルの再編集：一時保存に取り込み → 一時保存セクションへ移動 → 一時保存と同じ編集フロー(confirmThenEdit)
   async function editExistingFile(driveFile, engine) {
     if (serverBusy) { showToast('いまサーバ通信中です。終わるまでお待ちください', 'warn'); return; }
-    // ① 確認ポップアップ（サムネは Drive のサムネイルURL）
-    const ok = await openModal({
-      title: '🖼 この方法で編集してもいいですか？',
-      bodyHTML:
-        '<div class="km-edit-confirm">' +
-          '<img class="km-edit-thumb" src="' + (driveFile.thumbnailUrl || '') + '" referrerpolicy="no-referrer" alt="">' +
-          '<div class="km-edit-info">' +
-            '<div class="km-edit-engine">' + escHtml(getEngineLabel(engine)) + ' で再編集します</div>' +
-            '<div class="km-edit-note">「' + escHtml(driveFile.name) + '」をDriveから取り込んで編集し、<strong>同じファイルに上書き保存</strong>します</div>' +
-          '</div>' +
-        '</div>',
-      buttons: [
-        { label: 'キャンセル', value: null },
-        { label: '✏️ 取り込んで編集', primary: true, value: true },
-      ],
-    });
-    if (!ok) return;
-    // ② ダウンロード（ロック付き＝通信中は操作不可）
-    const item = await withServerLock('「' + driveFile.name + '」を取得中…', async () => {
+    // ① ダウンロードして一時保存へ追加（役割もファイル名から引き継ぐ）
+    const item = await withServerLock('「' + driveFile.name + '」を一時保存に取り込み中…', async () => {
       const url = GAS_URL + '?' + new URLSearchParams({
         token: TOKEN, action: 'downloadFile', fileId: driveFile.id,
       }).toString();
@@ -3707,20 +3704,44 @@ ${COMMON_GUARDS}`,
       for (let i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
       const blob = new Blob([u8], { type: res.mimeType || driveFile.mimeType });
       const ext = (driveFile.name.split('.').pop() || 'png').toLowerCase();
+      const r = parseRoleFromName(driveFile.name);
       const it = {
         id: 'edit-' + driveFile.id + '-' + Date.now(),
         blob, mimeType: blob.type, ext, size: blob.size,
         originalName: driveFile.name, createdAt: Date.now(),
         replaceDriveFileId: driveFile.id, // ← 上書き保存マーカー
+        role: r.role, compareIndex: r.compareIndex,
+        templateKey: r.templateKey, isEyecatch: r.role === 'eyecatch',
       };
       await queuePut(it);
       return it;
     }).catch((e) => { showToast('取込失敗: ' + (e.message || e), 'error'); return null; });
     if (!item) return;
     await renderQueue();
-    // ③ 確認は済んでいるので編集を直接起動（role選択不要＝allowRole無視）
-    await oneClickEdit(item, engine);
+    // ② 一時保存セクションへスクロール移動（既存ファイル一覧は畳む）
+    if (existingFilesDetails) existingFilesDetails.open = false;
+    const qs = document.getElementById('queue-section');
+    if (qs) qs.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    showToast('📥 一時保存に取り込みました。このまま用途を選んで編集します', 'success');
+    // ③ 一時保存と同じ編集フローへ（つくるもの選択ポップアップ → 編集）
+    await confirmThenEdit(item, engine);
   }
+
+  // ── セクション間ジャンプ（既存ファイル ⇄ 一時保存）──
+  const btnJumpQueue = $('btn-jump-queue');
+  if (btnJumpQueue) btnJumpQueue.addEventListener('click', () => {
+    const qs = document.getElementById('queue-section');
+    if (qs) qs.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+  const btnJumpExisting = $('btn-jump-existing');
+  if (btnJumpExisting) btnJumpExisting.addEventListener('click', () => {
+    if (existingFilesDetails && !existingFilesDetails.hidden) {
+      existingFilesDetails.open = true;
+      existingFilesDetails.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } else {
+      showToast('記事を選ぶと「既存ファイル（再編集）」が表示されます', 'warn');
+    }
+  });
 
   btnReloadFiles && btnReloadFiles.addEventListener('click', async () => {
     const folderId = articleSelect.value;

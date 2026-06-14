@@ -72,6 +72,7 @@
       </p>
       <div class="ef-actions">
         <button type="button" id="btn-reload-files" class="btn-secondary">↻ 再読込</button>
+        <button type="button" id="btn-jump-queue" class="btn-secondary">⬇️ 一時保存へ</button>
       </div>
       <div class="ef-grid" id="ef-grid"></div>
       <p class="ef-empty" id="ef-empty" hidden>このフォルダに画像はまだありません。</p>
@@ -403,10 +404,11 @@
   </div>
 
   <!-- 一時保存 -->
-  <section class="queue-section">
+  <section class="queue-section" id="queue-section">
     <div class="section-header">
       <h2>一時保存</h2>
       <span class="queue-count"><span id="queue-count">0</span>件</span>
+      <button type="button" id="btn-jump-existing" class="btn-secondary btn-small">⬆️ 既存ファイル（再編集）へ</button>
     </div>
     <div id="queue-list" class="queue-grid"></div>
     <div id="queue-empty" class="queue-empty">
