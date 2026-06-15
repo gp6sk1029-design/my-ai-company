@@ -47,3 +47,12 @@ blog/apps-script/**/.clasp.json
 blog/apps-script/**/.clasprc.json
 blog/apps-script/**/node_modules/
 .clasprc.json
+
+# Obsidian（2026-06-16導入）
+# volatileな作業状態・キャッシュは除外（毎回変わり競合の元になる）
+.obsidian/workspace.json
+.obsidian/workspace-mobile.json
+.obsidian/cache
+.obsidian/plugins/*/data.json
+.trash/
+# 安定設定（appearance.json/core-plugins.json/app.json 等）はコミットして2台目PCへ配る
