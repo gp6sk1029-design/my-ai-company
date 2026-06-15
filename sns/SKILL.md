@@ -1,3 +1,10 @@
+---
+title: SNS部門｜手順書(SKILL)
+aliases:
+  - SNS手順
+  - SNS_SKILL
+---
+
 # SNS部門 SKILL.md
 # 「生産技術ガジェット研究所」SNS統括ルール
 

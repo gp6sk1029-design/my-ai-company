@@ -1,3 +1,10 @@
+---
+title: 引き継ぎ｜運用ルール(README)
+aliases:
+  - 引き継ぎルール
+  - handover README
+---
+
 # handover/ — セッション引き継ぎ書
 
 ## 何のフォルダか

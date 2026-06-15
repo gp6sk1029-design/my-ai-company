@@ -1,3 +1,10 @@
+---
+title: リサーチ｜他部門連携ルール
+aliases:
+  - 他部門連携
+  - handoff
+---
+
 # 他部門連携ルール
 # research部門 → blog/sns/tools/life-plan への送出フロー
 

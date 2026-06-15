@@ -1,3 +1,10 @@
+---
+title: SNS-X(旧Twitter)｜手順書
+aliases:
+  - X手順
+  - Twitter手順
+---
+
 # X（旧Twitter）特化SKILL.md
 # 「生産技術ガジェット研究所」公式X運用ルール
 

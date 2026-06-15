@@ -1,3 +1,10 @@
+---
+title: リサーチ｜自動化提案ルール
+aliases:
+  - 自動化提案
+  - automate
+---
+
 # 自動化提案ルール
 # 単一の優良記事 → ノウハウ抽出 → Claude Code/PWA で自動化 → tools部門案件化
 

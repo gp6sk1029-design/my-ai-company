@@ -1,3 +1,10 @@
+---
+title: リサーチ｜収集ルール
+aliases:
+  - 収集ルール
+  - collect
+---
+
 # リベシティ収集ルール
 # Claude in Chrome 経由でノウハウ図書館から記事を集める
 

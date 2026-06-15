@@ -1,3 +1,9 @@
+---
+title: SNS-YouTube｜手順書
+aliases:
+  - YouTube手順
+---
+
 # YouTube特化SKILL.md
 # 「生産技術ガジェット研究所」公式YouTubeチャンネル運用ルール
 
