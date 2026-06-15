@@ -1,15 +1,3 @@
----
-title: SNS部門｜学び・投稿台帳(MEMORY)
-aliases:
-  - SNS学び
-  - SNS_MEMORY
-  - 投稿台帳
-related:
-  - "[[SNS手順]]"
-  - "[[HOME]]"
-  - "[[記事台帳]]"
----
-
 # SNS部門 MEMORY.md
 # 学習・経験の蓄積
 

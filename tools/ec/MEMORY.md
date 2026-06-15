@@ -1,13 +1,3 @@
----
-title: メルカリEC｜学び(MEMORY)
-aliases:
-  - EC学び
-  - メルカリ学び
-related:
-  - "[[EC手順]]"
-  - "[[ツール手順]]"
----
-
 # EC物販部門 MEMORY.md
 # 学習・経験の蓄積
 

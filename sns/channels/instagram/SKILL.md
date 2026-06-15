@@ -1,12 +1,3 @@
----
-title: SNS-Instagram｜手順書
-aliases:
-  - Instagram手順
-  - インスタ手順
-related:
-  - "[[SNS手順]]"
----
-
 # Instagram特化SKILL.md
 # 「生産技術ガジェット研究所」公式Instagram運用ルール
 

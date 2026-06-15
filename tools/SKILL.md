@@ -2,16 +2,6 @@
 name: ツール・アプリ作成部門
 description: PWA・自動化ツール・SaaS連携を作るときに使うスキル。Cloudflare Workers + D1 + Cloudflare Access の固定構成で、APIキーを環境変数化し、安全かつ再現性高くツールを開発する。EC（メルカリ自動化）、献立くん、ライフプランくん、新規ツール全般を担当。
 type: skill
-title: ツール作成部門｜手順書(SKILL)
-aliases:
-  - ツール手順
-  - ツールSKILL
-related:
-  - "[[ツール学び]]"
-  - "[[HOME]]"
-  - "[[EC手順]]"
-  - "[[献立くん手順]]"
-  - "[[ライフプラン手順]]"
 ---
 
 # ツール・アプリ作成部門 SKILL.md
