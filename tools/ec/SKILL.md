@@ -3,6 +3,9 @@ title: メルカリEC｜手順書(SKILL)
 aliases:
   - EC手順
   - メルカリ手順
+related:
+  - "[[EC学び]]"
+  - "[[ツール手順]]"
 ---
 
 # EC物販部門 SKILL.md

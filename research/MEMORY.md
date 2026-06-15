@@ -3,6 +3,9 @@ title: リサーチ部門｜学び・台帳(MEMORY)
 aliases:
   - リサーチ学び
   - リサーチ台帳
+related:
+  - "[[リサーチ手順]]"
+  - "[[HOME]]"
 ---
 
 # リサーチ部門 MEMORY.md

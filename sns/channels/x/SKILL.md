@@ -3,6 +3,8 @@ title: SNS-X(旧Twitter)｜手順書
 aliases:
   - X手順
   - Twitter手順
+related:
+  - "[[SNS手順]]"
 ---
 
 # X（旧Twitter）特化SKILL.md

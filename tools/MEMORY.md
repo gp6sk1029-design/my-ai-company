@@ -3,6 +3,10 @@ title: ツール作成部門｜学び(MEMORY)
 aliases:
   - ツール学び
   - ツールMEMORY
+related:
+  - "[[ツール手順]]"
+  - "[[HOME]]"
+  - "[[自動化提案]]"
 ---
 
 # ツール・アプリ作成部門 MEMORY.md

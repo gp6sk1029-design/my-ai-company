@@ -3,6 +3,8 @@ title: SNS-Instagram｜手順書
 aliases:
   - Instagram手順
   - インスタ手順
+related:
+  - "[[SNS手順]]"
 ---
 
 # Instagram特化SKILL.md

@@ -4,6 +4,9 @@ aliases:
   - ブログ学び
   - ブログMEMORY
   - 記事台帳
+related:
+  - "[[ブログ手順]]"
+  - "[[HOME]]"
 ---
 
 # ブログ部門 MEMORY.md

@@ -1,6 +1,7 @@
 ---
 title: グローバル共通ルール
 aliases:
+  - グローバル共通ルール
   - グローバルルール
   - CLAUDE_global
 ---

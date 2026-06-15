@@ -2,6 +2,10 @@
 title: my-ai-company ホーム
 updated: 2026-06-16
 tags: [moc, home]
+aliases:
+  - HOME
+  - ホーム
+  - 目次
 ---
 
 # 🏠 my-ai-company（専用AI会社）ホーム
@@ -12,26 +16,32 @@ tags: [moc, home]
 ## 📜 全社の正本ルール
 - [[CLAUDE]] … 全社ルール（5部門体制・AI操作方針・データ蓄積ルール）の正本。**まずここ**
 - [[AGENTS]] … Codex向けの案内（中身はCLAUDE.mdへ誘導）
-- `global_rules/CLAUDE_global.md` … グローバル共通ルール
-- `global_rules/外部脳運用プロンプト.md` … 外部脳の読み書き規律（CLAUDE.mdの要約・Claude/Codex共通）
+- [[グローバル共通ルール]] … global_rules/CLAUDE_global.md
+- [[外部脳の使い方]] … 外部脳の読み書き規律（CLAUDE.mdの要約・Claude/Codex共通）
 
 ## 🏢 5部門（各部門は SKILL=手順 / MEMORY=学び の2本立て）
 
 | 部門 | 手順（SKILL） | 学び・データ（MEMORY） |
 |---|---|---|
-| ブログ | `blog/SKILL.md` | `blog/MEMORY.md` |
-| ツール作成 | `tools/SKILL.md` | `tools/MEMORY.md` |
-| SNS | `sns/SKILL.md` | `sns/MEMORY.md` |
-| リサーチ | `research/SKILL.md` | `research/MEMORY.md` |
-| PDM（統括） | （CLAUDE.md） | （reports/・handover/） |
+| ブログ | [[ブログ手順]] | [[記事台帳]] |
+| ツール作成 | [[ツール手順]] | [[ツール学び]] |
+| SNS | [[SNS手順]] | [[SNS学び]] |
+| リサーチ | [[リサーチ手順]] | [[リサーチ学び]] |
+| PDM（統括） | [[CLAUDE]] | reports/・handover/ |
 
 ### ツール部門の個別ツール
-- メルカリEC：`tools/ec/SKILL.md` / `tools/ec/MEMORY.md`
-- 献立くん：`tools/cooking-recipe/SKILL.md` / `tools/cooking-recipe/MEMORY.md`
-- ライフプランくん：`tools/life-plan/SKILL.md` / `tools/life-plan/MEMORY.md`
+- メルカリEC：[[EC手順]] / [[EC学び]]
+- 献立くん：[[献立くん手順]] / [[献立くん学び]]
+- ライフプランくん：[[ライフプラン手順]] / [[ライフプラン学び]]
+
+### リサーチ部門のスキル群
+- [[収集ルール]]（collect）／[[掛け合わせ]]（synthesize）／[[自動化提案]]（automate）／[[学長メソッド]]（digest）／[[他部門連携]]（handoff）
+
+### SNSチャネル別
+- [[X手順]]（旧Twitter）／[[Instagram手順]]／[[YouTube手順]]／[[SNSカレンダー]]
 
 ## 🔁 セッション運営
-- `handover/` … セッション引き継ぎ書（`handover/README.md` に運用ルール）
+- [[引き継ぎルール]] … handover/ の運用ルール（README）
 - `tools/handover.py` … 引き継ぎ書を生成（`--role` 必須）
 - `tools/session_health.py` … 容量診断（実コンテキスト方式）
 - `reports/` … 全社監査・月次サマリー等の成果物

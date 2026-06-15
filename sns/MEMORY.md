@@ -4,6 +4,10 @@ aliases:
   - SNS学び
   - SNS_MEMORY
   - 投稿台帳
+related:
+  - "[[SNS手順]]"
+  - "[[HOME]]"
+  - "[[記事台帳]]"
 ---
 
 # SNS部門 MEMORY.md

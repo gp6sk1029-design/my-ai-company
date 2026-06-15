@@ -2,6 +2,9 @@
 title: 献立くん｜学び(MEMORY)
 aliases:
   - 献立くん学び
+related:
+  - "[[献立くん手順]]"
+  - "[[ツール手順]]"
 ---
 
 # 献立くん MEMORY.md

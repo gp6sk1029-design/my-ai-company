@@ -3,6 +3,10 @@ title: SNS部門｜手順書(SKILL)
 aliases:
   - SNS手順
   - SNS_SKILL
+related:
+  - "[[SNS学び]]"
+  - "[[HOME]]"
+  - "[[ブログ手順]]"
 ---
 
 # SNS部門 SKILL.md

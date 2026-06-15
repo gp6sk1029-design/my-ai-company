@@ -3,6 +3,8 @@ title: リサーチ｜学長メソッド研究ルール
 aliases:
   - 学長メソッド
   - digest
+related:
+  - "[[リサーチ手順]]"
 ---
 
 # 学長メソッド研究ルール（digest）
