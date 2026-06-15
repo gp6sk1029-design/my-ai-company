@@ -13,6 +13,7 @@ tags: [moc, home]
 - [[CLAUDE]] … 全社ルール（5部門体制・AI操作方針・データ蓄積ルール）の正本。**まずここ**
 - [[AGENTS]] … Codex向けの案内（中身はCLAUDE.mdへ誘導）
 - `global_rules/CLAUDE_global.md` … グローバル共通ルール
+- `global_rules/外部脳運用プロンプト.md` … 外部脳の読み書き規律（CLAUDE.mdの要約・Claude/Codex共通）
 
 ## 🏢 5部門（各部門は SKILL=手順 / MEMORY=学び の2本立て）
 
