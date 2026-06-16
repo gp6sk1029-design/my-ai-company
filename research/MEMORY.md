@@ -1,6 +1,8 @@
 # リサーチ部門 MEMORY.md
 # 学び・台帳・実績の蓄積
 
+> 🔗 関連: [この部門の手順 SKILL.md](SKILL.md) ・ [他部門連携 handoff.md](skills/handoff.md) ・ [目次](../目次.md)
+
 ## 🚨 ユーザー承認記録（リベシティ利用規約）
 
 researchセッション起動前に必ず記入。空欄では起動不可。

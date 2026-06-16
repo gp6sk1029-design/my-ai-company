@@ -1,6 +1,8 @@
 # ブログ部門 SKILL.md
 # 「生産技術ガジェット研究所」運営スキル
 
+> 🔗 関連: [この部門の学び・記事台帳 MEMORY.md](MEMORY.md) ・ [目次](../目次.md) ・ [全社ルール CLAUDE.md](../CLAUDE.md)
+
 ## 自己改善ループ（CLAUDE.mdに準拠）
 タスク完了のたびに振り返りレポートを出力し、SKILL.mdとMEMORY.mdを更新し続ける。
 

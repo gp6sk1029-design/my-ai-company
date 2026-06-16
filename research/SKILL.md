@@ -1,6 +1,8 @@
 # リサーチ部門 SKILL.md
 # リベシティ ノウハウ図書館 → 副業創造・自動化提案の研究所
 
+> 🔗 関連: [この部門の学び・台帳 MEMORY.md](MEMORY.md) ・ [目次](../目次.md) ・ [全社ルール CLAUDE.md](../CLAUDE.md)
+
 ## 自己改善ループ（CLAUDE.mdに準拠）
 タスク完了のたびに振り返りレポートを出力し、SKILL.mdとMEMORY.mdを更新し続ける。
 

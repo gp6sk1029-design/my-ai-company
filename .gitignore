@@ -47,3 +47,10 @@ blog/apps-script/**/.clasp.json
 blog/apps-script/**/.clasprc.json
 blog/apps-script/**/node_modules/
 .clasprc.json
+
+# Obsidian 作業ファイル（使用時のゴミ防止・2026-06-16）
+# ※ Obsidianアプリで開くと自動生成される。中身はリンク/別名ではなく「開いていたタブ」等の状態
+.obsidian/workspace.json
+.obsidian/workspace-mobile.json
+.obsidian/cache
+.trash/

@@ -4,6 +4,7 @@
 > ⚠️ このファイルは **他部門連携の中核ルール** です。
 > 全体像・クイックリファレンスは [research/SKILL.md](../SKILL.md) を参照。
 > 収集は [collect.md](collect.md)、掛け合わせは [synthesize.md](synthesize.md)、自動化提案は [automate.md](automate.md) を参照。
+> 🔗 送出先（自動化案件の受け皿）: [tools/MEMORY.md](../../tools/MEMORY.md)
 
 ---
 
