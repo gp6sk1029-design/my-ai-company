@@ -281,31 +281,33 @@ python3 tools/handover.py
 
 ### ファイルの場所
 
+> 🗺️ ここはCLAUDE.mdの「ハブ」。各ファイルへクリックで飛べる（全体の入口は [目次.md](目次.md)）。
+
 **ブログ部門（記事執筆）**
-- `blog/SKILL.md` + `blog/MEMORY.md`
+- [blog/SKILL.md](blog/SKILL.md) ＋ [blog/MEMORY.md](blog/MEMORY.md)
 
 **ツール作成部門（PWA・自動化ツール開発）**
-- 部門共通：`tools/SKILL.md` + `tools/MEMORY.md`
+- 部門共通：[tools/SKILL.md](tools/SKILL.md) ＋ [tools/MEMORY.md](tools/MEMORY.md)
 - 個別ツール：
-  - `tools/ec/SKILL.md` + `tools/ec/MEMORY.md`（メルカリ自動化）
-  - `tools/cooking-recipe/SKILL.md` + `tools/cooking-recipe/MEMORY.md`（献立くん）
-  - `tools/life-plan/SKILL.md` + `tools/life-plan/MEMORY.md`（ライフプランくん）
+  - [tools/ec/SKILL.md](tools/ec/SKILL.md) ＋ [tools/ec/MEMORY.md](tools/ec/MEMORY.md)（メルカリ自動化）
+  - [tools/cooking-recipe/SKILL.md](tools/cooking-recipe/SKILL.md) ＋ [tools/cooking-recipe/MEMORY.md](tools/cooking-recipe/MEMORY.md)（献立くん）
+  - [tools/life-plan/SKILL.md](tools/life-plan/SKILL.md) ＋ [tools/life-plan/MEMORY.md](tools/life-plan/MEMORY.md)（ライフプランくん）
 
 **SNS部門（X／Instagram／YouTube）**
-- 部門共通：`sns/SKILL.md` + `sns/MEMORY.md` + `sns/calendar.md`
+- 部門共通：[sns/SKILL.md](sns/SKILL.md) ＋ [sns/MEMORY.md](sns/MEMORY.md) ＋ [sns/calendar.md](sns/calendar.md)
 - チャネル別：
-  - `sns/channels/x/SKILL.md`（X／旧Twitter）
-  - `sns/channels/instagram/SKILL.md`（Instagram）
-  - `sns/channels/youtube/SKILL.md`（YouTube）
+  - [sns/channels/x/SKILL.md](sns/channels/x/SKILL.md)（X／旧Twitter）
+  - [sns/channels/instagram/SKILL.md](sns/channels/instagram/SKILL.md)（Instagram）
+  - [sns/channels/youtube/SKILL.md](sns/channels/youtube/SKILL.md)（YouTube）
 
 **リサーチ部門（リベシティ・副業ネタ収集）**
-- 部門共通：`research/SKILL.md` + `research/MEMORY.md`
-- 収集時：`research/skills/collect.md`（Chrome MCP起動前に必読）
-- 掛け合わせ創造時：`research/skills/synthesize.md`
-- 自動化提案時：`research/skills/automate.md`
-- 学長メソッド研究時：`research/skills/digest.md`（学長マガジン等の要約・蓄積）
-- 他部門振り分け時：`research/skills/handoff.md`
-- 🔴 起動前必須：`research/MEMORY.md`「ユーザー承認記録」がリベシティ利用規約承認で埋まっていること
+- 部門共通：[research/SKILL.md](research/SKILL.md) ＋ [research/MEMORY.md](research/MEMORY.md)
+- 収集時：[research/skills/collect.md](research/skills/collect.md)（Chrome MCP起動前に必読）
+- 掛け合わせ創造時：[research/skills/synthesize.md](research/skills/synthesize.md)
+- 自動化提案時：[research/skills/automate.md](research/skills/automate.md)
+- 学長メソッド研究時：[research/skills/digest.md](research/skills/digest.md)（学長マガジン等の要約・蓄積）
+- 他部門振り分け時：[research/skills/handoff.md](research/skills/handoff.md)
+- 🔴 起動前必須：[research/MEMORY.md](research/MEMORY.md)「ユーザー承認記録」がリベシティ利用規約承認で埋まっていること
 
 **PDMモード**
 - このCLAUDE.mdのみで対応
@@ -551,7 +553,7 @@ MEMORY.md（学習・経験の蓄積）
 ### 現在のプロジェクト一覧
 
 **ブログ部門（my-ai-companyリポジトリ）**
-- ブログ部隊（生産技術ガジェット研究所） → `blog/SKILL.md` ⭐**唯一の正版**
+- ブログ部隊（生産技術ガジェット研究所） → [blog/SKILL.md](blog/SKILL.md) ⭐**唯一の正版**
 
 > ⚠️ **重要（2026-05-24制定）**：生産技術ガジェット研究所のスキルは `blog/SKILL.md` に一本化済み。
 > 過去に `~/.claude/skills/seisan-gijutsu-blog/` と Claude.ai Webの個人スキルにも同名スキルが存在したが、
@@ -559,26 +561,26 @@ MEMORY.md（学習・経験の蓄積）
 > **再びWebやCLIグローバルにアップロードしない**。記事執筆時は `blog/SKILL.md` のみを参照すること。
 
 **ツール作成部門（my-ai-companyリポジトリ）**
-- 部門共通スキル → `tools/SKILL.md`
-- メルカリ自動化（EC） → `tools/ec/SKILL.md`
-- 献立くん（料理レシピ献立PWA） → `tools/cooking-recipe/SKILL.md`
-- ライフプランくん（生涯資産管理PWA） → `tools/life-plan/SKILL.md`
-- 🤖 **research由来の自動化案件**：`tools/MEMORY.md` 「🤖 research由来の自動化案件」セクション参照（受領→検討→採用/不採用判断）
+- 部門共通スキル → [tools/SKILL.md](tools/SKILL.md)
+- メルカリ自動化（EC） → [tools/ec/SKILL.md](tools/ec/SKILL.md)
+- 献立くん（料理レシピ献立PWA） → [tools/cooking-recipe/SKILL.md](tools/cooking-recipe/SKILL.md)
+- ライフプランくん（生涯資産管理PWA） → [tools/life-plan/SKILL.md](tools/life-plan/SKILL.md)
+- 🤖 **research由来の自動化案件**：[tools/MEMORY.md](tools/MEMORY.md) 「🤖 research由来の自動化案件」セクション参照（受領→検討→採用/不採用判断）
 
 **SNS部門（my-ai-companyリポジトリ・2026-05-02新設）**
-- 部門共通スキル → `sns/SKILL.md`
-- X（旧Twitter） → `sns/channels/x/SKILL.md`
-- Instagram → `sns/channels/instagram/SKILL.md`
-- YouTube → `sns/channels/youtube/SKILL.md`
-- コンテンツカレンダー → `sns/calendar.md`
+- 部門共通スキル → [sns/SKILL.md](sns/SKILL.md)
+- X（旧Twitter） → [sns/channels/x/SKILL.md](sns/channels/x/SKILL.md)
+- Instagram → [sns/channels/instagram/SKILL.md](sns/channels/instagram/SKILL.md)
+- YouTube → [sns/channels/youtube/SKILL.md](sns/channels/youtube/SKILL.md)
+- コンテンツカレンダー → [sns/calendar.md](sns/calendar.md)
 
 **リサーチ部門（my-ai-companyリポジトリ・2026-05-28新設）**
-- 部門共通スキル → `research/SKILL.md`
-- 収集ルール → `research/skills/collect.md`（Claude in Chrome経由でリベシティ取得）
-- 掛け合わせ創造ルール → `research/skills/synthesize.md`（A×B = 新副業アイデア）
-- 自動化提案ルール → `research/skills/automate.md`（単一記事→4パターンで自動化提案）
-- 学長メソッド研究ルール → `research/skills/digest.md`（学長マガジン等を要約・蓄積／🚨投資助言NG・記録と可視化のみ）
-- 他部門連携ルール → `research/skills/handoff.md`（blog/sns/tools への送出フロー）
+- 部門共通スキル → [research/SKILL.md](research/SKILL.md)
+- 収集ルール → [research/skills/collect.md](research/skills/collect.md)（Claude in Chrome経由でリベシティ取得）
+- 掛け合わせ創造ルール → [research/skills/synthesize.md](research/skills/synthesize.md)（A×B = 新副業アイデア）
+- 自動化提案ルール → [research/skills/automate.md](research/skills/automate.md)（単一記事→4パターンで自動化提案）
+- 学長メソッド研究ルール → [research/skills/digest.md](research/skills/digest.md)（学長マガジン等を要約・蓄積／🚨投資助言NG・記録と可視化のみ）
+- 他部門連携ルール → [research/skills/handoff.md](research/skills/handoff.md)（blog/sns/tools への送出フロー）
 - データ源：リベシティ ノウハウ図書館・学長マガジン等（Claude in Chrome経由・利用規約承認必須）
 
 **本業（work-projectsリポジトリ・別リポジトリ）**
