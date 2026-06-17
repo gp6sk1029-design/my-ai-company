@@ -8,7 +8,7 @@
  * 役割プレフィックス（記事生成側の分類キー）。正規化時に必ず保持する。
  * これを捨てると article_from_meshi.py がアイキャッチ等を判定できなくなる。
  */
-var ROLE_PREFIX_RE = /^(eyecatch_|hero_|section_|product_|diagram_|compare_p\d+_|compare_|ngsummary_)/i;
+var ROLE_PREFIX_RE = /^(eyecatch_|hero_|section_|product_|diagram_|comparetable_|compare_p\d+_|compare_|ngsummary_)/i;
 
 /**
  * ファイル名を正規化（役割プレフィックスは保持）

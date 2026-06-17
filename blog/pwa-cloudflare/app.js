@@ -392,6 +392,7 @@
     { key: 'product',   emoji: '📸', label: '商品/実機写真',      prefix: 'product_',  unique: false, color: '#10b981' },
     { key: 'diagram',   emoji: '📐', label: '図解/フロー図',       prefix: 'diagram_',  unique: false, color: '#8b5cf6' },
     { key: 'compare',   emoji: '⚖️', label: '比較/Before-After',  prefix: 'compare_',  unique: false, color: '#ec4899' },
+    { key: 'comparetable', emoji: '📊', label: '比較表(完成)',     prefix: 'comparetable_', unique: true, color: '#0ea5e9' },
     { key: 'ngsummary', emoji: '⚠️', label: 'NG集サマリ',         prefix: 'ngsummary_', unique: true, color: '#dc2626' },
   ];
   function getRoleDef(key) {
@@ -406,7 +407,7 @@
   // 🛡 PROMPT.md の「画像役割行」を判定する正規表現（全箇所でこれを使う）。
   // ROLE_DEFS の label と完全一致させること（旧表記「アイキャッチ画像」も後方互換で残す）。
   // 比較行は「比較/Before-After 製品1（名前）:」形式（1行＝1製品）にも一致する。
-  const ROLE_NOTE_RE = /^(画像役割|アイキャッチ画像|アイキャッチ|ヒーローバナー|セクション画像|商品\/実機写真|図解\/フロー図|比較\/Before-After(?:\s*製品\d+（[^）]*）|\s*製品\d+)?|NG集サマリ)\s*[:：]/;
+  const ROLE_NOTE_RE = /^(画像役割|アイキャッチ画像|アイキャッチ|ヒーローバナー|セクション画像|商品\/実機写真|図解\/フロー図|比較表\(完成\)|比較\/Before-After(?:\s*製品\d+（[^）]*）|\s*製品\d+)?|NG集サマリ)\s*[:：]/;
   // 比較表テンプレの「比較対象」欄から製品名リストを取得。
   // 🛡 テンプレ選択が compare の入力欄だけを信用する（別テンプレの値を製品名と誤認しない）
   function getCompareProductNames() {
@@ -892,7 +893,7 @@
   // 役割→代表テンプレ（ピッカーの初期選択用。templateKey 未記録の旧アイテム向け）
   const ROLE_TO_TEMPLATE = {
     eyecatch: 'eyecatch', hero: 'big_number', section: 'specs_card',
-    diagram: 'concept', compare: 'compare', ngsummary: 'ngsummary', product: 'colorfix',
+    diagram: 'concept', compare: 'compare', comparetable: 'compare', ngsummary: 'ngsummary', product: 'colorfix',
   };
 
   // ─── 役割を与える選択（16テンプレ一覧のポップアップ）─────────────
@@ -1699,6 +1700,9 @@
       showToast(`元画像が削除済みのため、${engineLabel}の編集後画像を新規追加しました`, 'warn');
       return true;
     }
+    // 🔑 合体シート(compare_sheet_)をAIで生成した結果＝「比較表の完成版」として登録する。
+    //    役割を comparetable に切り替え、ファイル名も comparetable_ にして転送時にDriveへ正しく保存する。
+    const wasCompareSheet = /^compare_sheet_/i.test(orig.originalName || '');
     // 元 item を編集後画像で更新
     orig.blob = blob;
     orig.mimeType = mime;
@@ -1707,7 +1711,20 @@
     orig.editedAt = Date.now();
     orig.editedWith = pendingReplace.aiEngine;
     delete orig.editingWith;
-    orig.originalName = (orig.originalName || ('edited_' + orig.id)).replace(/\.[^.]+$/, '') + '.' + ext;
+    if (wasCompareSheet) {
+      // 既存の「比較表(完成)」を解除（1記事1枚）
+      for (const it of all) {
+        if (it.id !== orig.id && normalizeItemRole(it) === 'comparetable') {
+          await queueUpdate(it.id, (x) => { x.role = 'none'; });
+        }
+      }
+      orig.role = 'comparetable';
+      orig.compareIndex = null;
+      orig.templateKey = 'compare';
+      orig.originalName = 'comparetable_' + orig.id + '.' + ext;
+    } else {
+      orig.originalName = (orig.originalName || ('edited_' + orig.id)).replace(/\.[^.]+$/, '') + '.' + ext;
+    }
     await queuePut(orig);
     pendingReplace = null;
     if (editingBanner) editingBanner.style.display = 'none';
@@ -1717,7 +1734,9 @@
     const ahBtn = document.getElementById('btn-open-ai-helper');
     if (ahBtn) ahBtn.style.display = '';
     await renderQueue();
-    showToast(`✨ 編集後の画像で置換完了`, 'success');
+    showToast(wasCompareSheet
+      ? '📊 AI生成の比較表を「完成版」として登録しました。「すべて転送」でDriveに保存されます'
+      : '✨ 編集後の画像で置換完了', 'success');
     navigator.vibrate && navigator.vibrate([20, 30, 30]);
     return true;
   }
@@ -3518,7 +3537,7 @@ ${COMMON_GUARDS}`,
   }
 
   // 役割プレフィックスの除去（多重付与も一括で剥がす）
-  const ROLE_PREFIX_STRIP_RE = /^(eyecatch_|hero_|section_|product_|diagram_|compare_p\d+_|compare_|ngsummary_)+/i;
+  const ROLE_PREFIX_STRIP_RE = /^(eyecatch_|hero_|section_|product_|diagram_|comparetable_|compare_p\d+_|compare_|ngsummary_)+/i;
   function stripRolePrefix(name) { return (name || '').replace(ROLE_PREFIX_STRIP_RE, ''); }
   // 役割変更セレクタの選択肢（value = 新しいプレフィックス）
   const EF_ROLE_OPTIONS = [
@@ -3532,9 +3551,10 @@ ${COMMON_GUARDS}`,
     { v: 'compare_p2_', t: '⚖️ 比較 製品2' },
     { v: 'compare_p3_', t: '⚖️ 比較 製品3' },
     { v: 'compare_p4_', t: '⚖️ 比較 製品4' },
+    { v: 'comparetable_', t: '📊 比較表(完成)' },
     { v: 'ngsummary_',  t: '⚠️ NG集サマリ' },
   ];
-  const UNIQUE_ROLE_PREFIXES = ['eyecatch_', 'hero_', 'ngsummary_']; // 1記事1枚の役割
+  const UNIQUE_ROLE_PREFIXES = ['eyecatch_', 'hero_', 'ngsummary_', 'comparetable_']; // 1記事1枚の役割
   let lastExistingFiles = []; // 直近の一覧（ユニーク役割の重複解消に使う）
 
   // 既存ファイルの役割を変更する＝Drive上のファイル名のプレフィックスを付け替える
@@ -3721,6 +3741,7 @@ ${COMMON_GUARDS}`,
     let m;
     if ((m = /^compare_p(\d+)_/i.exec(n))) return { role: 'compare', compareIndex: Number(m[1]), templateKey: ROLE_TO_TEMPLATE.compare };
     if (/^compare_/i.test(n)) return { role: 'compare', compareIndex: null, templateKey: ROLE_TO_TEMPLATE.compare };
+    if (/^comparetable_/i.test(n)) return { role: 'comparetable', compareIndex: null, templateKey: 'compare' };
     const map = { 'eyecatch_': 'eyecatch', 'hero_': 'hero', 'section_': 'section', 'product_': 'product', 'diagram_': 'diagram', 'ngsummary_': 'ngsummary' };
     for (const p in map) {
       if (new RegExp('^' + p, 'i').test(n)) { const role = map[p]; return { role, compareIndex: null, templateKey: ROLE_TO_TEMPLATE[role] || '' }; }

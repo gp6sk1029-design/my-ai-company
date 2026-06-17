@@ -210,6 +210,8 @@
 
 - 2026/06/13：**比較ギャラリーを「表示専用→各画像に製品番号セレクタ付き・その場で直せて即更新」に作り替え**。原因の本質＝ギャラリーは表示専用で番号を直す手段がそこに無く（一時保存画像とDrive既存画像が混在・Drive側は番号変更不可）、別の場所で直しても反映が分かりにくかった。修正＝各セルに製品番号select（番号なし/製品1-4）を配置。一時保存画像→queueUpdate+renderQueue、Drive画像→changeExistingFileRoleでファイル名の番号付け替え（ロック付き）→loadExistingFiles→ギャラリー再描画。重複セルは枠をオレンジ強調。あわせて`refreshCompareGallery()`をrenderQueue末尾とインライン変更で呼び都度更新。**学び：警告を出すだけでなく「その場で直せるUI」を同じ場所に置く。混在ソース（ローカル/サーバ）はそれぞれの更新経路（local書換 vs サーバrename）に振り分ける**。
 
+- 2026/06/13：**AI生成の比較表を「完成版」として登録する役割 `comparetable`(📊比較表(完成)・prefix comparetable_・unique) を新設**。比較の合体シート(compare_sheet_)をAI編集→戻ってきた画像をtryReplaceWithEditedImageで検出し、自動で role=comparetable／originalName=comparetable_<id> に切替（既存の完成版は降格）。転送でDriveに comparetable_ 名で保存され、記事生成(article_from_meshi.py ROLE_DEFSに追加済み)が「比較セクションのメインビジュアル」として認識。ROLE_DEFS/EF_ROLE_OPTIONS/UNIQUE_ROLE_PREFIXES/ROLE_PREFIX_STRIP_RE/ROLE_NOTE_RE/ROLE_TO_TEMPLATE/parseRoleFromName＋GAS Normalizer.gs ROLE_PREFIX_RE(v21)＋python に comparetable_ を追加。注意：`/^compare_/` は comparetable_ に**マッチしない**（"compare"直後が"t"）ので素材(compare_)と完成版(comparetable_)は安全に区別される。**学び：AIの「成果物」と「素材」は別役割にする（素材=compare_p*、成果物=comparetable_）。両者を同prefixにすると比較ギャラリーや合体対象に成果物が混入する**。
+
 ### 使用ツール
 - WordPress REST API: wp_api.py
 - ブロックビルダー: wp_block_builder.py
