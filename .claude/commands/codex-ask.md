@@ -8,7 +8,10 @@ allowed-tools: Bash(/Applications/Codex.app/Contents/Resources/codex exec*)
 質問内容: $ARGUMENTS
 
 ## Codexの回答
-!`/Applications/Codex.app/Contents/Resources/codex exec "あなたはセカンドオピニオンを求められた専門家です。次の問いに、根拠とともに簡潔に答えてください（コードは書かず助言のみ）: $ARGUMENTS"`
+!`/Applications/Codex.app/Contents/Resources/codex exec -c model_reasoning_effort="low" "あなたはセカンドオピニオンを求められた専門家です。次の問いに、根拠とともに簡潔に答えてください（コードは書かず助言のみ）: $ARGUMENTS"`
+
+<!-- コスト最小化：推論low既定（モデルはgpt-5.5のまま）。難しい設計課題で深く考えさせたい時はClaudeが `-c model_reasoning_effort="high"` に上げてよい。 -->
+
 
 ## あなた（Claude）の仕事
 上のCodexの回答を踏まえ、日本語で：

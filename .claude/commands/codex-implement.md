@@ -10,7 +10,10 @@ allowed-tools: Bash(/Applications/Codex.app/Contents/Resources/codex exec*), Bas
 ## 手順
 1. まずタスクが「Codexに任せてよい小さく明確なもの」か判断する。曖昧・大規模・破壊的なら、Codexに投げず「これは分割が必要」とユーザーに返す。
 2. 下請け実行（Codexが作業ツリーに変更を加える場合がある）:
-!`/Applications/Codex.app/Contents/Resources/codex exec "次のタスクを実装してください。スコープを厳守し、関係ないファイルは触らないこと: $ARGUMENTS"`
+!`/Applications/Codex.app/Contents/Resources/codex exec -c model_reasoning_effort="low" "次のタスクを実装してください。スコープを厳守し、関係ないファイルは触らないこと: $ARGUMENTS"`
+
+<!-- コスト最小化：推論low既定（モデルはgpt-5.5のまま）。難度の高い実装はClaudeが `-c model_reasoning_effort="high"` に上げてよい。 -->
+
 3. Codexが変更を加えたか確認:
 !`git status --short`
 4. 変更があれば差分を読む:
