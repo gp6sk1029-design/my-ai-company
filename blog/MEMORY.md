@@ -218,6 +218,8 @@
 
 - 2026/06/13：**AI編集後の上書き保存が反映されない不具合を修正（3点）**。①大容量(>20MB)経路 uploadLarge は replaceDriveFileId を扱えず新規ファイルを作っていた→転送ループで「replace対象は常にuploadSmall(replaceFile)経由」に分岐（`item.size>LIMIT && !item.replaceDriveFileId`）。②**転送後に既存ファイル一覧を再読込していなかった**→Driveサムネが旧fileIdのままで「更新されない」ように見えた。didReplaceフラグで上書き発生時に loadExistingFiles を再実行。③ユニーク役割の重複確認が「再編集中のファイル自身(replaceDriveFileId)」を重複と誤判定し編集中止しうる→自身を除外。**学び：上書き(replace)はサイズ分岐の前に最優先で判定する。サーバ更新後はクライアント一覧を必ず再取得（サムネ/idキャッシュで古く見える）**。
 
+- 2026/06/13：**「AI編集後 最新画像に更新されない」を調査エージェントで徹底追跡し2大原因を修正**。①既存ファイル(特にcompare_pN_)を再編集→つくるもの=比較表(compare)を選ぶと、stageCompareSheetFromAssignedへ分岐し**元の単体アイテム(古いblob＋replaceDriveFileId)がキューに残り、転送時に古い画像でreplaceFile上書きされていた**→比較切替時に元アイテムをqueueDelete。②**Driveのサムネ生成遅延/キャッシュで、上書き後も一覧が古い画像に見えた**→上書き転送した画像は手元blobのObjectURLを`recentReplacedThumbs[新fileId]`に保持し、loadExistingFilesのサムネにDrive thumbnailUrlより優先して使う（＝確実に最新が映る）。**学び：サーバ側の画像更新後、サーバのサムネ生成は遅延する前提で、クライアントは「アップロードした実blob」を即時表示に使う。分岐(compare等)で編集対象を切り替える時は、置き換え対象だった元アイテムを必ず始末する**。
+
 ### 使用ツール
 - WordPress REST API: wp_api.py
 - ブロックビルダー: wp_block_builder.py

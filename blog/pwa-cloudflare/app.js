@@ -1083,7 +1083,12 @@
       // 🔗 比較表は「割り当て済みの比較画像を自動で1枚に合体」してから編集する。
       // （単体画像のままだとAIに比較全体を渡せないため）
       if (res.tpl === 'compare') {
+        // 既存ファイルの再編集から比較表に切り替えた場合、元の単体アイテム（古いblob＋
+        // replaceDriveFileId）がキューに残ると、転送時に「古い画像で上書き」されてしまう。
+        // 合体シートに切り替えるので、この単体アイテムはキューから除去する。
+        if (item.replaceDriveFileId) { try { await queueDelete(item.id); } catch (_) {} }
         await stageCompareSheetFromAssigned();
+        await renderQueue();
         return; // 合体シートを編集対象にしたので単体編集はしない
       }
     }
@@ -3216,6 +3221,10 @@ ${COMMON_GUARDS}`,
           : await uploadSmall(item, articleTitle, articleFolderId);
         if (result.ok && result.result === 'success') {
           success++;
+          // 上書き保存した画像は、手元のblobを新fileIdに紐づけて一覧サムネに使う（Driveサムネ遅延回避）
+          if (item.replaceDriveFileId && result.fileId) {
+            try { recentReplacedThumbs[result.fileId] = URL.createObjectURL(item.blob); } catch (_) {}
+          }
           const roleKey = normalizeItemRole(item);
           if (roleKey !== 'none') {
             if (!roleUploadMap[roleKey]) roleUploadMap[roleKey] = [];
@@ -3580,6 +3589,9 @@ ${COMMON_GUARDS}`,
   ];
   const UNIQUE_ROLE_PREFIXES = ['eyecatch_', 'hero_', 'ngsummary_', 'comparetable_']; // 1記事1枚の役割
   let lastExistingFiles = []; // 直近の一覧（ユニーク役割の重複解消に使う）
+  // 直近で上書き転送した画像の {新fileId: 手元blobのObjectURL}。
+  // Driveのサムネ生成は遅延するため、一覧表示では転送した実画像をそのまま見せる（＝確実に最新が映る）。
+  const recentReplacedThumbs = {};
 
   // 既存ファイルの役割を変更する＝Drive上のファイル名のプレフィックスを付け替える
   // （記事生成スクリプトはファイル名プレフィックスで役割を判定するため、リネームが本体）
@@ -3706,9 +3718,11 @@ ${COMMON_GUARDS}`,
           (needsHeal
             ? '<button class="ef-heal-btn" title="役割がファイル名に未反映のため、このままでは記事生成に効きません。タップで反映">🏷 役割を名前に反映</button>'
             : '');
+        // 直近で上書きした画像は手元blobをそのまま表示（Driveサムネ生成待ちで古く見えるのを防ぐ）
+        const thumbSrc = recentReplacedThumbs[f.id] || f.thumbnailUrl;
         card.innerHTML =
           roleBadgeHtml +
-          `<img loading="lazy" src="${f.thumbnailUrl}" alt="${f.name}" referrerpolicy="no-referrer">` +
+          `<img loading="lazy" src="${thumbSrc}" alt="${f.name}" referrerpolicy="no-referrer">` +
           `<div class="ef-name" title="${f.name}">${f.name}</div>` +
           roleSelHtml +
           '<div class="ef-buttons">' +
