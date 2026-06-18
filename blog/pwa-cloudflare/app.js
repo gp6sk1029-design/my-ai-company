@@ -1053,8 +1053,9 @@
         const all2 = await queueAll();
         // 🔴 既存優先：同じ役割の画像がすでにある場合は「作り直すか？」を確認（既存を優先して使う運用）
         const existsQueue = all2.some(it => it.id !== item.id && normalizeItemRole(it) === newRole);
+        // 再編集中のファイル自身（item.replaceDriveFileId）は重複に数えない
         const existsDrive = (getSelectedArticleFolderId() ? (lastExistingFiles || []) : [])
-          .some(f => parseRoleFromName(f.name).role === newRole);
+          .some(f => f.id !== item.replaceDriveFileId && parseRoleFromName(f.name).role === newRole);
         if (existsQueue || existsDrive) {
           const go = window.confirm(
             'すでに「' + def.label + '」の画像があります。\n\n' +
@@ -3201,12 +3202,16 @@ ${COMMON_GUARDS}`,
     }
 
     let success = 0, skipped = 0, failed = 0;
+    let didReplace = false; // 既存ファイルの上書きが起きたか（後で一覧を再読込するため）
     // 役割→[ファイル名+fileId] の記録（PROMPT.mdに反映するため）
     const roleUploadMap = {};
     for (const item of items) {
       setStatus('転送中 ' + (success + skipped + failed + 1) + '/' + items.length);
       try {
-        const result = item.size > SMALL_FILE_LIMIT
+        // 🛡 上書き(replaceFile)は uploadSmall 経由で行う。大容量経路(uploadLarge)は
+        //   replaceDriveFileId を扱えず新規ファイルを作ってしまう＝「更新されない」原因になるため。
+        if (item.replaceDriveFileId) didReplace = true;
+        const result = (item.size > SMALL_FILE_LIMIT && !item.replaceDriveFileId)
           ? await uploadLarge(item, articleTitle, articleFolderId)
           : await uploadSmall(item, articleTitle, articleFolderId);
         if (result.ok && result.result === 'success') {
@@ -3321,6 +3326,12 @@ ${COMMON_GUARDS}`,
     setStatus(msg);
     showToast(msg, failed > 0 ? 'error' : 'success');
     navigator.vibrate && navigator.vibrate([50, 30, 50]);
+
+    // 🔄 上書き保存が起きたら、既存ファイル一覧を再読込して更新後の画像を表示する
+    //   （Driveのサムネは古いfileIdを指したままなので、再取得しないと「更新されない」ように見える）
+    if (didReplace && articleFolderId) {
+      try { await loadExistingFiles(articleFolderId); } catch (_) {}
+    }
 
     // 成功時はメモをクリア（次の記事用）
     if (failed === 0 && promptSaved) clearMemoState();

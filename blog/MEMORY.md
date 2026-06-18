@@ -216,6 +216,8 @@
 
 - 2026/06/13：**「既に役割を割り当て済みの画像（アイキャッチ等）があれば最優先で使い、同役割を新規生成しない」ルールを徹底**。①PROMPT.md(GAS handleSavePrompt_ v22)とcontext.md(article_from_meshi.py 画像一覧見出し)に「🔴最優先：既存の役割画像はそのまま使用・新規生成禁止／無い役割のみ新規提案」を明記。②PWA confirmThenEditでユニーク役割(eyecatch/hero/ngsummary/comparetable)を作ろうとした時、一時保存orDriveに同役割が既にあれば「作り直す？既存を使う？」をconfirmで確認（キャンセル＝既存優先で編集中止）。**学び：AIへの指示(PROMPT/context)と操作UI(確認ダイアログ)の両方で同じ方針を効かせると、ムダな再生成を確実に防げる**。
 
+- 2026/06/13：**AI編集後の上書き保存が反映されない不具合を修正（3点）**。①大容量(>20MB)経路 uploadLarge は replaceDriveFileId を扱えず新規ファイルを作っていた→転送ループで「replace対象は常にuploadSmall(replaceFile)経由」に分岐（`item.size>LIMIT && !item.replaceDriveFileId`）。②**転送後に既存ファイル一覧を再読込していなかった**→Driveサムネが旧fileIdのままで「更新されない」ように見えた。didReplaceフラグで上書き発生時に loadExistingFiles を再実行。③ユニーク役割の重複確認が「再編集中のファイル自身(replaceDriveFileId)」を重複と誤判定し編集中止しうる→自身を除外。**学び：上書き(replace)はサイズ分岐の前に最優先で判定する。サーバ更新後はクライアント一覧を必ず再取得（サムネ/idキャッシュで古く見える）**。
+
 ### 使用ツール
 - WordPress REST API: wp_api.py
 - ブロックビルダー: wp_block_builder.py
