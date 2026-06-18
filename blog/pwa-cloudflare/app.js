@@ -1051,9 +1051,22 @@
       const def = getRoleDef(newRole);
       if (def.unique) {
         const all2 = await queueAll();
-        for (const it of all2) {
-          if (it.id !== item.id && normalizeItemRole(it) === newRole) {
-            await queueUpdate(it.id, (x) => { x.role = 'none'; x.isEyecatch = false; });
+        // 🔴 既存優先：同じ役割の画像がすでにある場合は「作り直すか？」を確認（既存を優先して使う運用）
+        const existsQueue = all2.some(it => it.id !== item.id && normalizeItemRole(it) === newRole);
+        const existsDrive = (getSelectedArticleFolderId() ? (lastExistingFiles || []) : [])
+          .some(f => parseRoleFromName(f.name).role === newRole);
+        if (existsQueue || existsDrive) {
+          const go = window.confirm(
+            'すでに「' + def.label + '」の画像があります。\n\n' +
+            '[OK] 新しく作り直す（既存の' + def.label + 'は役割を外します）\n' +
+            '[キャンセル] 既存をそのまま使う（この編集は中止）'
+          );
+          if (!go) { showToast('既存の「' + def.label + '」を使います（編集を中止しました）', 'success'); return; }
+          // 作り直す → 既存を役割解除
+          for (const it of all2) {
+            if (it.id !== item.id && normalizeItemRole(it) === newRole) {
+              await queueUpdate(it.id, (x) => { x.role = 'none'; x.isEyecatch = false; });
+            }
           }
         }
       }

@@ -191,6 +191,9 @@ def build_context(folder_id: str, slug_override: Optional[str] = None,
     articles_dir_local = Path(__file__).resolve().parent.parent / 'articles'
     images_local_dir = articles_dir_local / f'{slug}_images'
     out.append('## 🖼 画像一覧（役割別）\n')
+    out.append('> 🔴 **最優先ルール**: 下記のように **役割が割り当て済みの画像（アイキャッチ・比較表(完成)・図解 等）が既にある場合は、それを最優先でそのまま使用**すること。'
+               '同じ役割の画像を新規生成・新規提案してはいけない（既存があるのに作り直すのはムダ）。'
+               '画像が**無い役割についてのみ**、新規生成や撮影を提案する。\n')
     out.append(f'**画像総数**: {len(files)} 枚\n')
     if download_images:
         out.append(f'**ローカルDL先**: `blog/articles/{slug}_images/`')
