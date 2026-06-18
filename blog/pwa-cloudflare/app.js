@@ -4064,25 +4064,124 @@ ${COMMON_GUARDS}`,
     updateMemoStatus();
   }
 
+  // ─── メモ⇄画像リンク（メモ文字列の末尾に「｜🖼使う画像: …」を保持）─────────
+  const MEMO_IMG_RE = /\s*｜🖼使う画像:\s*(.+)$/;
+  function memoBaseText(s) { return String(s || '').replace(MEMO_IMG_RE, '').trim(); }
+  function memoLinkedTokens(s) {
+    const m = MEMO_IMG_RE.exec(String(s || ''));
+    return m ? m[1].split(',').map(t => t.trim()).filter(Boolean) : [];
+  }
+  function setMemoImages(base, tokens) {
+    base = (base || '').trim();
+    return tokens && tokens.length ? base + ' ｜🖼使う画像: ' + tokens.join(', ') : base;
+  }
+  // この記事で使える画像候補（一時保存＋Drive既存）をリンク用トークン付きで集める
+  async function gatherAllImageCandidates() {
+    const out = [];
+    try {
+      const all = await queueAll();
+      all.forEach((it) => {
+        if ((it.mimeType || '').startsWith('video/') || it.mimeType === 'application/pdf') return;
+        if (/^compare_sheet_/i.test(it.originalName || '')) return;
+        const role = normalizeItemRole(it);
+        let token;
+        if (role === 'compare') token = '比較 製品' + (it.compareIndex || '?');
+        else if (role !== 'none') token = getRoleDef(role).label;
+        else token = '一時保存: ' + (it.originalName || '画像').replace(/\.[^.]+$/, '');
+        const def = getRoleDef(role);
+        out.push({ kind: 'queue', token, label: (role !== 'none' ? def.emoji + def.label : (it.originalName || '画像')), thumb: URL.createObjectURL(it.blob), revoke: true });
+      });
+      (getSelectedArticleFolderId() ? (lastExistingFiles || []) : []).forEach((f) => {
+        if (!(/image/i.test(f.mimeType || '') || /\.(png|jpe?g|webp|gif)$/i.test(f.name || ''))) return;
+        const r = parseRoleFromName(f.name);
+        const def = getRoleDef(r.role);
+        const label = (r.role !== 'none' ? def.emoji + def.label + (r.compareIndex ? (' 製品' + r.compareIndex) : '') : f.name);
+        out.push({ kind: 'drive', token: f.name, label, thumb: f.thumbnailUrl || '', revoke: false });
+      });
+    } catch (e) { console.warn('gatherAllImageCandidates failed:', e); }
+    return out;
+  }
+  // メモに紐づける画像を選ぶピッカー（現在のトークンをプリセット）
+  async function pickImagesForMemo(currentTokens) {
+    const cands = await gatherAllImageCandidates();
+    if (cands.length === 0) {
+      showToast('リンクできる画像がありません。一時保存に画像を入れるか、記事を選んで既存ファイルを読み込んでください', 'warn');
+      return null;
+    }
+    const cur = new Set(currentTokens || []);
+    const body =
+      '<div class="km-cmp-help">このポイントで使う画像を選んでください（複数可）。AIが「どの点にどの画像か」を判断できます。</div>' +
+      '<div class="km-cmp-grid">' +
+        cands.map((c, i) => {
+          const on = cur.has(c.token);
+          return '<label class="km-cmp-tile' + (on ? ' is-on' : '') + '" data-i="' + i + '">' +
+            '<input type="checkbox" class="km-cmp-chk"' + (on ? ' checked' : '') + '>' +
+            '<img src="' + (c.thumb || '') + '" referrerpolicy="no-referrer" alt="">' +
+            '<div class="km-cmp-name">' + escHtml(c.label) + '</div>' +
+            '<span class="km-cmp-src">' + (c.kind === 'queue' ? '一時保存' : 'Drive') + '</span>' +
+          '</label>';
+        }).join('') +
+      '</div>';
+    const res = await openModal({
+      title: '🖼 このメモに使う画像を選ぶ',
+      bodyHTML: body,
+      buttons: [
+        { label: 'キャンセル', value: null },
+        { label: '✅ 決定', primary: true, onClick: (rootEl) => {
+            const picked = [];
+            rootEl.querySelectorAll('.km-cmp-tile').forEach((tile) => {
+              if (tile.querySelector('.km-cmp-chk').checked) picked.push(cands[Number(tile.dataset.i)].token);
+            });
+            return { tokens: picked };
+          } },
+      ],
+      onRender: (rootEl) => {
+        rootEl.querySelectorAll('.km-cmp-tile').forEach((tile) => {
+          const chk = tile.querySelector('.km-cmp-chk');
+          const sync = () => tile.classList.toggle('is-on', chk.checked);
+          chk.addEventListener('change', sync);
+        });
+      },
+    });
+    cands.forEach((c) => { if (c.kind === 'queue' && c.thumb) { try { URL.revokeObjectURL(c.thumb); } catch (_) {} } });
+    return res ? res.tokens : null;
+  }
+
   function renderMemos() {
     memoList.innerHTML = '';
     memos.forEach((text, i) => {
+      const tokens = memoLinkedTokens(text);
+      const chips = tokens.length
+        ? '<div class="memo-img-chips">' + tokens.map(t => '<span class="memo-img-chip">🖼 ' + escHtml(t) + '</span>').join('') + '</div>'
+        : '';
       const row = document.createElement('div');
       row.className = 'memo-item';
       row.innerHTML =
         '<div class="memo-item-num">' + (i + 1) + '</div>' +
-        '<textarea class="memo-item-text" rows="1" placeholder="例: バッテリー持続が競合比で1.5倍という点を推したい"></textarea>' +
+        '<div class="memo-item-main">' +
+          '<textarea class="memo-item-text" rows="1" placeholder="例: バッテリー持続が競合比で1.5倍という点を推したい"></textarea>' +
+          chips +
+          '<button class="memo-link-img" type="button">🖼 画像をリンク' + (tokens.length ? '（' + tokens.length + '）' : '') + '</button>' +
+        '</div>' +
         '<div class="memo-item-actions">' +
           '<button class="memo-item-btn up" type="button" aria-label="上へ"' + (i === 0 ? ' disabled' : '') + '>↑</button>' +
           '<button class="memo-item-btn down" type="button" aria-label="下へ"' + (i === memos.length - 1 ? ' disabled' : '') + '>↓</button>' +
           '<button class="memo-item-btn delete" type="button" aria-label="削除">✕</button>' +
         '</div>';
       const ta = row.querySelector('textarea');
-      ta.value = text;
+      ta.value = memoBaseText(text); // 本文だけ表示（画像リンクはチップで別表示）
       ta.addEventListener('input', () => {
-        memos[i] = ta.value;
+        memos[i] = setMemoImages(ta.value, memoLinkedTokens(memos[i])); // リンクは保持
         persistMemoState();
         updateMemoStatus();
+      });
+      row.querySelector('.memo-link-img').addEventListener('click', async () => {
+        const picked = await pickImagesForMemo(memoLinkedTokens(memos[i]));
+        if (picked === null) return;
+        memos[i] = setMemoImages(memoBaseText(memos[i]), picked);
+        persistMemoState();
+        renderMemos();
+        showToast(picked.length ? '🖼 画像を' + picked.length + '件リンクしました' : '画像リンクを解除しました', 'success');
       });
       row.querySelector('.up').addEventListener('click', () => {
         if (i === 0) return;

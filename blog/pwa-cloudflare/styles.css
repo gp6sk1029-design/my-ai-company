@@ -606,8 +606,9 @@ body {
   font-size: 15px; font-weight: 800; color: var(--accent);
   padding-top: 12px;
 }
+.memo-item-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
 .memo-item-text {
-  flex: 1;
+  width: 100%;
   background: #fff; color: var(--text);
   border: 1px solid var(--border);
   border-radius: 10px;
@@ -616,6 +617,19 @@ body {
   resize: vertical; min-height: 44px;
   outline: none;
 }
+.memo-img-chips { display: flex; flex-wrap: wrap; gap: 5px; }
+.memo-img-chip {
+  font-size: 11px; font-weight: 600;
+  background: rgba(14,165,233,0.15); color: #0369a1;
+  border: 1px solid #0ea5e9; border-radius: 999px; padding: 2px 8px;
+}
+.memo-link-img {
+  align-self: flex-start;
+  font-size: 12px; font-weight: 700; cursor: pointer;
+  color: #0369a1; background: #f0f9ff; border: 1px solid #0ea5e9;
+  border-radius: 8px; padding: 5px 10px;
+}
+.memo-link-img:active { transform: scale(0.97); }
 .memo-item-text:focus { border-color: var(--accent); }
 .memo-item-actions {
   display: flex; flex-direction: column; gap: 4px;

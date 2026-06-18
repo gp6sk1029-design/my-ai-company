@@ -212,6 +212,8 @@
 
 - 2026/06/13：**AI生成の比較表を「完成版」として登録する役割 `comparetable`(📊比較表(完成)・prefix comparetable_・unique) を新設**。比較の合体シート(compare_sheet_)をAI編集→戻ってきた画像をtryReplaceWithEditedImageで検出し、自動で role=comparetable／originalName=comparetable_<id> に切替（既存の完成版は降格）。転送でDriveに comparetable_ 名で保存され、記事生成(article_from_meshi.py ROLE_DEFSに追加済み)が「比較セクションのメインビジュアル」として認識。ROLE_DEFS/EF_ROLE_OPTIONS/UNIQUE_ROLE_PREFIXES/ROLE_PREFIX_STRIP_RE/ROLE_NOTE_RE/ROLE_TO_TEMPLATE/parseRoleFromName＋GAS Normalizer.gs ROLE_PREFIX_RE(v21)＋python に comparetable_ を追加。注意：`/^compare_/` は comparetable_ に**マッチしない**（"compare"直後が"t"）ので素材(compare_)と完成版(comparetable_)は安全に区別される。**学び：AIの「成果物」と「素材」は別役割にする（素材=compare_p*、成果物=comparetable_）。両者を同prefixにすると比較ギャラリーや合体対象に成果物が混入する**。
 
+- 2026/06/13：**記事メモの各ポイントに画像（一時保存/Drive）をリンクできる機能**を追加。各メモ行に「🖼 画像をリンク」ボタン→`pickImagesForMemo`（`gatherAllImageCandidates`で一時保存＋Drive画像をサムネ＋役割ラベル付きで列挙）→選択。リンクはメモ文字列末尾に「｜🖼使う画像: トークン, …」で保持（**PROMPT.md往復で壊れない単一行**）。本文編集してもリンクは保持（textareaは本文のみ表示・リンクはチップで別表示）。トークンは役割ラベル（アイキャッチ/比較表(完成)/比較 製品N 等）またはDriveファイル名＝**PROMPT.mdの役割行と突合可能**なので、AIが「どの点にどの画像か」を的確に判断できる。**学び：構造化したいがPROMPT.md(1行=1件・番号付き)の制約があるデータは、行内に人間可読＆機械可読なサフィックス記法で埋める（別データ構造にしない）**。
+
 ### 使用ツール
 - WordPress REST API: wp_api.py
 - ブロックビルダー: wp_block_builder.py
