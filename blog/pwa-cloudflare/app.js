@@ -1752,10 +1752,32 @@
     if (ah) ah.style.display = '';
     const ahBtn = document.getElementById('btn-open-ai-helper');
     if (ahBtn) ahBtn.style.display = '';
+
+    // 🔄 再編集（上書き対象あり）は、取り込んだ時点で即Driveへ上書き保存して完了させる。
+    //   別途「すべて転送」を押さなくても更新される＝「選択しても変わらない」を根絶。
+    if (orig.replaceDriveFileId) {
+      const folderId = getSelectedArticleFolderId();
+      const saved = await withServerLock('Driveの元ファイルに上書き保存中…', async () => {
+        const r = await uploadSmall(orig, getSelectedArticleTitle(), folderId);
+        if (r && r.ok && r.result === 'success') {
+          if (r.fileId) { try { recentReplacedThumbs[r.fileId] = URL.createObjectURL(orig.blob); } catch (_) {} }
+          await queueDelete(orig.id);
+          if (folderId) { try { await loadExistingFiles(folderId); } catch (_) {} }
+          return true;
+        }
+        showToast('上書き保存に失敗しました: ' + ((r && r.message) || ''), 'error');
+        return false;
+      });
+      await renderQueue();
+      if (saved) showToast('✅ 編集後の画像でDriveの元ファイルを上書き保存しました（一覧も更新）', 'success');
+      navigator.vibrate && navigator.vibrate([20, 30, 30]);
+      return true;
+    }
+
     await renderQueue();
     showToast(wasCompareSheet
       ? '📊 AI生成の比較表を「完成版」として登録しました。「すべて転送」でDriveに保存されます'
-      : '✨ 編集後の画像で置換完了', 'success');
+      : '✨ 編集後の画像で置換完了。「すべて転送」でDriveに保存されます', 'success');
     navigator.vibrate && navigator.vibrate([20, 30, 30]);
     return true;
   }

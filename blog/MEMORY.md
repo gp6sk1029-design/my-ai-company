@@ -220,6 +220,8 @@
 
 - 2026/06/13：**「AI編集後 最新画像に更新されない」を調査エージェントで徹底追跡し2大原因を修正**。①既存ファイル(特にcompare_pN_)を再編集→つくるもの=比較表(compare)を選ぶと、stageCompareSheetFromAssignedへ分岐し**元の単体アイテム(古いblob＋replaceDriveFileId)がキューに残り、転送時に古い画像でreplaceFile上書きされていた**→比較切替時に元アイテムをqueueDelete。②**Driveのサムネ生成遅延/キャッシュで、上書き後も一覧が古い画像に見えた**→上書き転送した画像は手元blobのObjectURLを`recentReplacedThumbs[新fileId]`に保持し、loadExistingFilesのサムネにDrive thumbnailUrlより優先して使う（＝確実に最新が映る）。**学び：サーバ側の画像更新後、サーバのサムネ生成は遅延する前提で、クライアントは「アップロードした実blob」を即時表示に使う。分岐(compare等)で編集対象を切り替える時は、置き換え対象だった元アイテムを必ず始末する**。
 
+- 2026/06/13：**「フォルダから書き換えファイルを選択しても変わらない」の根因＝取込はローカルqueue差替のみで別途「すべて転送」が必要だった**。対策：再編集（replaceDriveFileId付き）画像を取込/貼付/ファイル選択した時点で、tryReplaceWithEditedImage内から**即uploadSmall(replaceFile)でDrive上書き→queueDelete→loadExistingFiles再読込**まで自動実行（withServerLockでロック）。手元blobを recentReplacedThumbs に入れて一覧サムネも即最新化。**学び：「保存」をユーザーの追加操作に委ねると"変わらない"と感じる。上書き対象が明確な再編集は、取り込んだ瞬間に保存まで完了させる（ワンアクション化）**。
+
 ### 使用ツール
 - WordPress REST API: wp_api.py
 - ブロックビルダー: wp_block_builder.py
