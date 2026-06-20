@@ -1446,7 +1446,9 @@
           if (target) target.value = p.en;
           if (moodInp) moodInp.value = p.en;
         }
-        if (target) target.dispatchEvent(new Event('input')); // → regenerateAIPrompt → 全文プレビュー更新
+        // 🔴 プロンプト本文(#ai-prompt)を確実に作り直す（inputイベント頼みだと !=='custom' ガードでスキップされ得る）
+        if (typeof regenerateAIPrompt === 'function') regenerateAIPrompt();
+        else if (target) target.dispatchEvent(new Event('input'));
       });
     }
     const copyFullBtn = el.querySelector('.bps-copy-full');
