@@ -199,5 +199,5 @@
 
 - 🛒 [Amazonで見る：シェーバークリーンNEW X（互換洗浄液・1L／複数本パック）](https://www.amazon.co.jp/dp/B0758B752Q/?tag=gp6sk1029-22)
 - 🛒 [Amazonで見る：クリンニュ（互換洗浄液・1L／日本製）](https://www.amazon.co.jp/dp/B01KZFBLQQ/?tag=gp6sk1029-22)
-- 🛒 [Amazonで見る：ブラウン純正 Clean & Renew カートリッジ（CCR）](https://www.amazon.co.jp/s?k=ブラウン+クリーンリニュー+CCR&tag=gp6sk1029-22)
+- 🛒 [Amazonで見る：ブラウン純正 Clean & Renew カートリッジ CCR5CR（5+1個入り）](https://www.amazon.co.jp/dp/B081MS3XYM/?tag=gp6sk1029-22)
 - [ブラウン公式：Clean & Renew 交換用カートリッジ](https://www.braun.jp/ja-jp/male-grooming/shavers-replacement-parts)
