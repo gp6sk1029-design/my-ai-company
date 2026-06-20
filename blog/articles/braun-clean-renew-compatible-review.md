@@ -30,7 +30,7 @@
 
 ここで効率の話をすると、**毎日シェーバーを使う人は、年間で約12個（≒2L）の洗浄液を消費する**計算になる。純正だけで賄うと、まとめ買いしても **年7,000〜9,000円**。本体を一度買えば終わり、ではなく、**プリンターのインクと同じ「ランニングコスト型」の出費**が毎月静かに発生し続けるのだ。
 
-![ブラウン純正 Clean & Renew カートリッジ（型番CCR・170mL）](https://drive.google.com/thumbnail?id=1tbG7YtObEhAB-AcKg90nPqTrTTzzFA3F&sz=w1000)
+![ブラウン純正 Clean & Renew カートリッジ（6個入り・型番CCR／170mL）と専用洗浄機](https://drive.google.com/thumbnail?id=1laEspO82y3EP8tnEFYNVrpLPcu9UY2MD&sz=w1000)
 
 **タナカ[通常]：** 「中身ってアルコールですよね? ドラッグストアの消毒用エタノールじゃダメなんですか? あっちの方が安いし」
 
