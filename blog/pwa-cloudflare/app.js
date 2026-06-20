@@ -1369,6 +1369,12 @@
     ['title', 'main', 'sub', 'mood'].forEach((k) => {
       const label = tf ? tf[k][0] : { title: 'タイトル', main: 'メイン', sub: 'サブ', mood: '配色' }[k];
       if (label && label.indexOf('（使用しない') === 0) return; // このテンプレで使わない欄は出さない
+      // 🌅 背景差し替えテンプレ：背景(mood)欄の直前に背景プリセットのドロップダウンを差し込む
+      if (key === 'bgreplace' && k === 'mood') {
+        const bgOpts = BG_PRESETS.map(p => '<option value="' + p.v + '">' + escHtml(p.label) + '</option>').join('');
+        rows.push('<div class="bps-kv"><span>🌅 背景プリセット</span>' +
+          '<select class="bps-edit bps-bg-preset">' + bgOpts + '</select></div>');
+      }
       const ph = tf ? tf[k][1] : '';
       rows.push('<div class="bps-kv"><span>' + escHtml(label) + '</span>' +
         '<input type="text" class="bps-edit bps-input" data-k="' + k + '" value="' + escHtml(vals[k]).replace(/"/g, '&quot;') + '"' +
@@ -1424,6 +1430,25 @@
         target.dispatchEvent(new Event('input'));    // → regenerateAIPrompt → 軽量同期で全文プレビュー更新
       });
     });
+    // 🌅 背景プリセット（バナー側）：選んだ背景の英語断片を「背景(mood)」欄へ流す（上部ヘルパーと同期）
+    const bgSel = el.querySelector('.bps-bg-preset');
+    if (bgSel) {
+      bgSel.addEventListener('change', () => {
+        const p = BG_PRESETS.find(x => x.v === bgSel.value);
+        if (!p) return;
+        const moodInp = el.querySelector('.bps-input[data-k="mood"]');
+        const target = document.getElementById('ai-var-mood');
+        if (p.en === '__custom__') {
+          // カスタム：背景欄を空にしてフォーカス（自由入力へ誘導）
+          if (target) target.value = '';
+          if (moodInp) { moodInp.value = ''; try { moodInp.focus(); } catch (_) {} }
+        } else {
+          if (target) target.value = p.en;
+          if (moodInp) moodInp.value = p.en;
+        }
+        if (target) target.dispatchEvent(new Event('input')); // → regenerateAIPrompt → 全文プレビュー更新
+      });
+    }
     const copyFullBtn = el.querySelector('.bps-copy-full');
     if (copyFullBtn) copyFullBtn.addEventListener('click', async (e) => {
       e.preventDefault(); e.stopPropagation();
