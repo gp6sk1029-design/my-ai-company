@@ -108,6 +108,7 @@ Claude（司令塔）が、必要なときに専門家 **Codex（gpt-5.5）** �
 | `/codex-review` | 今の未コミット変更をCodexにセカンドレビューさせる | `codex review --uncommitted` |
 | `/codex-ask <質問>` | 設計・難所の壁打ち・調査（別視点の意見） | `codex exec`（助言のみ） |
 | `/codex-implement <タスク>` | 小さく明確な実装を下請け→**Claudeが差分を必ず検証**してから採用 | `codex exec` |
+| `/codex-debate [回数] <お題>` | ClaudeとCodexが指定回数だけ往復して壁打ち議論→Claudeが結論 | `codex exec` を回数分（**上限5往復**） |
 
 さらに、Codexは **MCPサーバー**（`.mcp.json` に登録済み）としても接続されており、Claudeが会話中に道具として呼べる。
 
