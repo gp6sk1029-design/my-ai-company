@@ -1799,10 +1799,60 @@
     const ahBtn = document.getElementById('btn-open-ai-helper');
     if (ahBtn) ahBtn.style.display = '';
 
-    // 🔄 再編集（上書き対象あり）は、取り込んだ時点で即Driveへ上書き保存して完了させる。
-    //   別途「すべて転送」を押さなくても更新される＝「選択しても変わらない」を根絶。
+    // 🔄 再編集（上書き対象あり）：取り込んだ時点で「保存方法」を選んで即保存する。
+    //   ①上書き保存（元を差し替え） ②元を残して新規保存（元＋編集後の2枚にする）
     if (orig.replaceDriveFileId) {
       const folderId = getSelectedArticleFolderId();
+      let choiceThumb = '';
+      try { choiceThumb = URL.createObjectURL(orig.blob); } catch (_) {}
+      const choice = await openModal({
+        title: '💾 編集後の画像をどう保存しますか？',
+        bodyHTML:
+          '<div class="km-edit-confirm">' +
+            (choiceThumb ? '<img class="km-edit-thumb" src="' + choiceThumb + '" alt="">' : '') +
+            '<div class="km-edit-info">' +
+              '<div class="km-edit-note">🔄 <strong>上書き保存</strong>：Driveの元ファイルを編集後の画像に置き換えます（元画像は残りません）。</div>' +
+              '<div class="km-edit-note">➕ <strong>元を残して新規保存</strong>：元画像はそのまま残し、編集後の画像を別ファイルとして追加します（元＋編集後の2枚）。</div>' +
+            '</div>' +
+          '</div>',
+        buttons: [
+          { label: '🔄 上書き保存（元を差し替え）', value: 'overwrite', primary: true },
+          { label: '➕ 元を残して新規保存', value: 'keep' },
+        ],
+      });
+      try { if (choiceThumb) URL.revokeObjectURL(choiceThumb); } catch (_) {}
+
+      if (!choice) {
+        // キャンセル：編集後の画像はキューに保持（あとで保存できる）
+        await renderQueue();
+        showToast('保存をキャンセルしました。編集後の画像はキューに残しています（あとで保存できます）', 'warn');
+        return true;
+      }
+
+      if (choice === 'keep') {
+        // ➕ 元を残す：replace指定を外し、別名で新規アップロード（元ファイルは一切触らない）
+        delete orig.replaceDriveFileId;
+        const base = (orig.originalName || ('edited_' + orig.id)).replace(/\.[^.]+$/, '');
+        orig.originalName = base + '_edit' + String(orig.id).slice(-4) + '.' + ext;
+        await queuePut(orig);
+        const savedNew = await withServerLock('元を残して新規保存中…', async () => {
+          const r = await uploadSmall(orig, getSelectedArticleTitle(), folderId);
+          if (r && r.ok && r.result === 'success') {
+            if (r.fileId) { try { recentReplacedThumbs[r.fileId] = URL.createObjectURL(orig.blob); } catch (_) {} }
+            await queueDelete(orig.id);
+            if (folderId) { try { await loadExistingFiles(folderId); } catch (_) {} }
+            return true;
+          }
+          showToast('新規保存に失敗しました: ' + ((r && r.message) || ''), 'error');
+          return false;
+        });
+        await renderQueue();
+        if (savedNew) showToast('✅ 元画像はそのまま残し、編集後の画像を新規保存しました（元＋編集後の2枚）', 'success');
+        navigator.vibrate && navigator.vibrate([20, 30, 30]);
+        return true;
+      }
+
+      // 🔄 上書き保存（従来動作）
       const saved = await withServerLock('Driveの元ファイルに上書き保存中…', async () => {
         const r = await uploadSmall(orig, getSelectedArticleTitle(), folderId);
         if (r && r.ok && r.result === 'success') {
