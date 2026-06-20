@@ -894,20 +894,58 @@
   // プロのブツ撮り／EC撮影で実証された背景＋2025-2026トレンドを厳選（商品が自然に映える背景）。
   // en = 背景の英語プロンプト断片（被写体＝商品は一切変えず、背景のみ生成する前提の描写）。
   // en は簡潔に（URLプリフィルの300字制限内に背景まで収めるため。詳細品質は商品保護文＋下記キーワードで十分）。
+  // g = カテゴリ（optgroupの見出し）。'' は先頭/末尾の特別項目（おまかせ・カスタム）。
   const BG_PRESETS = [
-    { v: '',          label: '（おまかせ：商品に最も映える背景をAIが選ぶ）', en: '' },
-    { v: 'white_inf', label: '🤍 白ホリゾント（無限白・EC定番）',        en: 'pure white seamless studio sweep, soft even diffused light, subtle contact shadow, clean bright e-commerce look' },
-    { v: 'soft_grad', label: '🌫 ソフトグラデ・スタジオ（淡色・万能）',    en: 'soft gradient studio backdrop, cool grey to white, diffused light, gentle ambient shadow, minimalist premium' },
-    { v: 'lt_grey',   label: '◻️ ライトグレー・ニュートラル（黒物が映える）', en: 'neutral light-grey seamless backdrop, soft wraparound light, subtle vignette, clean product-catalog look' },
-    { v: 'marble',    label: '🏛 白大理石マーブル（高級感・小物）',       en: 'polished white marble surface, soft grey veining, diffused 45-degree side light, gentle natural shadow, luxurious' },
-    { v: 'concrete',  label: '🧱 コンクリート／マイクロセメント（無骨）',  en: 'light micro-cement concrete surface, matte warm-grey texture, soft directional light, understated industrial mood' },
-    { v: 'oak',       label: '🪵 明るい木目テーブル（オーク・温かみ）',    en: 'light oak wood tabletop, warm fine grain, soft side daylight, subtle shadow, lifestyle warmth' },
-    { v: 'linen',     label: '🧺 天然リネン／布のドレープ（柔らか）',      en: 'soft warm off-white linen fabric backdrop, gentle folds, woven texture, diffused soft light, tactile premium' },
-    { v: 'plaster',   label: '🎨 石膏／プラスター壁（質感ミニマル）',      en: 'hand-finished plaster wall, soft warm beige, fine matte texture, soft raking light, editorial minimalist' },
-    { v: 'drench',    label: '🟦 カラードレンチング（商品と同系色で統一）', en: 'monochrome backdrop in the product main accent color, single-hue tonal scene, soft studio light, refined' },
-    { v: 'dark',      label: '🖤 ダーク・ドラマチック（プレミアム訴求）',  en: 'deep charcoal seamless backdrop fading to near-black, single soft key light, subtle reflection, dramatic premium' },
-    { v: 'custom',    label: '✏️ カスタム（下の「背景」欄に自由入力）',    en: '__custom__' },
+    { v: '',          g: '',                    label: '（おまかせ：商品に最も映える背景をAIが選ぶ）', en: '' },
+    // ── 🎬 スタジオ・高級感 ──
+    { v: 'white_inf', g: '🎬 スタジオ・高級感',  label: '🤍 白ホリゾント（無限白・EC定番）',        en: 'pure white seamless studio sweep, soft even diffused light, subtle contact shadow, clean bright e-commerce look' },
+    { v: 'soft_grad', g: '🎬 スタジオ・高級感',  label: '🌫 ソフトグラデ・スタジオ（淡色・万能）',    en: 'soft gradient studio backdrop, cool grey to white, diffused light, gentle ambient shadow, minimalist premium' },
+    { v: 'lt_grey',   g: '🎬 スタジオ・高級感',  label: '◻️ ライトグレー・ニュートラル（黒物が映える）', en: 'neutral light-grey seamless backdrop, soft wraparound light, subtle vignette, clean product-catalog look' },
+    { v: 'marble',    g: '🎬 スタジオ・高級感',  label: '🏛 白大理石マーブル（高級感・小物）',       en: 'polished white marble surface, soft grey veining, diffused 45-degree side light, gentle natural shadow, luxurious' },
+    { v: 'concrete',  g: '🎬 スタジオ・高級感',  label: '🧱 コンクリート／マイクロセメント（無骨）',  en: 'light micro-cement concrete surface, matte warm-grey texture, soft directional light, understated industrial mood' },
+    { v: 'oak',       g: '🎬 スタジオ・高級感',  label: '🪵 明るい木目テーブル（オーク・温かみ）',    en: 'light oak wood tabletop, warm fine grain, soft side daylight, subtle shadow, lifestyle warmth' },
+    { v: 'linen',     g: '🎬 スタジオ・高級感',  label: '🧺 天然リネン／布のドレープ（柔らか）',      en: 'soft warm off-white linen fabric backdrop, gentle folds, woven texture, diffused soft light, tactile premium' },
+    { v: 'plaster',   g: '🎬 スタジオ・高級感',  label: '🎨 石膏／プラスター壁（質感ミニマル）',      en: 'hand-finished plaster wall, soft warm beige, fine matte texture, soft raking light, editorial minimalist' },
+    { v: 'drench',    g: '🎬 スタジオ・高級感',  label: '🟦 カラードレンチング（商品と同系色で統一）', en: 'monochrome backdrop in the product main accent color, single-hue tonal scene, soft studio light, refined' },
+    { v: 'dark',      g: '🎬 スタジオ・高級感',  label: '🖤 ダーク・ドラマチック（プレミアム訴求）',  en: 'deep charcoal seamless backdrop fading to near-black, single soft key light, subtle reflection, dramatic premium' },
+    // ── 🏠 庶民的・生活感（普通の家の雰囲気） ──
+    { v: 'home_desk', g: '🏠 庶民的・生活感',    label: '🏠 自宅の木のデスク（生活感）',           en: 'cozy home wooden desk, soft window light, a few blurred items, shallow DOF' },
+    { v: 'windowsill',g: '🏠 庶民的・生活感',    label: '🪟 窓際の自然光（午前の柔らかい光）',       en: 'bright windowsill, soft morning daylight, gentle shadows, blurred curtain' },
+    { v: 'wood_shelf',g: '🏠 庶民的・生活感',    label: '🪵 白い壁＋木の棚',                     en: 'white wall with light wood shelf, natural daylight, minimal cozy home' },
+    { v: 'dining',    g: '🏠 庶民的・生活感',    label: '🍽️ ダイニングテーブル（木目）',          en: 'wooden dining table, warm home light, faint everyday clutter, shallow DOF' },
+    { v: 'sofa_side', g: '🏠 庶民的・生活感',    label: '🛋️ ソファ横のサイドテーブル',           en: 'small side table beside sofa, warm cozy light, soft blurred living room' },
+    { v: 'bedside',   g: '🏠 庶民的・生活感',    label: '🛏️ ベッドサイド（寝室の柔らか光）',       en: 'bedside table, warm dim bedroom light, soft cozy mood, shallow depth' },
+    { v: 'tatami',    g: '🏠 庶民的・生活感',    label: '🍵 畳・和室（自然光）',                  en: 'tatami room, soft natural daylight, calm minimal Japanese home, shallow DOF' },
+    // ── ✅ リアル・実用（誇張のない実使用シーン） ──
+    { v: 'home_office',g: '✅ リアル・実用',     label: '💻 在宅ワークのデスク上（使用中）',        en: 'real home-office desk in use, soft daylight, blurred laptop and notebook' },
+    { v: 'corkboard', g: '✅ リアル・実用',      label: '📌 コルクボード／メモの壁',              en: 'cork board wall with sticky notes, soft even light, casual workspace mood' },
+    { v: 'white_desk',g: '✅ リアル・実用',      label: '⬜ シンプルな白机＋自然光と柔らかい影',     en: 'plain white desk, soft natural light, gentle soft shadow, clean minimal' },
+    // ── ⌨️ ガジェットレビュー特化 ──
+    { v: 'tech_desk', g: '⌨️ ガジェットレビュー特化', label: '⌨️ ミニマルなテックデスク（周辺機器ボケ）', en: 'minimal tech desk, blurred keyboard and monitor, cables in bokeh, soft light' },
+    { v: 'dark_rgb',  g: '⌨️ ガジェットレビュー特化', label: '🌈 ダークデスク＋ほのかなRGB/アンビエント光', en: 'dark desk, faint RGB ambient glow, soft bokeh lights, moody tech mood' },
+    { v: 'flatlay',   g: '⌨️ ガジェットレビュー特化', label: '🗺️ フラットレイ（俯瞰・デスクマット上）',  en: 'top-down flat lay on dark desk mat, even soft light, minimal clean layout' },
+    { v: 'beside_pc', g: '⌨️ ガジェットレビュー特化', label: '🟫 ノートPC横（実機の隣）',             en: 'beside an open laptop, soft desk light, blurred screen glow, shallow DOF' },
+    { v: 'custom',    g: '',                    label: '✏️ カスタム（下の「背景」欄に自由入力）',    en: '__custom__' },
   ];
+
+  // 背景プリセットの <option>（カテゴリ別 optgroup）HTMLを生成（上部ヘルパー・バナー共通）
+  function bgPresetOptionsHtml() {
+    let html = '';
+    let curGroup = null;
+    for (const p of BG_PRESETS) {
+      if (p.g && p.g !== curGroup) {
+        if (curGroup !== null && curGroup !== '') html += '</optgroup>';
+        html += '<optgroup label="── ' + escHtml(p.g) + ' ──">';
+        curGroup = p.g;
+      } else if (!p.g && curGroup) {
+        html += '</optgroup>';
+        curGroup = null;
+      }
+      html += '<option value="' + p.v + '">' + escHtml(p.label) + '</option>';
+    }
+    if (curGroup) html += '</optgroup>';
+    return html;
+  }
 
   // 役割→代表テンプレ（ピッカーの初期選択用。templateKey 未記録の旧アイテム向け）
   const ROLE_TO_TEMPLATE = {
@@ -1372,9 +1410,8 @@
       if (label && label.indexOf('（使用しない') === 0) return; // このテンプレで使わない欄は出さない
       // 🌅 背景差し替えテンプレ：背景(mood)欄の直前に背景プリセットのドロップダウンを差し込む
       if (key === 'bgreplace' && k === 'mood') {
-        const bgOpts = BG_PRESETS.map(p => '<option value="' + p.v + '">' + escHtml(p.label) + '</option>').join('');
         rows.push('<div class="bps-kv"><span>🌅 背景プリセット</span>' +
-          '<select class="bps-edit bps-bg-preset">' + bgOpts + '</select></div>');
+          '<select class="bps-edit bps-bg-preset">' + bgPresetOptionsHtml() + '</select></div>');
       }
       const ph = tf ? tf[k][1] : '';
       rows.push('<div class="bps-kv"><span>' + escHtml(label) + '</span>' +
@@ -2728,9 +2765,7 @@ ${COMMON_GUARDS}`,
   // 🌅 背景プリセットのドロップダウンを生成＋配線（「背景を差し替え」テンプレ用）
   const aiBgPreset = $('ai-bg-preset');
   if (aiBgPreset) {
-    aiBgPreset.innerHTML = BG_PRESETS.map(p =>
-      '<option value="' + p.v + '">' + escHtml(p.label) + '</option>'
-    ).join('');
+    aiBgPreset.innerHTML = bgPresetOptionsHtml();
     aiBgPreset.addEventListener('change', () => {
       const p = BG_PRESETS.find(x => x.v === aiBgPreset.value);
       if (!p) return;
