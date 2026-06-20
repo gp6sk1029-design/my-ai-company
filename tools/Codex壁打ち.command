@@ -38,7 +38,8 @@ for i in $(seq 1 "$ROUNDS"); do
   echo ""
   echo "──────── 🔵 Claude 第${i}ラウンド ────────"
   { echo "あなたは司令塔です。直前のCodexの意見に反論・深掘りし、新しい論点を1つ足してください。簡潔に。馴れ合いにせず必ず検証する。"; echo ""; cat "$TRANS"; } > "$P"
-  CLAUDE_OUT="$("$CLAUDE" -p < "$P" | tee /dev/tty)"
+  CLAUDE_OUT="$("$CLAUDE" -p < "$P")"
+  echo "$CLAUDE_OUT"
   printf '\n[Claude 第%s]: %s\n' "$i" "$CLAUDE_OUT" >> "$TRANS"
 done
 
