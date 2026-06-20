@@ -226,6 +226,7 @@
           <optgroup label="── 画像加工 ──">
             <option value="bgremove">🪄 背景除去・背景クリーンアップ</option>
             <option value="bgreplace">🌅 背景を差し替え（商品はそのまま・背景だけ生成）</option>
+            <option value="combine">🧩 2つの商品を1枚に自然合成（並べる）</option>
             <option value="colorfix">🎨 配色統一・ブランドカラー適用</option>
             <option value="addtext">✏️ 画像にテキスト追加</option>
             <option value="custom">📝 カスタム（自分で書く）</option>
@@ -270,6 +271,8 @@
         <button type="button" id="btn-ai-copy" class="btn-secondary">📋 プロンプトをコピー</button>
         <button type="button" id="btn-compare-bundle" class="btn-secondary" hidden
           title="キューの「⚖️比較」画像を製品ラベル付きの1枚に連結し、プロンプトと一緒にAIへ渡します">⚖️ 比較画像をまとめてAIへ</button>
+        <button type="button" id="btn-combine-bundle" class="btn-secondary"
+          title="2つの商品画像を選び、1枚に並べてAIで自然に合成します（商品はそのまま・背景と影を統一）">🧩 2つの商品を合成</button>
         <span style="align-self:center; font-size:0.85em; opacity:.75; padding:0 8px;">
           ↑ コピー後、<strong>一時保存の画像</strong>を 🤖🍌🎨 で開くとプロンプト同梱で AI 起動
         </span>

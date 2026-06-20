@@ -887,7 +887,7 @@
     specs_card: 'section', icon_grid: 'section', pros_cons: 'section',
     concept: 'diagram', flow: 'diagram', roi: 'diagram', decision_tree: 'diagram',
     compare: 'compare', ranking: 'section', target_buyer: 'section', ngsummary: 'ngsummary',
-    bgremove: 'product', bgreplace: 'product', colorfix: 'product', addtext: 'none', custom: 'none',
+    bgremove: 'product', bgreplace: 'product', combine: 'product', colorfix: 'product', addtext: 'none', custom: 'none',
   };
 
   // 🌅 背景プリセット一覧（「背景を差し替え」テンプレ用ドロップダウン）
@@ -2046,6 +2046,12 @@
       sub:   ['補足（任意）', '例：接地影は自然に・商品の反射は残す'],
       mood:  ['背景（プリセット or 自由入力）', '上の「🌅 背景プリセット」で選択。カスタム時はここに英語で自由入力'],
     },
+    combine: {
+      title: ['（使用しない）', '合成のためタイトル不要'],
+      main:  ['2つの商品の説明（任意）', '例：左＝黒い丸型スピーカー／右＝白いスマートスピーカー'],
+      sub:   ['補足（任意）', '例：2つを少しだけ重ねて自然に・サイズ感を実物比で'],
+      mood:  ['背景・配置（任意）', '例：木のテーブルに自然光・2つを並べて自然な接地影'],
+    },
     colorfix: {
       title: ['（使用しない）', '配色統一のためタイトル不要'],
       main:  ['用途',         '例：ブログ記事用'],
@@ -2143,6 +2149,7 @@
       addtext: `上記の記事サムネ画像に重ねるキャッチコピー：\n- メインテキスト（最大10文字・強い言葉）\n- サブテキスト（最大20文字）\n- 補足（任意）`,
       bgremove: `上記の画像の主役被写体を識別して、背景除去のための簡潔な被写体描写を1文で：\n例：「白い小型スマートロック本体（サムターン装着済み）」`,
       bgreplace: `上記の画像の主役商品を、背景差し替え後も形・色・ロゴを保持できるよう、正確に1文で描写してください（背景は変えるが商品は変えない前提）：\n例：「黒い円筒形のBluetoothスピーカー、正面に白いロゴ、上面にメッシュグリル」`,
+      combine: `合成したい2つの商品それぞれを、形・色・ロゴを保持できるよう正確に1文ずつ描写してください（商品自体は変えず、1枚に自然に並べる前提）：\n例：「左＝黒い丸型スピーカー（正面ロゴ）／右＝白い縦長スマートスピーカー」`,
       colorfix: `上記の画像の用途と維持すべき色の制約を整理：\n- 用途（ブログ記事用/SNS等）\n- 維持すべき色（人物の肌色 等）\n- ブランドパレットへの寄せ方`,
       custom: `上記のテーマで、ブログ記事に使う画像のアイデアを3つ提案。\n各案：構図・色・テキスト・ねらい`,
     };
@@ -2414,6 +2421,13 @@ ${COMMON_GUARDS}`,
 【やること】商品の背景だけを下記で新規生成し自然に合成（境界は自然に・不自然な切抜き線やハロー禁止・光源に合う自然な接地影を付ける）。
 【背景イメージ】${mood || '商品が最も映えるプロのブツ撮り背景・白〜淡色スタジオ・柔らかい拡散光・自然な接地影'}
 ${main ? '【商品】' + main + '\n' : ''}${sub ? '【補足】' + sub + '\n' : ''}EC/レビュー記事品質・4K相当・商品が主役・余白を確保。仕上げに商品の色とロゴが元画像と一致しているか確認。`,
+
+    combine: ({title, main, sub, mood}) => `# 2つの商品を1枚に自然合成／添付画像を処理
+添付画像には2つの商品写真が左右に並んでいます。これを「同じ場所に一緒に置かれた1枚の自然な実写写真」に合成してください。
+【厳守】各商品の形・色・素材・ロゴ・印字・比率を100%維持。商品自体は描き変えない・変形しない・色変更しない。
+【やること】2つの商品を同一の背景・地面・光源のもとに自然に配置し合成。影/反射/ライティングを統一し、パネルの継ぎ目や切り抜き線を消してコラージュに見せない（1枚の実写に）。
+【背景・配置】${mood || '清潔感のあるプロのブツ撮り背景に2商品を自然に並べる・自然な接地影・サイズ感は実物比で自然に'}
+${main ? '【商品】' + main + '\n' : ''}${sub ? '【補足】' + sub + '\n' : ''}EC/レビュー記事品質・4K相当・2商品が主役・余白を確保。仕上げに各商品の色とロゴが元画像と一致しているか確認。`,
 
     colorfix: ({title, main, sub, mood}) => `# 配色統一（ブランドカラー化）— 添付画像を処理
 
@@ -3133,6 +3147,120 @@ ${COMMON_GUARDS}`,
     btnCompareBundle.addEventListener('click', async () => {
       btnCompareBundle.disabled = true;
       try { await runCompareBundle(); } finally { btnCompareBundle.disabled = false; }
+    });
+  }
+
+  // ─── 🧩 2つの商品を1枚に自然合成 ───────────────────────────
+  // 2枚をちょうど選ぶ簡易ピッカー（比較と違い製品番号は不要）
+  async function chooseCombineImages(cands) {
+    const tiles = cands.map((c, i) =>
+      '<label class="km-cmp-tile" data-i="' + i + '">' +
+        '<input type="checkbox" class="km-cmp-chk">' +
+        '<img src="' + (c.thumb || '') + '" referrerpolicy="no-referrer" alt="">' +
+        '<div class="km-cmp-name">' + escHtml(c.name) + '</div>' +
+        '<span class="km-cmp-src">' + (c.kind === 'queue' ? '一時保存' : 'Drive') + '</span>' +
+      '</label>').join('');
+    const body =
+      '<div class="km-cmp-help">1枚に自然合成したい商品画像を<strong>ちょうど2枚</strong>選んでください。</div>' +
+      '<div class="km-cmp-grid">' + tiles + '</div>' +
+      '<div class="km-cmp-msg" id="km-cmp-msg"></div>';
+    const result = await openModal({
+      title: '🧩 合成する2つの商品を選ぶ',
+      bodyHTML: body,
+      buttons: [
+        { label: 'キャンセル', value: null },
+        { label: '選んだ2枚で合成', primary: true, onClick: (rootEl) => {
+            const picks = [];
+            rootEl.querySelectorAll('.km-cmp-tile').forEach((tile) => {
+              const chk = tile.querySelector('.km-cmp-chk');
+              if (!chk.checked) return;
+              const c = cands[Number(tile.dataset.i)];
+              picks.push({ blob: c.blob, driveFile: c.driveFile, at: c.at });
+            });
+            if (picks.length !== 2) {
+              const msg = rootEl.querySelector('#km-cmp-msg');
+              if (msg) msg.textContent = '⚠️ ちょうど2枚選んでください（今 ' + picks.length + ' 枚）';
+              return false;
+            }
+            return picks;
+          } },
+      ],
+      onRender: (rootEl) => {
+        rootEl.querySelectorAll('.km-cmp-tile').forEach((tile) => {
+          const chk = tile.querySelector('.km-cmp-chk');
+          const sync = () => tile.classList.toggle('is-on', chk.checked);
+          chk.addEventListener('change', sync); sync();
+        });
+      },
+    });
+    cands.forEach(c => { if (c.kind === 'queue' && c.thumb) { try { URL.revokeObjectURL(c.thumb); } catch (_) {} } });
+    return result;
+  }
+
+  // 2枚を「ラベルなし・横並び・白背景」で1枚に連結（AIが自然合成しやすいように比較表よりシンプル）
+  async function buildCombineSheet(picks) {
+    const blobs = await Promise.all(picks.map(e => e.blob ? Promise.resolve(e.blob) : fetchDriveBlob(e.driveFile)));
+    const imgs = await Promise.all(blobs.map(b => blobToImageEl(b)));
+    const cellH = 640, pad = 24, gap = 48;
+    const widths = imgs.map(im => Math.max(1, Math.round(im.naturalWidth * (cellH / im.naturalHeight))));
+    const canvas = document.createElement('canvas');
+    canvas.width = widths.reduce((a, b) => a + b, 0) + pad * 2 + gap * (imgs.length - 1);
+    canvas.height = cellH + pad * 2;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    let x = pad;
+    imgs.forEach((im, i) => { ctx.drawImage(im, x, pad, widths[i], cellH); x += widths[i] + gap; });
+    return { blob: await new Promise(res => canvas.toBlob(res, 'image/png')), count: imgs.length };
+  }
+
+  // 連結した2枚を編集対象(pendingReplace)に載せて受取バナーを出す
+  async function stageCombineSheet(sheetBlob, prompt) {
+    await discardPreviousEdit(null);
+    const id = Date.now() + '_' + (++itemCounter);
+    const record = {
+      id, createdAt: Date.now(),
+      blob: sheetBlob, mimeType: 'image/png', ext: 'png',
+      size: sheetBlob.size,
+      originalName: 'combine_sheet_' + id + '.png',
+      status: 'pending', editingWith: 'chatgpt',
+    };
+    await queuePut(record);
+    pendingReplace = {
+      originalId: record.id, originalItem: record,
+      aiEngine: 'chatgpt', prompt: prompt,
+      startedAt: Date.now(), aiWindow: null,
+      aiUrl: buildAIUrl('chatgpt', prompt),
+    };
+    await renderQueue();
+    showEditingBanner();
+    showToast('🧩 2枚を1枚に並べました。バナーの「🖼 画像を再コピー」→「🚀 ChatGPTを開く」でAIへ送ると自然に合成されます', 'success');
+  }
+
+  // 「🧩 2つの商品を合成」本体：候補集め→2枚選択→1枚に連結→combineプロンプトで編集対象に載せる
+  async function runCombineBundle() {
+    if (serverBusy) { showToast('いまサーバ通信中です。終わるまでお待ちください', 'warn'); return; }
+    const cands = await gatherCompareCandidates();
+    if (cands.length < 2) {
+      showToast('合成するには画像が2枚以上必要です。一時保存に追加するか、記事を選んで既存ファイルを読み込んでください', 'warn');
+      return;
+    }
+    const picks = await chooseCombineImages(cands);
+    if (!picks) return; // キャンセル
+    // テンプレを combine にしてプロンプトを生成（バナー/全文と単一ソース維持）
+    if (aiTemplateSelect) { aiTemplateSelect.value = 'combine'; regenerateAIPrompt(); }
+    const prompt = (aiPrompt && aiPrompt.value.trim()) || AI_TEMPLATES.combine({});
+    const sheet = await withServerLock('2つの商品を1枚に合成中…', () => buildCombineSheet(picks))
+      .catch((e) => { showToast('合成シートの作成に失敗しました: ' + (e.message || e), 'error'); return null; });
+    if (!sheet || !sheet.blob) return;
+    await stageCombineSheet(sheet.blob, prompt);
+  }
+
+  const btnCombineBundle = $('btn-combine-bundle');
+  if (btnCombineBundle) {
+    btnCombineBundle.addEventListener('click', async () => {
+      btnCombineBundle.disabled = true;
+      try { await runCombineBundle(); } finally { btnCombineBundle.disabled = false; }
     });
   }
 
