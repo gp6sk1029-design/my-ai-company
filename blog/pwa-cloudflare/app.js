@@ -893,18 +893,19 @@
   // 🌅 背景プリセット一覧（「背景を差し替え」テンプレ用ドロップダウン）
   // プロのブツ撮り／EC撮影で実証された背景＋2025-2026トレンドを厳選（商品が自然に映える背景）。
   // en = 背景の英語プロンプト断片（被写体＝商品は一切変えず、背景のみ生成する前提の描写）。
+  // en は簡潔に（URLプリフィルの300字制限内に背景まで収めるため。詳細品質は商品保護文＋下記キーワードで十分）。
   const BG_PRESETS = [
     { v: '',          label: '（おまかせ：商品に最も映える背景をAIが選ぶ）', en: '' },
-    { v: 'white_inf', label: '🤍 白ホリゾント（無限白・EC定番）',        en: 'seamless pure white infinity backdrop (#ffffff to #f7f7f7), studio sweep curving from wall to floor with no visible seam, soft evenly diffused light, faint soft contact shadow under the product, clean and bright e-commerce look' },
-    { v: 'soft_grad', label: '🌫 ソフトグラデ・スタジオ（淡色・万能）',    en: 'smooth soft gradient studio backdrop, gentle transition from light cool grey at top to soft white at bottom, diffused two-light setup, no texture, subtle ambient shadow, calm minimalist premium feel' },
-    { v: 'lt_grey',   label: '◻️ ライトグレー・ニュートラル（黒物が映える）', en: 'neutral light-grey seamless studio background, matte and shadow-free, soft wraparound lighting, very subtle vignette, professional product catalog look that makes the product stand out' },
-    { v: 'marble',    label: '🏛 白大理石マーブル（高級感・小物）',       en: 'polished white Carrara marble surface with subtle soft grey veining, matte-to-semi-gloss finish, diffused side light at 45 degrees, gentle natural shadow, elegant luxurious tabletop feel' },
-    { v: 'concrete',  label: '🧱 コンクリート／マイクロセメント（無骨）',  en: 'smooth light micro-cement concrete surface, fine matte chalky texture, muted warm-grey tone, soft directional studio light, understated industrial yet premium mood' },
-    { v: 'oak',       label: '🪵 明るい木目テーブル（オーク・温かみ）',    en: 'light natural oak wood tabletop, fine wood grain, warm matte finish, soft daylight from the side, gentle craftsmanship and lifestyle warmth, subtle shadow' },
-    { v: 'linen',     label: '🧺 天然リネン／布のドレープ（柔らか）',      en: 'soft natural linen fabric backdrop in warm off-white, gentle folds and organic woven texture, diffused soft light, tactile authentic premium feel, shallow soft shadow' },
-    { v: 'plaster',   label: '🎨 石膏／プラスター壁（質感ミニマル）',      en: 'hand-finished plaster wall backdrop, fine tonal texture in soft warm beige, matte surface, soft raking light revealing subtle imperfections, advanced-minimalist editorial mood' },
-    { v: 'drench',    label: '🟦 カラードレンチング（商品と同系色で統一）', en: 'monochrome color-drenched seamless backdrop matching the product main accent color, single-hue tonal scene, soft studio light, rich saturated yet refined look, smooth surface' },
-    { v: 'dark',      label: '🖤 ダーク・ドラマチック（プレミアム訴求）',  en: 'deep dark charcoal seamless backdrop, gentle gradient falloff into near-black, single soft key light creating a controlled highlight, crisp subtle reflection on a dark glossy floor, dramatic high-contrast premium mood' },
+    { v: 'white_inf', label: '🤍 白ホリゾント（無限白・EC定番）',        en: 'pure white seamless studio sweep, soft even diffused light, subtle contact shadow, clean bright e-commerce look' },
+    { v: 'soft_grad', label: '🌫 ソフトグラデ・スタジオ（淡色・万能）',    en: 'soft gradient studio backdrop, cool grey to white, diffused light, gentle ambient shadow, minimalist premium' },
+    { v: 'lt_grey',   label: '◻️ ライトグレー・ニュートラル（黒物が映える）', en: 'neutral light-grey seamless backdrop, soft wraparound light, subtle vignette, clean product-catalog look' },
+    { v: 'marble',    label: '🏛 白大理石マーブル（高級感・小物）',       en: 'polished white marble surface, soft grey veining, diffused 45-degree side light, gentle natural shadow, luxurious' },
+    { v: 'concrete',  label: '🧱 コンクリート／マイクロセメント（無骨）',  en: 'light micro-cement concrete surface, matte warm-grey texture, soft directional light, understated industrial mood' },
+    { v: 'oak',       label: '🪵 明るい木目テーブル（オーク・温かみ）',    en: 'light oak wood tabletop, warm fine grain, soft side daylight, subtle shadow, lifestyle warmth' },
+    { v: 'linen',     label: '🧺 天然リネン／布のドレープ（柔らか）',      en: 'soft warm off-white linen fabric backdrop, gentle folds, woven texture, diffused soft light, tactile premium' },
+    { v: 'plaster',   label: '🎨 石膏／プラスター壁（質感ミニマル）',      en: 'hand-finished plaster wall, soft warm beige, fine matte texture, soft raking light, editorial minimalist' },
+    { v: 'drench',    label: '🟦 カラードレンチング（商品と同系色で統一）', en: 'monochrome backdrop in the product main accent color, single-hue tonal scene, soft studio light, refined' },
+    { v: 'dark',      label: '🖤 ダーク・ドラマチック（プレミアム訴求）',  en: 'deep charcoal seamless backdrop fading to near-black, single soft key light, subtle reflection, dramatic premium' },
     { v: 'custom',    label: '✏️ カスタム（下の「背景」欄に自由入力）',    en: '__custom__' },
   ];
 
@@ -2321,30 +2322,11 @@ ${COMMON_GUARDS}`,
 ${sub ? '【補足】' + sub : ''}
 ${COMMON_GUARDS}`,
 
-    bgreplace: ({title, main, sub, mood}) => `# 商品はそのまま・背景だけ差し替え（被写体保護つき背景生成）— 添付画像を処理
-
-【最重要・絶対遵守：被写体（商品）を一切変更しない】
-- 添付画像に写っている商品（被写体）の 形・輪郭・色・素材の質感・ロゴ・印字・ボタン・反射・比率・向き・サイズ を 100% そのまま維持する
-- 商品のピクセルを描き直さない／生成し直さない／置き換えない／改変しない（商品は元画像のまま使う）
-- 商品を 追加・削除・複製・変形・回転・色変更・トリミング しない
-- 商品にある文字やロゴを勝手に作り変えない・一般化しない（元の表記をそのまま保持）
-
-【やること：背景だけを新しく生成して差し替える】
-- 商品の背後・周囲の背景のみを、下記イメージで新規生成し、商品を自然に合成する
-- 商品と新背景の境界は自然に（不自然な切り抜き線・ハロー・色のにじみを出さない）
-- 商品の設置面に、背景の光源と一致した自然な接地影・反射を付ける（影の向き・濃さ・色を背景に合わせる）
-
-【背景イメージ（この通りに背景を作る）】
-${mood || 'この商品が最も自然に映え、清潔感・信頼感・高級感が出るプロのブツ撮り背景。白〜淡色のスタジオ無限背景、柔らかい拡散光、商品の下に自然な接地影。'}
-
-【保持する商品（被写体）】
-${main || '添付画像の主役商品（形・色・ロゴをそのまま保持）'}
-${sub ? '\n【補足】\n' + sub : ''}
-【出力仕様】
-- 商品は元のまま・背景のみ刷新した、EC／レビュー記事品質の1枚（PNG）
-- 自然光のような柔らかいライティング、商品が主役として際立つ構図、余白を確保
-- ピクセル単位でくっきり、圧縮ノイズなし、4K相当の解像感
-- 商品の色・質感・ロゴが元画像と完全一致していることを最後に必ず確認する`,
+    bgreplace: ({title, main, sub, mood}) => `# 背景だけ差し替え（商品はそのまま）／添付画像を処理
+【厳守】商品の形・色・素材・ロゴ・印字・比率・向きを100%維持。商品は元画像のまま使い、描き直さず・変形せず・色変更しない。商品の追加/削除/複製もしない。
+【やること】商品の背景だけを下記で新規生成し自然に合成（境界は自然に・不自然な切抜き線やハロー禁止・光源に合う自然な接地影を付ける）。
+【背景イメージ】${mood || '商品が最も映えるプロのブツ撮り背景・白〜淡色スタジオ・柔らかい拡散光・自然な接地影'}
+${main ? '【商品】' + main + '\n' : ''}${sub ? '【補足】' + sub + '\n' : ''}EC/レビュー記事品質・4K相当・商品が主役・余白を確保。仕上げに商品の色とロゴが元画像と一致しているか確認。`,
 
     colorfix: ({title, main, sub, mood}) => `# 配色統一（ブランドカラー化）— 添付画像を処理
 
