@@ -551,7 +551,7 @@ def copy_images():
 
     char_map = [
         ("blog/images/characters/オオタニ所長 通常.png", "character-ootani.png"),
-        ("blog/images/characters/新人タナカ 正常 .png", "character-tanaka.png"),
+        ("blog/images/characters/新人タナカ 正常.png", "character-tanaka.png"),
     ]
     for src, dst in char_map:
         s = ROOT / src
