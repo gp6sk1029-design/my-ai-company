@@ -254,3 +254,10 @@ CLAUDE.md準拠の振り返り記録。
 |---|---|---|
 | 2026-05-27 | 新規作成（全台帳テンプレ初期化） | CPO |
 | 2026-05-28 | digest.md新設＋学長メソッド/高配当株台帳追加＋life-plan連携TODO | CPO |
+
+
+## 📱 リベまとめ スマホ閲覧サイト（2026-06-23デプロイ）
+- URL: https://libe-matome.pages.dev/ （Cloudflare Pages・プロジェクト名 libe-matome）
+- 中身: research/reports/ の4ビューア＋ポータル（index.html=ポータル）
+- 🔴 **要対応（ユーザー作業）**: Cloudflare Zero Trust → Access で「gp6sk1029@gmail.com だけ許可」を設定するまで**公開状態＝リベ規約NG**。設定完了まで URL を共有しない。
+- 更新方法: リベ日課でreports更新後 `wrangler pages deploy research/reports --project-name=libe-matome --commit-dirty=true --branch=main` で再デプロイ
