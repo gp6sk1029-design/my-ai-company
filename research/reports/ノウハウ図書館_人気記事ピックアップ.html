@@ -87,7 +87,7 @@
     🔄 <b>更新</b>：来月以降は research セッションで図書館の月間ランキングを再取得し、下の <code>ARTICLES</code> に差し替えれば最新化できます（仕分けは自動）。
   </div>
   <footer>
-    出典：リベシティ ノウハウ図書館（library.libecity.com）直近3日ランキング／sort=保存数　|　取得 2026-06-08（リベ日課）　|　タイトル＋反応数のみ・本文転載なし・私的利用限定
+    出典：リベシティ ノウハウ図書館（library.libecity.com）直近7日ランキング／sort=レビュー数　|　取得 2026-06-23（リベ日課）　|　タイトル＋反応数のみ・本文転載なし・私的利用限定
   </footer>
 </div>
 
@@ -103,32 +103,32 @@ function openArt(e, url){
   catch(_){ window.location.href = url; return false; } // 同フレームで遷移
 }
 
-// ===== 人気記事データ（直近3日ランキング・2026-06-08取得＝リベ日課）。翌日は再取得してここを差し替え =====
+// ===== 人気記事データ（直近7日ランキング・2026-06-23取得＝リベ日課）。翌日は再取得してここを差し替え =====
 const ARTICLES = [
- {id:"01KTEXTB52VEDRDXFM101V0442", t:"【YouTube】収益化したいなら少数ガチ部を作って切磋琢磨すべし！｜『めっし部』って何だったの？", cat:"YouTube", likes:37, bm:99, date:"2026/06/07", auth:"めっし@リモートワーカー"},
- {id:"01KTE1FX294TS3J1GSTAFRQCMP", t:"えっ、0円！？ 新幹線で逆方向に乗ったときの『誤乗』ルール", cat:"その他守る力", likes:38, bm:43, date:"2026/06/06", auth:"きのっぴ＠微健康ITなんでも屋"},
- {id:"01KTC15ZGK0D16MHTHX9SC6JTE", t:"稼ぐ力初心者がYouTubeで1か月AI×BGMに挑戦したリアルレポ📷", cat:"YouTube", likes:33, bm:41, date:"2026/06/06", auth:"すー@YouTube🎧"},
- {id:"01KTDTGKT2SSMFPD2V9KBTYH33", t:"AIっぽくない！ChatGPTで、のほほん系ゆるイラストを作る方法", cat:"AIクリエイター", likes:12, bm:29, date:"2026/06/06", auth:"ゆな@リベ市場でユーカリ出品中！"},
- {id:"01KTE7E8MZ69TSH9JAF466Q4KK", t:"父の1周忌を終えて──看取り・葬儀・相続、一年間の実体験から伝えたいこと", cat:"相続", likes:13, bm:22, date:"2026/06/06", auth:"あつし＠記帳代行、会計業務支援"},
- {id:"01KSWG6YFS7ESMHS7M68ZHK67J", t:"オリキャラを作った後に『継続して使う』方法", cat:"SNS発信・運用", likes:9, bm:17, date:"2026/06/06", auth:"にゃ〜ん🐟高知オフ会"},
- {id:"01KTBVQHWZP8RDABCXFM41D1NR", t:"絵心ゼロのおじさんが、AIで\"毎日更新の漫画家\"になれた話｜ゼロから始めるAI漫画 完全ロードマップ", cat:"AIクリエイター", likes:7, bm:16, date:"2026/06/05", auth:"jawおやじ@蜂の巣駆除はじめました🐝"},
- {id:"01KTB117DT32MZ9SF54VA250CB", t:"大破した事故車に16万円の値段がついた話", cat:"車", likes:12, bm:13, date:"2026/06/05", auth:"まるこ。@旅好き"},
- {id:"01KSQ0QXVJ5HXF4RCND65HA0EK", t:"【AI業務代行×オンライン秘書】対応ケース1 編", cat:"AI業務代行", likes:7, bm:13, date:"2026/06/05", auth:"えりんぼ🍒AI使う埼玉のオンライン秘書"},
- {id:"01KT1SGJBRZ0KFAEJEWZDZKS0B", t:"Claude初心者が初主催オフ会の準備に全力投球した話（オフ会主催アプリ・プロンプトベース付）", cat:"人に会う・オフ会", likes:10, bm:12, date:"2026/06/06", auth:"えびふく＠YouTube挑戦中"},
- {id:"01KTGR8Y1XXJ8MY5RQ8VERP8AA", t:"「最初は日記でした」文章経験ゼロの50代主婦が、noteフォロワー1,600人までに続けたこと", cat:"SNS発信・運用", likes:7, bm:11, date:"2026/06/07", auth:"カオナシ@note × Threads✨"},
- {id:"01KSZ6SJRZJFBRJZ6S5CANJ59W", t:"法人営業経験18年！法人営業の特徴と成約のためのポイント", cat:"副業全般", likes:7, bm:11, date:"2026/06/05", auth:"だいご@大阪/価値観マップ案内人"},
- {id:"01KN2TVB1KWZ9KHQH2SEQG1WEP", t:"夫婦平等、やめてみた 〜時間単価2.5倍の差で気づいた、たった1つのこと〜", cat:"転職", likes:10, bm:8, date:"2026/06/07", auth:"みちる@子どもの行動分析専門家"},
- {id:"01KTEGHHQ7MKH8PBM6VEZTHK0M", t:"【失敗談】Claude Maxプランで知らぬ間に追加課金されてた話", cat:"AI基礎", likes:8, bm:8, date:"2026/06/06", auth:"りーさ@デザイナー🎨YouTube"},
- {id:"01KTAXGGDS67N376566NDBN9ZE", t:"えっ、洗剤入ってない！？ドラム式の自動投入が動かなくなった話", cat:"その他守る力", likes:6, bm:7, date:"2026/06/06", auth:"あむにな@6歳双子と楽しく頑張る🌟"},
- {id:"01KTENAC8GDR8G7PJMSPF5CVTX", t:"人生を豊かにする6つ目の力「遊ぶ力」", cat:"その他使う力", likes:11, bm:5, date:"2026/06/06", auth:"ティー@オンラインボドゲ会🎲"},
- {id:"01KSYX5FTC3DFGM48453GJEFW0", t:"「誰かの役に立ちたい」と思ったら行動が変わっていった 〜FP2級挑戦記〜", cat:"簿記・FP", likes:9, bm:5, date:"2026/06/06", auth:"Bell🔔"},
- {id:"01KRQ849K8QKR3P4SRCXH6T206", t:"予約難関！サンライズ号のチケットを奪取せよ！〜はじめてでもわかる予約の秘技〜", cat:"豊かな浪費", likes:6, bm:5, date:"2026/06/07", auth:"さかなもちFC@遊び心80%の人"},
- {id:"01KTDW9GNXRDDRHA99ZMH5QN8A", t:"【体験談】3日坊主常連の私が、ノウハウ図書館に5日連続投稿して気づいた7つのこと", cat:"Webライティング", likes:10, bm:5, date:"2026/06/06", auth:"ゆき@マインドコーチ/心理カウンセラー"},
- {id:"01KTAZJ19EMNWXY9MNB1P8FP6E", t:"育児の「余裕」を作る！本当に使えた子育て用品ランキング", cat:"時間を買う", likes:6, bm:5, date:"2026/06/05", auth:"銭ゲバくん@ゆるFIRE🔥4年目🌱"},
- {id:"01KTC6S4CHV1H9R3V2RH7QM6KY", t:"「誕生日に家内がリベシティへ。夫婦で学び始めたわが家の体験談」", cat:"その他使う力", likes:8, bm:4, date:"2026/06/06", auth:"タカ＠観光サービス業"},
- {id:"01KTFQ7ZA41XTM79ZQ6FYQ30XJ", t:"【子どもの金銭感覚が変わるお金の話】「値段」の正体を親子で学んだら、ムダ遣いが減った話", cat:"家計管理の準備", likes:3, bm:4, date:"2026/06/07", auth:"かずーむ🌈ライター&ライバー&ブロガー"},
- {id:"01KSV1WGSDP09BRDQMZDQGNMG6", t:"河内晩柑・甘夏で作る抗酸化サポートグラニータ｜白砂糖不使用・発酵はちみつ麹レシピ【6月の旬食材】", cat:"健康への投資", likes:4, bm:4, date:"2026/06/05", auth:"しゅん"},
- {id:"01KTDBGY5PVNHNZ5C5FXEGWMYB", t:"家族の事故、あなたの弁護士特約が使えるかもしれない【体験談】", cat:"保険", likes:3, bm:2, date:"2026/06/06", auth:"えみん✨いつもsmile✨"}
+ {id:"01KTZE0Q6VWK76GSSHMAX2KN2J", t:"人生初🌸【胃カメラ＆大腸カメラ】体験記🌸〜鎮静剤あり口から🥰💕〜", cat:"健康への投資", likes:76, bm:118, date:"2026/06/18", auth:"まき🍀ライオンちゃんハーネス🦁💕"},
+ {id:"01KVDVDG36VMYES9K8BR7K99CN", t:"【夫婦ブロック突破✨体験談】瞬間湯沸かし器妻、信頼貯金を始める💰", cat:"その他貯める力", likes:65, bm:61, date:"2026/06/21", auth:"こうぼっち🍶高配当株📈"},
+ {id:"01KV5YY6QEKQS95WNW5TGDND3M", t:"Claude Codeに頼むだけ！つぶやきの文字数を表示する自作Chrome拡張の作り方", cat:"ITリテラシー", likes:45, bm:90, date:"2026/06/16", auth:"会員ID：F5NwXaX9"},
+ {id:"01KVG6W7K6HM2NR1BEZ0M2DHS4", t:"アルバイト×ワンオペ1児ママが簿記3級を勉強代０円で1発合格した勉強方法", cat:"簿記・FP", likes:41, bm:94, date:"2026/06/20", auth:"会員ID：lT3MmoWX"},
+ {id:"01KV941VRC5RHHGXA62Y6MJ61H", t:"AIで「自分好みの塗り絵」が作れた🎨印刷までおまかせの夏のおえかき✏️", cat:"AIクリエイター", likes:30, bm:41, date:"2026/06/17", auth:"みきてぃ@高齢者施設で働くリハビリ職"},
+ {id:"01KVJGQ9ZGPEHWXPVXEK99CEQX", t:"【体験談】ジムの無料Wi-Fiで歓喜した私が、自宅で「やらかす」までの全記録", cat:"自己投資", likes:24, bm:20, date:"2026/06/20", auth:"会員ID：W32jUj23"},
+ {id:"01KV9ZS6Y2H2C5G63901XTR62Z", t:"ごく普通のワーママがトラ会員になって半年。人生が180度変わった話", cat:"人に会う・オフ会", likes:79, bm:90, date:"2026/06/19", auth:"会員ID：HMbT9D0E"},
+ {id:"01KVFYM3M9JFECRNS9NSRS9JJ3", t:"「まさか、このワタクシが…！」特殊詐欺で700万円を送る寸前まで行った話", cat:"詐欺・ぼったくり", likes:28, bm:20, date:"2026/06/21", auth:"会員ID：VZzhcGbN"},
+ {id:"01KTX4MZ2TTBPFSMDZP8EQ9N8V", t:"【神アプデ】配当管理アプリがさらに便利に！新機能をわかりやすく解説", cat:"銀行・証券", likes:16, bm:21, date:"2026/06/20", auth:"会員ID：D1lyt3tw"},
+ {id:"01KVM3MH4T5G3GTXJ5R0MZ9TW8", t:"まずは行動！副業迷子だった私が3つ試してわかったこと✨️", cat:"せどり", likes:15, bm:13, date:"2026/06/21", auth:"まこっち@中国輸入"},
+ {id:"01KVJ28YZCZYBXSE0VYMK4H93X", t:"クロコが乗っ取り!?「攻撃を受けている」と言われたらどうする?【Claude Code】", cat:"ITリテラシー", likes:26, bm:60, date:"2026/06/21", auth:"Nao@あなたの夢を叶えるFP"},
+ {id:"01KVB3WK3F0N5S4GTH44W922S2", t:"【保存版】AIと一緒にノウハウ図書館の記事を書いてみよう！初投稿応援🔰", cat:"AIクリエイター", likes:21, bm:81, date:"2026/06/18", auth:"みずの＠寄り添うWebデザイナー"},
+ {id:"01KVFYNMS5VC1Y52C4YN593P3Q", t:"1ヶ月かかった…私のGoogleアカウント復旧までの全記録【体験談】", cat:"その他守る力", likes:12, bm:9, date:"2026/06/21", auth:"会員ID：UBH9mFD8"},
+ {id:"01KVGA629BCYEB257SQYA5Z3Q0", t:"支出管理ツールを使う理由｜予算管理で「今やるべきこと」を見える化しよう", cat:"ライフプラン", likes:65, bm:122, date:"2026/06/20", auth:"会員ID：6sI7wVKy"},
+ {id:"01KV9EEGQD1FD95XTAPS2M21TH", t:"【登録200人でも月3万】YouTube広告収益“だけ”に頼らず、アフィリエイトで稼ぐ方法", cat:"YouTube", likes:52, bm:208, date:"2026/06/17", auth:"会員ID：fLkRwo8i"},
+ {id:"01KVH782A9C8QH34W5TN4N42M4", t:"知識は力なり。超慎重派な私が「賃料値上げ通知」に対応できた話", cat:"その他守る力", likes:21, bm:20, date:"2026/06/20", auth:"会員ID：C2w4cIQA"},
+ {id:"01KVM260T6G2F4PFF2T34RF4R4", t:"docomoキッズケータイ[SH03M]月290円〜で使える！日本通信SIMに切り替えた話", cat:"通信費", likes:14, bm:11, date:"2026/06/21", auth:"coco@Canvaデザイナー"},
+ {id:"01KVQJY5Z2VMGPWBGT945EZN20", t:"【ぼっち参加】人見知りの私が初めてリベのオフ会に行ってみた", cat:"人に会う・オフ会", likes:12, bm:10, date:"2026/06/22", auth:"会員ID：nxOxEd5M"},
+ {id:"01KVJT1TWCN60E8PFFXBRY187W", t:"【失敗談】無料HPプレゼントとAI時代の線引き", cat:"Web制作", likes:10, bm:5, date:"2026/06/21", auth:"会員ID：nVq9Lh4H"},
+ {id:"01KVJQ0NX3QYFQ9334F41P9ACZ", t:"【思い込み卒業】Claude Coworkは「中途半端」じゃなかった｜AIとの対話で気づいたこと", cat:"AI基礎", likes:9, bm:5, date:"2026/06/20", auth:"会員ID：bP8lZUhe"},
+ {id:"01KV0N8SNRW6CQRT7CT236WQN1", t:"Notionのデータベースって何？ 表との違いから最初の作り方までやさしく解説", cat:"ITリテラシー", likes:8, bm:10, date:"2026/06/20", auth:"こよみ@デザインとNotion"},
+ {id:"01KVG16HHZ540BXDEM25AHWP07", t:"離婚協議書でこんなこと書いたよ！", cat:"その他守る力", likes:8, bm:11, date:"2026/06/19", auth:"会員ID：WLdDSEDL"},
+ {id:"01KVPWC45ZV4RM029TZTFPY704", t:"【実体験】リベワークスで初応募初受注｜実績ゼロから2か月で5桁の3つのコツ✍️", cat:"その他稼ぐ力", likes:7, bm:5, date:"2026/06/22", auth:"会員ID：0jcqdgw1"},
+ {id:"01KVGD8XJBVQPW8QYWKHGH9DRJ", t:"ライフプランを作る理由｜将来のお金の流れを見える化しよう", cat:"ライフプラン", likes:54, bm:102, date:"2026/06/20", auth:"会員ID：6sI7wVKy"},
 ];
 
 // ===== キーワード自動仕分け（新しい記事を足しても自動分類） =====

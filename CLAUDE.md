@@ -198,15 +198,15 @@ Claude（司令塔）が、必要なときに専門家 **Codex（gpt-5.5）** �
 
 ### セッション役割カタログ（7種類）
 
-| 役割キー | 名称 | 担当範囲 | 必須読み込みファイル |
-|---|---|---|---|
-| `pdm` | 総合PdM（CPO）セッション | 全体ルール作成・部門横断調整・整合性チェック | CLAUDE.md / global_rules/CLAUDE_global.md |
-| `blog` | ブログ執筆セッション | 記事の企画・執筆・校正・WP投稿 | blog/SKILL.md / blog/MEMORY.md |
-| `ec` | EC物販セッション | メルカリ出品・価格・在庫・顧客対応 | tools/ec/SKILL.md / tools/ec/MEMORY.md |
-| `tools` | ツール開発セッション | PWA・自動化スクリプト開発 | tools/SKILL.md / tools/MEMORY.md |
-| `sns` | SNS統括セッション | X/Instagram/YouTube投稿 | sns/SKILL.md / sns/MEMORY.md |
-| `research` | リサーチセッション | リベシティ記事収集／掛け合わせ副業創造／単一記事からの自動化案件抽出（tools部門への提案を含む） | research/SKILL.md / research/MEMORY.md / research/skills/{collect,synthesize,automate,digest,handoff}.md |
-| `infra` | インフラ・全体管理セッション | hooks・global_rules・session_health等 | CLAUDE.md / .claude/settings.json |
+| 役割キー       | 名称              | 担当範囲                                               | 必須読み込みファイル                                                                                               |
+| ---------- | --------------- | -------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `pdm`      | 総合PdM（CPO）セッション | 全体ルール作成・部門横断調整・整合性チェック                             | CLAUDE.md / global_rules/CLAUDE_global.md                                                                |
+| `blog`     | ブログ執筆セッション      | 記事の企画・執筆・校正・WP投稿                                   | blog/SKILL.md / blog/MEMORY.md                                                                           |
+| `ec`       | EC物販セッション       | メルカリ出品・価格・在庫・顧客対応                                  | tools/ec/SKILL.md / tools/ec/MEMORY.md                                                                   |
+| `tools`    | ツール開発セッション      | PWA・自動化スクリプト開発                                     | tools/SKILL.md / tools/MEMORY.md                                                                         |
+| `sns`      | SNS統括セッション      | X/Instagram/YouTube投稿                              | sns/SKILL.md / sns/MEMORY.md                                                                             |
+| `research` | リサーチセッション       | リベシティ記事収集／掛け合わせ副業創造／単一記事からの自動化案件抽出（tools部門への提案を含む） | research/SKILL.md / research/MEMORY.md / research/skills/{collect,synthesize,automate,digest,handoff}.md |
+| `infra`    | インフラ・全体管理セッション  | hooks・global_rules・session_health等                 | CLAUDE.md / .claude/settings.json                                                                        |
 
 ### 必須プロトコル：新セッション開始の3ステップ
 
