@@ -122,7 +122,7 @@ document.getElementById('grid').innerHTML = TOOLS.map(t=>`
     <div class="desc">${t.desc}</div>
     <ul>${t.feats.map(f=>`<li>${f}</li>`).join('')}</ul>
     <div class="foot">
-      <a class="open" href="./${encodeURIComponent(t.file)}" target="_blank" rel="noopener" onclick="return openArt(event,this.href)">開く ↗</a>
+      <a class="open" href="./${encodeURIComponent(t.file)}" target="_blank" rel="noopener">開く ↗</a>
       <span class="when">${t.when}</span>
     </div>
   </div>`).join('');
