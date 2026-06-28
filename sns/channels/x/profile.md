@@ -11,7 +11,7 @@
 | 項目 | 値 |
 |---|---|
 | **表示名** | 生産技術ガジェット研究所｜オオタニ所長 |
-| **ユーザー名(@)** | 第1候補 `@ootanisatan`（取得不可なら `@ootanisatan_lab` / `@ptgl_lab`・開設時に確認） |
+| **ユーザー名(@)** | `@ootanisatan` は取得済のため代替。第1候補 `@ootanisatan_lab` → `@ootanisatan_g` → `@ptgl_lab` → `@ootani_gadget` の順に登録画面で空きを試す |
 | **bio（下記§2）** | 約140字 |
 | **場所** | （任意・未設定でOK） |
 | **Webサイト** | https://www.ootanisatan.com/ |
