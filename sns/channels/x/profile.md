@@ -11,7 +11,7 @@
 | 項目 | 値 |
 |---|---|
 | **表示名** | 生産技術ガジェット研究所｜オオタニ所長 |
-| **ユーザー名(@)** | `@ootanisatan` は取得済のため代替。第1候補 `@ootanisatan_lab` → `@ootanisatan_g` → `@ptgl_lab` → `@ootani_gadget` の順に登録画面で空きを試す |
+| **ユーザー名(@)** | 🆕**ootanisatan系は使わない**（凍結裏アカ回避・[[rebrand_ptgl_brand]]方針）。PTGLブランドへ：第1候補 `@ptgl_lab` → `@ptgllab_` → `@ptgl_gadget` の順に登録画面で空きを試す。ドメイン `ptgl-lab.com` は取得可能と確認済（将来移行用に名前確保推奨） |
 | **bio（下記§2）** | 約140字 |
 | **場所** | （任意・未設定でOK） |
 | **Webサイト** | https://www.ootanisatan.com/ |
