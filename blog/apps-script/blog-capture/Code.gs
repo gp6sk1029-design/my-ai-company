@@ -264,6 +264,14 @@ function handleReplaceFile_(p) {
     const parents = oldFile.getParents();
     if (!parents.hasNext()) return jsonResponse_({ ok: false, message: 'file has no parent folder' });
     const parent = parents.next();
+    // 🛡 誤上書き防止：クライアントが記事フォルダIDを添えてきた場合、
+    // 対象ファイルがそのフォルダ内に無ければ拒否する（別記事のファイル破壊を防ぐ）
+    if (p.articleFolderId && parent.getId() !== p.articleFolderId) {
+      return jsonResponse_({
+        ok: false,
+        message: '上書き対象が指定の記事フォルダ内にありません（誤上書き防止のため中止）',
+      });
+    }
     const bytes = Utilities.base64Decode(p.fileDataBase64);
     const blob = Utilities.newBlob(bytes, p.mimeType || oldFile.getMimeType(), oldName);
     // 元ファイルをゴミ箱へ
@@ -304,12 +312,13 @@ function handleUploadSmall_(p) {
     const bytes = Utilities.base64Decode(p.fileDataBase64);
     const blob = Utilities.newBlob(bytes, p.mimeType || 'application/octet-stream', p.fileName);
 
-    const folder = p.articleFolderId
-      ? getArticleFolderById(p.articleFolderId)
-      : getOrCreateArticleFolder(p.articleTitle);
+    const folder = resolveArticleFolder_(p);
 
     const hash = computeHash(blob);
-    const existing = findByHash(hash);
+    // 🛡 重複判定は「同じ記事フォルダ内」に限定する。
+    // 旧実装は全記事横断でhash照合していたため、別記事で同じ画像を使うと
+    // 「重複スキップ」でその記事に保存されず、最初の記事に永久固定されていた。
+    const existing = findByHash(hash, folder.getId());
     if (existing) {
       appendLog({
         articleTitle: folder.getName(),
@@ -365,9 +374,7 @@ function handleSavePrompt_(p) {
   const lock = LockService.getScriptLock();
   lock.waitLock(15000);
   try {
-    const folder = p.articleFolderId
-      ? getArticleFolderById(p.articleFolderId)
-      : getOrCreateArticleFolder(p.articleTitle);
+    const folder = resolveArticleFolder_(p);
 
     const articleType = (p.articleType || '').trim();
     let memos = [];
@@ -411,12 +418,20 @@ function handleSavePrompt_(p) {
     md += '※1番目が最重要。記事の結論・導入・強調装飾は優先度上位のポイントに寄せる。\n';
     md += '🔴 画像の最優先ルール：上記メモの「🖼使う画像」や、すでに役割が割り当て済みの画像（アイキャッチ・比較表(完成)・図解 等）が既にある場合は、それを最優先でそのまま使用すること。同じ役割の画像を新規生成・作り直ししない（無い役割のみ新規生成を検討する）。\n';
 
-    // 既存 PROMPT.md を削除して新規作成
+    // 🛡 既存 PROMPT.md は「その場で上書き」（setContent）する。
+    // 旧実装の「ゴミ箱→新規作成」は、作成が失敗した瞬間にメモが丸ごと消える窓があった。
+    // setContent なら失敗しても旧内容が残り、fileId も変わらない。
     const existing = folder.getFilesByName('PROMPT.md');
-    while (existing.hasNext()) existing.next().setTrashed(true);
-
-    const blob = Utilities.newBlob(md, 'text/markdown', 'PROMPT.md');
-    const file = folder.createFile(blob);
+    let file;
+    if (existing.hasNext()) {
+      file = existing.next();
+      file.setContent(md);
+      // 万一 PROMPT.md が複数あれば余分を掃除（正本を書き終えた後に実施）
+      while (existing.hasNext()) existing.next().setTrashed(true);
+    } else {
+      const blob = Utilities.newBlob(md, 'text/markdown', 'PROMPT.md');
+      file = folder.createFile(blob);
+    }
 
     appendLog({
       articleTitle: folder.getName(),
@@ -493,9 +508,7 @@ function parsePromptMd_(text) {
 function handleResumableUrl_(p) {
   try {
     if (!p.fileName || !p.totalBytes) return jsonResponse_({ ok: false, message: 'fileName/totalBytes required' });
-    const folder = p.articleFolderId
-      ? getArticleFolderById(p.articleFolderId)
-      : getOrCreateArticleFolder(p.articleTitle);
+    const folder = resolveArticleFolder_(p);
     const capturedAt = p.capturedAt ? new Date(p.capturedAt) : new Date();
     const normalizedName = normalizeFilename(p.fileName, capturedAt);
     const finalName = resolveFilenameConflict(folder, normalizedName);

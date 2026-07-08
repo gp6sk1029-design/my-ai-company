@@ -29,8 +29,8 @@
     },
     {
       "name": "kiji-meshi",
-      "runtimeExecutable": "python3",
-      "runtimeArgs": ["-c", "from http.server import HTTPServer, SimpleHTTPRequestHandler; from functools import partial; print('[kiji-meshi] http://localhost:8792'); HTTPServer(('0.0.0.0', 8792), partial(SimpleHTTPRequestHandler, directory='/Users/shoheikoda/Documents/my-ai-company/blog/pwa-cloudflare')).serve_forever()"],
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["/Users/shoheikoda/Documents/my-ai-company/blog/scripts/dev_server_kiji_meshi.js"],
       "port": 8792
     },
     {

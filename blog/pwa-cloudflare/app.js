@@ -106,7 +106,8 @@
       tx.onerror = () => rej(tx.error);
     });
   }
-  async function queueAll() {
+  // 全記事のキューを返す（起動時クリーンアップ等の内部用途のみ。通常は queueAll を使う）
+  async function queueAllRaw() {
     const db = await openDB();
     return new Promise((res, rej) => {
       const tx = db.transaction(STORE, 'readonly');
@@ -114,6 +115,31 @@
       req.onsuccess = () => res(req.result.sort((a, b) => a.createdAt - b.createdAt));
       req.onerror = () => rej(req.error);
     });
+  }
+  // ─── 🛡 記事別データ分離（2026-07-09）─────────────────────
+  // キューの各レコードは「持ち主の記事」（ownerFolderId / ownerTitle）を持つ。
+  // 表示・送信は常に「現在選択中の記事の項目＋未振り分け項目」だけを対象にする。
+  // これにより、前の記事の未転送画像が別記事へ送られる／別記事のDriveファイルを
+  // 上書きして消す事故を根本から防ぐ。
+  function currentContextKey() {
+    const fid = getSelectedArticleFolderId();
+    if (fid) return 'folder:' + fid;
+    const t = getSelectedArticleTitle();
+    if (t) return 'title:' + t;
+    return '';
+  }
+  function itemOwnerKey(it) {
+    if (it && it.ownerFolderId) return 'folder:' + it.ownerFolderId;
+    if (it && it.ownerTitle) return 'title:' + it.ownerTitle;
+    return '';
+  }
+  function itemBelongsToCurrent(it) {
+    const owner = itemOwnerKey(it);
+    if (!owner) return true; // 未振り分け（記事未選択で撮影・旧バージョンのデータ）はどの記事でも見える
+    return owner === currentContextKey();
+  }
+  async function queueAll() {
+    return (await queueAllRaw()).filter(itemBelongsToCurrent);
   }
   async function queueDelete(id) {
     const db = await openDB();
@@ -267,6 +293,9 @@
       size: blob.size,
       originalName: 'capture_' + id + '.' + ext,
       status: 'pending',
+      // 🛡 持ち主の記事を刻印（記事未選択なら未振り分けとして保存）
+      ownerFolderId: getSelectedArticleFolderId() || '',
+      ownerTitle: getSelectedArticleFolderId() ? '' : (getSelectedArticleTitle() || ''),
     };
     await queuePut(record);
     await renderQueue();
@@ -278,12 +307,20 @@
     issuedObjectURLs.forEach((u) => { try { URL.revokeObjectURL(u); } catch (_) {} });
     issuedObjectURLs = [];
     const items = await queueAll();
+    // 🛡 他の記事に未転送の項目があれば知らせる（消えたのではなく、その記事を選ぶと表示される）
+    let othersCount = 0;
+    try { othersCount = (await queueAllRaw()).length - items.length; } catch (_) {}
     queueList.innerHTML = '';
     queueCount.textContent = items.length;
     pendingCount.textContent = items.length;
     uploadAllBtn.disabled = items.length === 0 || isUploading;
     clearQueueBtn.disabled = items.length === 0 || isUploading;
     queueEmpty.style.display = items.length === 0 ? 'block' : 'none';
+    if (items.length === 0) {
+      queueEmpty.textContent = othersCount > 0
+        ? 'この記事の一時保存はありません（他の記事に未転送が' + othersCount + '件あります。その記事を選ぶと表示されます）'
+        : '撮ったもの・選んだものがここに並びます';
+    }
     uploadAllCount.textContent = items.length > 0 ? `${items.length}件を送信` : '';
     for (const item of items) {
       const div = document.createElement('div');
@@ -3077,6 +3114,8 @@ ${COMMON_GUARDS}`,
       size: sheetBlob.size,
       originalName: 'compare_sheet_' + id + '.png',
       status: 'pending', editingWith: 'chatgpt',
+      ownerFolderId: getSelectedArticleFolderId() || '',
+      ownerTitle: getSelectedArticleFolderId() ? '' : (getSelectedArticleTitle() || ''),
     };
     await queuePut(record);
     pendingReplace = {
@@ -3224,6 +3263,8 @@ ${COMMON_GUARDS}`,
       size: sheetBlob.size,
       originalName: 'combine_sheet_' + id + '.png',
       status: 'pending', editingWith: 'chatgpt',
+      ownerFolderId: getSelectedArticleFolderId() || '',
+      ownerTitle: getSelectedArticleFolderId() ? '' : (getSelectedArticleTitle() || ''),
     };
     await queuePut(record);
     pendingReplace = {
@@ -3429,6 +3470,23 @@ ${COMMON_GUARDS}`,
         setStatus('📝 記事メモを保存中…');
         const pr = await savePromptToDrive(articleTitle, articleFolderId);
         if (pr.ok && pr.articleFolderId) {
+          // 🛡 タイトル運用（フォルダ未作成）だった項目に、確定したフォルダIDを刻印し直す。
+          //   IndexedDB側は queueUpdate（最新レコードの部分更新）で、メモリ上の items も
+          //   同時に更新する（後続の queuePut(it) が古い持ち主情報で上書きしないように）。
+          if (articleTitle && !articleFolderId) {
+            try {
+              for (const it of items) {
+                if (!it.ownerFolderId && it.ownerTitle === articleTitle) {
+                  it.ownerFolderId = pr.articleFolderId;
+                  it.ownerTitle = '';
+                  await queueUpdate(it.id, (rec) => {
+                    rec.ownerFolderId = pr.articleFolderId;
+                    rec.ownerTitle = '';
+                  });
+                }
+              }
+            } catch (_) {}
+          }
           articleFolderId = pr.articleFolderId;
           promptSaved = true;
         } else if (!pr.ok) {
@@ -3445,7 +3503,8 @@ ${COMMON_GUARDS}`,
       uploadAllBtn.disabled = false;
       setStatus(promptSaved ? '💾 メモのみ保存完了（画像なし）' : '何もすることがありません');
       showToast(promptSaved ? '💾 メモを保存しました（転送する画像なし）' : '転送する画像がありません', promptSaved ? 'success' : 'warn');
-      if (promptSaved) clearMemoState();
+      // 🛡 メモは記事ごとに分離保存されるため、保存後もクリアしない（この記事のメモとして残す）
+      if (promptSaved) await alignSelectionToFolder(articleFolderId);
       return;
     }
 
@@ -3470,6 +3529,7 @@ ${COMMON_GUARDS}`,
     }
 
     // 🔑 ユニーク役割（アイキャッチ/ヒーロー/NG集サマリ）の重複検出 → ユーザーに「上書き or コピー」を選ばせる
+    let existingIdSet = null; // 🛡 現在の記事フォルダに実在するfileIdの集合（上書き先の検証に使う）
     if (articleFolderId) {
       try {
         const url = GAS_URL + '?' + new URLSearchParams({
@@ -3478,6 +3538,7 @@ ${COMMON_GUARDS}`,
         const listRes = await fetch(url).then(r => r.json());
         if (listRes.ok && Array.isArray(listRes.files)) {
           const existingFiles = listRes.files;
+          existingIdSet = new Set(existingFiles.map(f => f.id));
           const conflicts = []; // {item, def, existing}
           for (const it of items) {
             if (it.replaceDriveFileId) continue; // すでに明示的に上書き対象が決まっている
@@ -3523,6 +3584,27 @@ ${COMMON_GUARDS}`,
       } catch (e) {
         console.warn('unique role conflict check failed:', e);
       }
+    }
+
+    // 🛡 誤上書き防止（最重要）：上書き対象(replaceDriveFileId)が「現在の記事フォルダに実在する
+    //   ファイル」と確認できない項目は、上書きせず新規画像としてこの記事へ保存する。
+    //   （前の記事で再編集した項目が残っていた場合に、前の記事のDriveファイルを破壊する事故を防ぐ。
+    //    上書きを止めて新規に倒す＝どちらの記事のデータも失わない）
+    let convertedReplace = 0;
+    for (const it of items) {
+      if (!it.replaceDriveFileId) continue;
+      // 現在の記事フォルダに実在する or 持ち主がこの記事と一致 → 正当な上書き
+      const verified = (existingIdSet && existingIdSet.has(it.replaceDriveFileId)) ||
+        (it.ownerFolderId && articleFolderId && it.ownerFolderId === articleFolderId);
+      if (!verified) {
+        console.warn('[guard] 上書き先が現在の記事に見つからないため新規保存へ転換:', it.replaceDriveFileId, it.originalName);
+        delete it.replaceDriveFileId;
+        await queuePut(it);
+        convertedReplace++;
+      }
+    }
+    if (convertedReplace > 0) {
+      showToast('⚠️ ' + convertedReplace + '件は上書き先がこの記事に見つからないため、新規画像として保存します（他の記事のファイルは変更しません）', 'warn');
     }
 
     let success = 0, skipped = 0, failed = 0;
@@ -3661,8 +3743,26 @@ ${COMMON_GUARDS}`,
       try { await loadExistingFiles(articleFolderId); } catch (_) {}
     }
 
-    // 成功時はメモをクリア（次の記事用）
-    if (failed === 0 && promptSaved) clearMemoState();
+    // 🛡 メモは記事ごとに分離保存されるため、転送成功後もクリアしない。
+    //   （旧実装の「成功時クリア」は単一スロット時代の混入防止策で、
+    //    クリア後の再保存でPROMPT.mdが空上書きされる事故の温床だった）
+    // 新規記事（タイトル運用）でフォルダが確定した場合は、選択とローカルデータをフォルダIDへ揃える
+    await alignSelectionToFolder(articleFolderId);
+  }
+
+  // 🛡 タイトル運用の新規記事でDriveフォルダが確定したら、記事セレクタ・メモ保存キー・
+  //   キュー項目の持ち主をフォルダIDベースへ移行する（以後の切替判定を一貫させる）
+  async function alignSelectionToFolder(folderId) {
+    if (!folderId || getSelectedArticleFolderId() === folderId) return;
+    try {
+      migrateMemoStoreTo('folder:' + folderId);
+      await loadArticleList();
+      articleSelect.value = folderId;
+      selectedNewArticle = null;
+      localStorage.setItem(LS_LAST_FOLDER_KEY, folderId);
+      updateCurrentArticleDisplay();
+      await renderQueue();
+    } catch (e) { console.warn('alignSelectionToFolder failed:', e); }
   }
 
   async function uploadSmall(item, articleTitle, articleFolderId) {
@@ -3673,6 +3773,8 @@ ${COMMON_GUARDS}`,
         token: TOKEN,
         action: 'replaceFile',
         fileId: item.replaceDriveFileId,
+        // 🛡 サーバー側でも「このフォルダ内のファイルしか上書きさせない」二重チェック用
+        articleFolderId: articleFolderId || '',
         mimeType: item.mimeType,
         fileDataBase64: base64,
       });
@@ -3797,6 +3899,12 @@ ${COMMON_GUARDS}`,
       articleSelect.value = res.articleFolderId;
       selectedNewArticle = null; // Drive上に存在する記事として扱う
       newArticleInput.value = '';
+      // 🛡 記事別分離：プログラム的な選択変更は change イベントが発火しないため、
+      // ここで明示的にメモ・キュー表示を新しい記事のコンテキストへ切替える。
+      // （旧実装はこの切替が無く、前の記事のメモが新記事へ無言で引き継がれていた）
+      switchMemoContext();
+      await renderQueue();
+      localStorage.setItem(LS_LAST_FOLDER_KEY, res.articleFolderId);
       // 既存メモ/ファイルがあれば取得（新規ならどちらも空のはず）
       await loadExistingPrompt(res.articleFolderId, { silent: true });
       await loadExistingFiles(res.articleFolderId);
@@ -3806,6 +3914,9 @@ ${COMMON_GUARDS}`,
       // GAS呼び出し失敗時は従来通り「メモリ内記事」として扱うフォールバック
       selectedNewArticle = title;
       articleSelect.value = '';
+      // 🛡 フォールバック時もコンテキスト（title:◯◯）を切替える
+      switchMemoContext();
+      await renderQueue();
       showToast('フォルダ作成失敗（転送時に再試行されます）: ' + (err.message || err), 'warn');
     } finally {
       useNewArticleBtn.disabled = false;
@@ -3817,23 +3928,13 @@ ${COMMON_GUARDS}`,
   articleSelect.addEventListener('change', async () => {
     selectedNewArticle = null;
     newArticleInput.value = '';
-    // 既存記事を選んだら PROMPT.md と既存ファイル一覧をDriveから復元
     const folderId = articleSelect.value;
+    // 🛡 記事別分離：メモとキュー表示をこの記事の分に入替える。
+    // 前の記事のメモ・画像は各自のキー/持ち主のまま残る（混入も消失もしない）。
+    switchMemoContext();
+    await renderQueue();
+    // 既存記事を選んだら PROMPT.md と既存ファイル一覧をDriveから復元
     if (folderId) {
-      // 🛡 クロス汚染防止：メモ欄に「別の記事の持ち物」のメモが残っている場合は確認してから処理。
-      // 黙って引き継ぐと、前の記事のメモがこの記事のPROMPT.mdへ恒久的に書き込まれてしまう。
-      if (memoFolderId && memoFolderId !== folderId && getValidMemos().length > 0) {
-        const keep = window.confirm(
-          '📝 メモ欄に「前に選んでいた記事」のメモが残っています。\n\n' +
-          '[OK] この記事でも使う（引き継ぐ）\n' +
-          '[キャンセル] クリアして、この記事の保存済みメモだけを読み込む'
-        );
-        if (!keep) {
-          memos = [];
-          renderMemos();
-        }
-        memoFolderId = folderId;
-      }
       localStorage.setItem(LS_LAST_FOLDER_KEY, folderId);
       await withServerLock('Driveから記事データを読み込み中…', async () => {
         await loadExistingPrompt(folderId);
@@ -4210,6 +4311,8 @@ ${COMMON_GUARDS}`,
           'success'
         );
         saved = true;
+        // 🛡 タイトル運用の新規記事でフォルダが確定したら、選択とメモ保存キーをフォルダIDへ揃える
+        if (res.articleFolderId) await alignSelectionToFolder(res.articleFolderId);
       }
     } catch (err) {
       console.error('memo save error:', err);
@@ -4562,29 +4665,115 @@ ${COMMON_GUARDS}`,
     updateMemoStatus();
   }
 
-  // 🛡 メモの持ち主（記事フォルダID）と未保存フラグ。
-  // 記事切替時に「前の記事のメモが新しい記事に混入してPROMPT.mdへ書き込まれる」事故を防ぐ。
-  let memoFolderId = '';
-  let memoDirty = false;
+  // 🛡 メモの記事別分離（2026-07-09）
+  // メモは「記事ごとの localStorage キー」（kiji-meshi:memo-state:folder:<ID> 等）に保存する。
+  // 単一キー時代は記事を切り替えても同じスロットを上書きし続け、
+  // 「前の記事のメモが新しい記事に混入する／新しい記事の内容で消える」事故の温床だった。
+  let memoFolderId = '';   // 現在のメモの持ち主（記事フォルダID。互換のため維持）
+  let memoDirty = false;   // Drive未保存の変更があるか
+  const LS_MEMO_STATE_PREFIX = 'kiji-meshi:memo-state:';
+  let memoStoreKey = '';   // 現在メモリ上のメモが属する保存キー
+  function computeMemoContext() {
+    const fid = getSelectedArticleFolderId();
+    if (fid) return 'folder:' + fid;
+    const t = getSelectedArticleTitle();
+    if (t) return 'title:' + t;
+    return 'unassigned'; // 記事未選択中の下書き（記事選択時に引き取る）
+  }
   function persistMemoState() {
     memoFolderId = getSelectedArticleFolderId() || memoFolderId || '';
+    memoStoreKey = LS_MEMO_STATE_PREFIX + computeMemoContext();
     const state = {
       articleType: articleTypeSelect.value || '',
       memos: memos,
       folderId: memoFolderId,
     };
-    localStorage.setItem(LS_MEMO_STATE_KEY, JSON.stringify(state));
+    localStorage.setItem(memoStoreKey, JSON.stringify(state));
     memoDirty = true;
     updateMemoStatus();
   }
-  function loadMemoState() {
+  // 現在選択中の記事のメモを読み込む（他記事のメモは絶対に載せない）
+  function loadMemoStateForCurrent() {
+    memoStoreKey = LS_MEMO_STATE_PREFIX + computeMemoContext();
+    memos = [];
+    memoFolderId = getSelectedArticleFolderId() || '';
+    articleTypeSelect.value = '';
+    memoDirty = false;
+    try {
+      const raw = localStorage.getItem(memoStoreKey);
+      if (raw) {
+        const state = JSON.parse(raw);
+        if (state && Array.isArray(state.memos)) memos = state.memos;
+        if (state && state.articleType) {
+          if (!articleTypes.includes(state.articleType)) {
+            articleTypes.push(state.articleType); saveArticleTypes(); renderArticleTypes();
+          }
+          articleTypeSelect.value = state.articleType;
+        }
+      }
+    } catch (_) {}
+    renderMemos();
+    updateMemoStatus();
+  }
+  // 記事未選択中に書いた下書きメモを、いま選んだ記事へ引き取る
+  function adoptUnassignedMemos() {
+    const key = LS_MEMO_STATE_PREFIX + 'unassigned';
+    if (memoStoreKey === key) return;
+    try {
+      const raw = localStorage.getItem(key);
+      if (!raw) return;
+      const st = JSON.parse(raw);
+      const drafts = (st && Array.isArray(st.memos) ? st.memos : [])
+        .map((m) => String(m || '').trim()).filter((m) => m.length > 0);
+      if (drafts.length === 0 && !(st && st.articleType)) { localStorage.removeItem(key); return; }
+      const fresh = drafts.filter((m) => !memos.includes(m));
+      if (fresh.length > 0) memos = [...memos, ...fresh];
+      if (!articleTypeSelect.value && st.articleType) {
+        if (!articleTypes.includes(st.articleType)) {
+          articleTypes.push(st.articleType); saveArticleTypes(); renderArticleTypes();
+        }
+        articleTypeSelect.value = st.articleType;
+      }
+      localStorage.removeItem(key);
+      persistMemoState();
+      renderMemos();
+      if (fresh.length > 0) showToast('📝 記事未選択中に書いたメモ' + fresh.length + '件をこの記事に引き取りました', 'success');
+    } catch (_) {}
+  }
+  // 記事切替・新規作成時のメモ入替（前の記事のメモは自分のキーに残る＝混入も消失もしない）
+  function switchMemoContext() {
+    const prevKey = memoStoreKey;
+    const prevCount = getValidMemos().length;
+    loadMemoStateForCurrent();
+    adoptUnassignedMemos();
+    if (prevCount > 0 && prevKey && prevKey !== memoStoreKey && prevKey !== LS_MEMO_STATE_PREFIX + 'unassigned') {
+      showToast('📝 メモは記事ごとに保存されています（前の記事のメモ' + prevCount + '件はその記事に残っています）', 'success');
+    }
+  }
+  // メモの保存キーを別コンテキストへ移す（新規記事のフォルダID確定時）
+  function migrateMemoStoreTo(ctx) {
+    const target = LS_MEMO_STATE_PREFIX + ctx;
+    if (memoStoreKey === target) return;
+    try { if (memoStoreKey) localStorage.removeItem(memoStoreKey); } catch (_) {}
+    memoStoreKey = target;
+    if (ctx.indexOf('folder:') === 0) memoFolderId = ctx.slice('folder:'.length);
+    const state = {
+      articleType: articleTypeSelect.value || '',
+      memos: memos,
+      folderId: memoFolderId,
+    };
+    try { localStorage.setItem(target, JSON.stringify(state)); } catch (_) {}
+  }
+  // 旧バージョンの単一キー（kiji-meshi:memo-state）からの引っ越し（初回起動時に1度だけ）
+  function migrateLegacyMemoState() {
     try {
       const raw = localStorage.getItem(LS_MEMO_STATE_KEY);
       if (!raw) return;
-      const state = JSON.parse(raw);
-      if (state && Array.isArray(state.memos)) memos = state.memos;
-      if (state && state.articleType) articleTypeSelect.value = state.articleType;
-      if (state && typeof state.folderId === 'string') memoFolderId = state.folderId;
+      const st = JSON.parse(raw);
+      const ctx = (st && st.folderId) ? ('folder:' + st.folderId) : 'unassigned';
+      const target = LS_MEMO_STATE_PREFIX + ctx;
+      if (!localStorage.getItem(target)) localStorage.setItem(target, raw);
+      localStorage.removeItem(LS_MEMO_STATE_KEY);
     } catch (_) {}
   }
   function clearMemoState() {
@@ -4592,7 +4781,7 @@ ${COMMON_GUARDS}`,
     articleTypeSelect.value = '';
     memoFolderId = '';
     memoDirty = false;
-    localStorage.removeItem(LS_MEMO_STATE_KEY);
+    try { localStorage.removeItem(memoStoreKey || (LS_MEMO_STATE_PREFIX + computeMemoContext())); } catch (_) {}
     renderMemos();
   }
   function getValidMemos() {
@@ -4742,8 +4931,11 @@ ${COMMON_GUARDS}`,
 
   uploadAllBtn.addEventListener('click', uploadAll);
   clearQueueBtn.addEventListener('click', async () => {
-    if (!confirm('一時保存を全て破棄しますか？')) return;
-    await queueClear();
+    // 🛡 破棄は「現在の記事の項目」だけ。他の記事の未転送は消さない
+    const items = await queueAll();
+    if (items.length === 0) return;
+    if (!confirm('この記事の一時保存' + items.length + '件を破棄しますか？\n（他の記事の一時保存は残ります）')) return;
+    for (const it of items) await queueDelete(it.id);
     await renderQueue();
   });
 
@@ -4762,31 +4954,42 @@ ${COMMON_GUARDS}`,
   // ─── 初期化 ─────────────────────
   (async () => {
     renderArticleTypes();
-    loadMemoState();
-    renderMemos();
+    // 🛡 旧バージョンの単一キーのメモを記事別キーへ引っ越し（初回のみ）
+    migrateLegacyMemoState();
     // 🛡 前回セッションの「編集中…」残骸をクリア。
     // 置換待機(pendingReplace)はメモリのみで再起動で消えるため、editingWithが残ると
     // バッジが固着し、ペーストが置換でなく新規追加になる（解除手段もない）。
+    // ※ ここは全記事横断で掃除する（queueAllRaw）
     try {
-      const startupItems = await queueAll();
+      const startupItems = await queueAllRaw();
       let cleared = 0;
       for (const it of startupItems) {
         if (it.editingWith) { delete it.editingWith; await queuePut(it); cleared++; }
       }
       if (cleared > 0) console.log(`[startup] 編集中フラグを${cleared}件クリア`);
     } catch (e) { console.warn('startup editingWith cleanup failed:', e); }
-    await renderQueue();
     await loadArticleList();
     // 前回選択していた記事を復元（リロード後もメモ・ファイル一覧が継続）
+    let restoredFolder = '';
     try {
       const lastFolder = localStorage.getItem(LS_LAST_FOLDER_KEY);
       if (lastFolder && Array.from(articleSelect.options).some(o => o.value === lastFolder)) {
         articleSelect.value = lastFolder;
-        await loadExistingPrompt(lastFolder, { silent: true });
-        await loadExistingFiles(lastFolder);
-        updateCurrentArticleDisplay();
+        restoredFolder = lastFolder;
       }
     } catch (e) { console.warn('restore last article failed:', e); }
+    // 🛡 記事の選択を確定してから、その記事のメモ・キューを読み込む
+    //   （旧実装は選択前に単一スロットのメモを無条件復元していたため、
+    //    前の記事のメモが起動直後から「引き継がれて見える」原因だった）
+    loadMemoStateForCurrent();
+    await renderQueue();
+    if (restoredFolder) {
+      try {
+        await loadExistingPrompt(restoredFolder, { silent: true });
+        await loadExistingFiles(restoredFolder);
+        updateCurrentArticleDisplay();
+      } catch (e) { console.warn('restore article data failed:', e); }
+    }
     // 初期はライブカメラ
     await startCamera();
     setStatus('準備完了');
