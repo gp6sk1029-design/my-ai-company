@@ -39,7 +39,87 @@ function doPost(e) {
   if (p.action === 'renameArticle') return handleRenameArticle_(p);
   if (p.action === 'createArticle') return handleCreateArticle_(p);
   if (p.action === 'renameFile') return handleRenameFile_(p);
+  if (p.action === 'transferFile') return handleTransferFile_(p);
   return jsonResponse_({ ok: false, message: 'unknown action: ' + p.action });
+}
+
+// ─── ファイルを別の記事フォルダへコピー/移動（2026-07-09） ─────────────────────
+// 安全ルール：
+// - 移動元・移動先とも「ブロブ関連」直下の記事フォルダであること（getArticleFolderByIdで検証）
+// - 対象ファイルが移動元フォルダ内にあることを確認してから実行（別記事の誤操作防止）
+// - ユニーク役割（1記事1枚：eyecatch/hero/comparetable/ngsummary）が移動先に既にある場合は
+//   プレフィックスを外して転送し、strippedRole で通知（移動先の既存を壊さない）
+function handleTransferFile_(p) {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    if (!p.fileId || !p.fromFolderId || !p.toFolderId) {
+      return jsonResponse_({ ok: false, message: 'fileId/fromFolderId/toFolderId required' });
+    }
+    if (p.fromFolderId === p.toFolderId) {
+      return jsonResponse_({ ok: false, message: '移動元と移動先が同じ記事です' });
+    }
+    const mode = p.mode === 'move' ? 'move' : 'copy';
+    const fromFolder = getArticleFolderById(p.fromFolderId);
+    const toFolder = getArticleFolderById(p.toFolderId);
+    const file = DriveApp.getFileById(p.fileId);
+    let inFrom = false;
+    const parents = file.getParents();
+    while (parents.hasNext()) {
+      if (parents.next().getId() === fromFolder.getId()) { inFrom = true; break; }
+    }
+    if (!inFrom) return jsonResponse_({ ok: false, message: '対象ファイルが移動元の記事フォルダにありません' });
+
+    let name = file.getName();
+    let strippedRole = '';
+    const um = /^(eyecatch_|hero_|comparetable_|ngsummary_)/i.exec(name);
+    if (um) {
+      const re = new RegExp('^' + um[1], 'i');
+      const it = toFolder.getFiles();
+      while (it.hasNext()) {
+        if (re.test(it.next().getName())) { strippedRole = um[1]; name = name.replace(re, ''); break; }
+      }
+    }
+    const finalName = resolveFilenameConflict(toFolder, name);
+
+    let newFile;
+    if (mode === 'move') {
+      if (finalName !== file.getName()) file.setName(finalName);
+      file.moveTo(toFolder);
+      newFile = file;
+      // ハッシュ台帳の紐づけも移動先へ更新（重複判定が記事単位のため）
+      try { updateHashRecordFolder(file.getId(), toFolder.getId()); } catch (e) {
+        Logger.log('updateHashRecordFolder failed: ' + e.message);
+      }
+    } else {
+      newFile = file.makeCopy(finalName, toFolder);
+      // コピー先でも重複判定が効くよう台帳に登録
+      try { addHashRecord(computeHash(newFile.getBlob()), newFile.getId(), finalName, toFolder.getId()); } catch (e) {
+        Logger.log('addHashRecord(copy) failed: ' + e.message);
+      }
+    }
+    appendLog({
+      articleTitle: toFolder.getName(),
+      fileName: finalName,
+      sizeBytes: 0,
+      result: mode === 'move' ? '別記事へ移動' : '別記事へコピー',
+      note: 'from=' + fromFolder.getName() + (strippedRole ? ' 役割解除=' + strippedRole : ''),
+    });
+    return jsonResponse_({
+      ok: true,
+      result: mode === 'move' ? 'moved' : 'copied',
+      fileId: newFile.getId(),
+      fileName: finalName,
+      toFolderId: toFolder.getId(),
+      toFolderName: toFolder.getName(),
+      strippedRole: strippedRole,
+    });
+  } catch (err) {
+    Logger.log('handleTransferFile_ error: ' + err.message + '\n' + err.stack);
+    return jsonResponse_({ ok: false, message: err.message });
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 // ─── ファイル名変更（画像の役割変更用） ─────────────────────

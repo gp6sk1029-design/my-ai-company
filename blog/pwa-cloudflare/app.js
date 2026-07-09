@@ -337,6 +337,10 @@
         '<button class="ai-edit-btn" type="button" title="ChatGPTで編集" data-action="ai-gpt">🤖</button>' +
         '<button class="ai-edit-btn ai-edit-gemini" type="button" title="Geminiで編集" data-action="ai-gem">🍌</button>' +
         '<button class="ai-edit-btn ai-edit-canva" type="button" title="Canvaで仕上げ" data-action="ai-canva">🎨</button>';
+      // 📦 別の記事へコピー/移動（動画・PDFでも使えるので常に表示）
+      const transferBtnHtml =
+        '<button class="ai-edit-btn" type="button" title="別の記事へコピー/移動" data-action="transfer" ' +
+        'style="bottom:6px;left:' + ((isVideo || isPdf) ? 6 : 108) + 'px;background:linear-gradient(135deg,#64748b,#475569);">📦</button>';
       const curRoleKey = (item.role || (item.isEyecatch ? 'eyecatch' : 'none'));
       const roleDef = getRoleDef(curRoleKey);
       const roleBtnHtml = (isVideo || isPdf) ? '' :
@@ -364,7 +368,7 @@
         : '';
       div.insertAdjacentHTML('beforeend',
         '<span class="type-badge">' + (isVideo ? 'VID' : isPdf ? 'PDF' : 'IMG') + '</span>' +
-        editBtnHtml + roleBtnHtml +
+        editBtnHtml + transferBtnHtml + roleBtnHtml +
         '<button class="delete-btn" type="button">✕</button>' +
         (item.status === 'uploading' ? '<div class="status-overlay">転送中…</div>' : '') +
         editingBadge + replaceBadge + roleBadge + compareSelHtml
@@ -390,6 +394,12 @@
       if (roleBtn) roleBtn.addEventListener('click', async (e) => {
         e.stopPropagation();
         await openRolePickerForItem(item.id);
+      });
+      const transferBtn = div.querySelector('[data-action="transfer"]');
+      if (transferBtn) transferBtn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        if (isUploading) return;
+        await transferQueueItem(item.id);
       });
       const cmpSel = div.querySelector('.compare-idx-sel');
       if (cmpSel) {
@@ -882,6 +892,186 @@
       });
       if (typeof opts.onRender === 'function') opts.onRender(root, close);
     });
+  }
+
+  // ─── 📦 別の記事へコピー/移動（2026-07-09） ─────────────────────
+  // 一時保存の画像・Drive上の既存画像・メモを、他の記事へ安全に受け渡す共通機能。
+  // 「間違えて別の記事に入れてしまった」「同じ素材を次の記事でも使いたい」を正規の操作で解決する
+  // （記事別データ分離により勝手に混ざることは無くなったため、意図的な受け渡しはこの機能で行う）。
+  async function pickTransferTarget(title, subjectHTML) {
+    const currentId = getSelectedArticleFolderId();
+    const options = (articleList || []).filter((a) => a.id && a.id !== currentId);
+    if (options.length === 0) {
+      showToast('送り先にできる別の記事がありません（先に記事フォルダを作成してください）', 'warn');
+      return null;
+    }
+    const body =
+      '<div style="margin-bottom:8px;font-size:13px;color:#555;">' + subjectHTML + '</div>' +
+      '<label style="display:block;font-size:12px;margin-bottom:4px;">送り先の記事</label>' +
+      '<select id="tf-target" style="width:100%;padding:8px;font-size:15px;border-radius:8px;border:1px solid #ccc;">' +
+        options.map((a) => '<option value="' + a.id + '">' + escHtml(a.name) + '</option>').join('') +
+      '</select>' +
+      '<div style="margin-top:12px;display:flex;flex-direction:column;gap:6px;font-size:14px;">' +
+        '<label><input type="radio" name="tf-mode" value="copy" checked> 📄 コピー（この記事にも残す）</label>' +
+        '<label><input type="radio" name="tf-mode" value="move"> 📦 移動（この記事からは消す）</label>' +
+      '</div>';
+    const res = await openModal({
+      title: title,
+      bodyHTML: body,
+      buttons: [
+        { label: 'キャンセル', value: null },
+        {
+          label: '実行', primary: true,
+          onClick: (root) => {
+            const sel = root.querySelector('#tf-target');
+            if (!sel || !sel.value) return false;
+            const mode = (root.querySelector('input[name="tf-mode"]:checked') || {}).value || 'copy';
+            return { targetId: sel.value, targetName: sel.options[sel.selectedIndex].textContent, mode: mode };
+          },
+        },
+      ],
+    });
+    return (res && res.targetId) ? res : null;
+  }
+
+  // 一時保存（キュー）の画像を別の記事へ
+  async function transferQueueItem(itemId) {
+    const all = await queueAllRaw();
+    const item = all.find((x) => x.id === itemId);
+    if (!item) { showToast('対象の画像が見つかりません', 'error'); return; }
+    const pick = await pickTransferTarget('📦 この画像を別の記事へ',
+      '一時保存の「' + escHtml(item.originalName || '画像') + '」を選んだ記事に渡します（転送前のローカル画像です）');
+    if (!pick) return;
+    if (pick.mode === 'move') {
+      await queueUpdate(item.id, (rec) => {
+        rec.ownerFolderId = pick.targetId;
+        rec.ownerTitle = '';
+        // 🛡 上書き先・編集中フラグは元の記事の文脈なので必ず切り離す（別記事のファイル破壊防止）
+        delete rec.replaceDriveFileId;
+        delete rec.editingWith;
+      });
+      showToast('📦 「' + pick.targetName + '」へ移動しました（その記事を選ぶと表示されます）', 'success');
+    } else {
+      const copy = Object.assign({}, item);
+      copy.id = Date.now() + '_' + (++itemCounter);
+      copy.createdAt = Date.now();
+      copy.ownerFolderId = pick.targetId;
+      copy.ownerTitle = '';
+      delete copy.replaceDriveFileId;
+      delete copy.editingWith;
+      await queuePut(copy);
+      showToast('📄 「' + pick.targetName + '」へコピーしました（その記事を選ぶと表示されます）', 'success');
+    }
+    await renderQueue();
+  }
+
+  // Drive上の既存画像を別の記事へ（GAS transferFile）
+  async function transferExistingFile(f, folderId) {
+    if (serverBusy) { showToast('いまサーバ通信中です。終わるまでお待ちください', 'warn'); return; }
+    const pick = await pickTransferTarget('📦 この画像を別の記事へ',
+      'Drive上の「' + escHtml(f.name) + '」を選んだ記事のフォルダに渡します');
+    if (!pick) return;
+    let res;
+    try {
+      res = await withServerLock('別の記事へ' + (pick.mode === 'move' ? '移動' : 'コピー') + '中…', async () => {
+        const body = new URLSearchParams({
+          token: TOKEN, action: 'transferFile',
+          fileId: f.id, fromFolderId: folderId, toFolderId: pick.targetId, mode: pick.mode,
+        });
+        const r = await fetch(GAS_URL, {
+          method: 'POST', body: body.toString(),
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
+        }).then((x) => x.json());
+        if (r && r.ok && pick.mode === 'move') {
+          // 元記事のPROMPT.mdからこの画像の役割行を除去し、一覧を更新
+          try {
+            updateRoleLineForFile(f, f.name, '');
+            await savePromptToDrive(getSelectedArticleTitle(), folderId);
+          } catch (e) { console.warn('role line cleanup on move failed:', e); }
+          await loadExistingFiles(folderId);
+        }
+        return r;
+      });
+    } catch (e) {
+      showToast('転送失敗: ' + (e.message || e), 'error');
+      return;
+    }
+    if (res === undefined) return; // serverBusyで弾かれた
+    if (res && res.ok) {
+      showToast(
+        (pick.mode === 'move' ? '📦 移動しました' : '📄 コピーしました') + '：「' + pick.targetName + '」' +
+        (res.strippedRole ? '（送り先に同じ役割の画像があるため、役割は外して渡しました）' : ''),
+        'success'
+      );
+    } else {
+      showToast('転送失敗: ' + ((res && res.message) || '不明なエラー'), 'error');
+    }
+  }
+
+  // メモ1件を別の記事へ（送り先のPROMPT.mdへマージ保存）
+  async function transferMemo(index) {
+    const memoText = memos[index];
+    if (!(memoText || '').trim()) { showToast('空のメモは送れません', 'warn'); return; }
+    const pick = await pickTransferTarget('📦 このメモを別の記事へ',
+      'メモ「' + escHtml(memoBaseText(memoText).slice(0, 40)) + (memoBaseText(memoText).length > 40 ? '…' : '') + '」を選んだ記事のメモに追記します');
+    if (!pick) return;
+    let result;
+    try {
+      result = await withServerLock('メモを別の記事へ' + (pick.mode === 'move' ? '移動' : 'コピー') + '中…', async () => {
+        // 送り先の既存メモを取得 → 末尾に追記 → マージ保存（送り先の記事タイプ・既存メモは保持）
+        const gp = await fetch(GAS_URL + '?' + new URLSearchParams({
+          token: TOKEN, action: 'getPrompt', articleFolderId: pick.targetId,
+        }).toString()).then((r) => r.json());
+        if (!gp || !gp.ok) throw new Error((gp && gp.message) || '送り先メモの取得に失敗');
+        const targetMemos = (gp.exists && Array.isArray(gp.memos)) ? gp.memos.slice() : [];
+        if (targetMemos.includes(memoText)) return 'dup';
+        targetMemos.push(memoText);
+        const body = new URLSearchParams({
+          token: TOKEN, action: 'savePrompt',
+          articleTitle: '', articleFolderId: pick.targetId,
+          articleType: (gp.exists && gp.articleType) ? gp.articleType : '',
+          memosJson: JSON.stringify(targetMemos),
+        });
+        const sv = await fetch(GAS_URL, {
+          method: 'POST', body: body.toString(),
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
+        }).then((r) => r.json());
+        if (!sv || !sv.ok) throw new Error((sv && sv.message) || '送り先への保存に失敗');
+        // 送り先のローカル下書きにも即時反映（次回そのままDriveと一致する）
+        try {
+          const key = LS_MEMO_STATE_PREFIX + 'folder:' + pick.targetId;
+          const raw = localStorage.getItem(key);
+          if (raw) {
+            const st = JSON.parse(raw);
+            if (st && Array.isArray(st.memos) && !st.memos.includes(memoText)) {
+              st.memos.push(memoText);
+              localStorage.setItem(key, JSON.stringify(st));
+            }
+          }
+        } catch (_) {}
+        return 'ok';
+      });
+    } catch (e) {
+      showToast('メモの転送失敗: ' + (e.message || e), 'error');
+      return;
+    }
+    if (result === undefined) return; // serverBusyで弾かれた
+    if (result === 'dup' && pick.mode !== 'move') {
+      showToast('送り先に同じメモが既にあります（コピー不要でした）', 'warn');
+      return;
+    }
+    if (pick.mode === 'move') {
+      memos.splice(index, 1);
+      persistMemoState();
+      renderMemos();
+      // 元記事のDrive PROMPT.mdからも消す（保存済みだった場合）
+      if (getSelectedArticleFolderId()) {
+        try { await savePromptToDrive(getSelectedArticleTitle(), getSelectedArticleFolderId()); } catch (_) {}
+      }
+      showToast('📦 メモを「' + pick.targetName + '」へ移動しました', 'success');
+    } else {
+      showToast('📄 メモを「' + pick.targetName + '」へコピーしました', 'success');
+    }
   }
 
   // ─── サーバ（Google Drive）通信中の操作ロック ─────────────
@@ -4149,10 +4339,12 @@ ${COMMON_GUARDS}`,
             '<button class="ai-edit-btn" data-action="ef-gpt" title="ChatGPTで再編集">🤖</button>' +
             '<button class="ai-edit-btn ai-edit-gemini" data-action="ef-gem" title="Geminiで再編集">🍌</button>' +
             '<button class="ai-edit-btn ai-edit-canva" data-action="ef-canva" title="Canvaで仕上げ">🎨</button>' +
+            '<button class="ai-edit-btn" data-action="ef-transfer" title="別の記事へコピー/移動" style="background:linear-gradient(135deg,#64748b,#475569);color:#fff;">📦</button>' +
           '</div>';
         card.querySelector('[data-action="ef-gpt"]').onclick = () => editExistingFile(f, 'chatgpt');
         card.querySelector('[data-action="ef-gem"]').onclick = () => editExistingFile(f, 'gemini');
         card.querySelector('[data-action="ef-canva"]').onclick = () => editExistingFile(f, 'canva');
+        card.querySelector('[data-action="ef-transfer"]').onclick = () => transferExistingFile(f, folderId);
         const healBtn = card.querySelector('.ef-heal-btn');
         if (healBtn) healBtn.onclick = async () => {
           if (serverBusy) { showToast('いまサーバ通信中です。終わるまでお待ちください', 'warn'); return; }
@@ -4626,6 +4818,7 @@ ${COMMON_GUARDS}`,
         '<div class="memo-item-actions">' +
           '<button class="memo-item-btn up" type="button" aria-label="上へ"' + (i === 0 ? ' disabled' : '') + '>↑</button>' +
           '<button class="memo-item-btn down" type="button" aria-label="下へ"' + (i === memos.length - 1 ? ' disabled' : '') + '>↓</button>' +
+          '<button class="memo-item-btn transfer" type="button" aria-label="別の記事へコピー/移動" title="別の記事へコピー/移動">📦</button>' +
           '<button class="memo-item-btn delete" type="button" aria-label="削除">✕</button>' +
         '</div>';
       const ta = row.querySelector('textarea');
@@ -4659,6 +4852,9 @@ ${COMMON_GUARDS}`,
         memos.splice(i, 1);
         persistMemoState();
         renderMemos();
+      });
+      row.querySelector('.transfer').addEventListener('click', async () => {
+        await transferMemo(i);
       });
       memoList.appendChild(row);
     });

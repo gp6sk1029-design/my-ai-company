@@ -65,6 +65,22 @@ function addHashRecord(hash, fileId, fileName, articleFolderId) {
   sheet.appendRow([hash, fileId, fileName, articleFolderId, new Date()]);
 }
 
+/**
+ * ハッシュ台帳の記事フォルダ紐づけを更新（ファイルを別記事へ移動した時に使う）
+ * 台帳が古いままだと、移動先での重複判定が効かず・移動元で誤スキップが起きる。
+ */
+function updateHashRecordFolder(fileId, newFolderId) {
+  const sheet = getHashSheet_();
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return;
+  const values = sheet.getRange(2, 2, lastRow - 1, 1).getValues(); // fileId列
+  for (let i = 0; i < values.length; i++) {
+    if (values[i][0] === fileId) {
+      sheet.getRange(i + 2, 4).setValue(newFolderId); // articleFolderId列
+    }
+  }
+}
+
 function getHashSheet_() {
   const ss = SpreadsheetApp.openById(CONFIG.LOG_SPREADSHEET_ID);
   let sheet = ss.getSheetByName(CONFIG.HASH_SHEET_NAME);
