@@ -1206,6 +1206,7 @@
         for (let i = 0; i < files.length; i++) {
           const f = files[i];
           setStatus('📦 一括転送中 ' + (i + 1) + '/' + files.length + '：' + f.name);
+          updateLockProgress({ done: i, total: files.length, unit: '枚' });
           try {
             const body = new URLSearchParams({
               token: TOKEN, action: 'transferFile',
@@ -1227,6 +1228,7 @@
             failCount++;
             console.warn('bulk transfer error:', f.name, e);
           }
+          updateLockProgress({ done: i + 1, total: files.length, unit: '枚' });
         }
         // 移動分は元記事のPROMPT.md役割行をまとめて掃除（保存は1回）
         if (movedFiles.length > 0) {
@@ -1348,6 +1350,7 @@
         for (let i = 0; i < files.length; i++) {
           const f = files[i];
           setStatus('🗑 削除中 ' + (i + 1) + '/' + files.length + '：' + f.name);
+          updateLockProgress({ done: i, total: files.length, unit: '枚' });
           try {
             const body = new URLSearchParams({
               token: TOKEN, action: 'deleteFile',
@@ -1363,6 +1366,7 @@
             failCount++;
             console.warn('bulk delete error:', f.name, e);
           }
+          updateLockProgress({ done: i + 1, total: files.length, unit: '枚' });
         }
         // 削除した画像のPROMPT.md役割行をまとめて掃除（保存は1回）
         if (deletedFiles.length > 0) {
@@ -1432,6 +1436,10 @@
       '<div class="slo-box">' +
         '<div class="slo-spin"></div>' +
         '<div class="slo-msg">' + escHtml(msg || '処理中…') + '</div>' +
+        '<div class="slo-progress" id="slo-progress" hidden>' +
+          '<div class="slo-bar"><div class="slo-bar-fill" id="slo-bar-fill"></div></div>' +
+          '<div class="slo-stats"><span id="slo-stat-main"></span><span id="slo-stat-sub"></span></div>' +
+        '</div>' +
         '<div class="slo-sub">📡 サーバ通信中は操作できません（終わるまでお待ちください）</div>' +
       '</div>';
     ov.style.display = 'flex';
@@ -1440,6 +1448,52 @@
     serverBusy = false;
     const ov = document.getElementById('server-lock-overlay');
     if (ov) ov.style.display = 'none';
+  }
+  // ─── 転送進捗の表示（ロックオーバーレイ内・2026-07-12）───
+  // 件数ベース（削除・記事間転送）とバイトベース（Drive転送＝%・速度・残り時間）の両対応。
+  function fmtSpeed_(bps) {
+    if (!isFinite(bps) || bps <= 0) return '';
+    return bps >= 1048576 ? (bps / 1048576).toFixed(1) + ' MB/s' : Math.max(1, Math.round(bps / 1024)) + ' KB/s';
+  }
+  function fmtEta_(sec) {
+    if (!isFinite(sec) || sec < 1) return '';
+    if (sec >= 60) {
+      const m = Math.floor(sec / 60);
+      const s = Math.round(sec % 60);
+      return m + '分' + (s > 0 ? s + '秒' : '');
+    }
+    return Math.round(sec) + '秒';
+  }
+  // p = { done, total, unit='枚', bytesDone, bytesTotal, startTs }
+  function updateLockProgress(p) {
+    const box = document.getElementById('slo-progress');
+    if (!box) return;
+    box.hidden = false;
+    const byBytes = p.bytesTotal > 0 && typeof p.bytesDone === 'number';
+    const ratio = byBytes
+      ? (p.bytesDone / p.bytesTotal)
+      : (p.total > 0 ? p.done / p.total : 0);
+    const pct = Math.max(0, Math.min(100, Math.round(ratio * 100)));
+    const fill = document.getElementById('slo-bar-fill');
+    if (fill) fill.style.width = pct + '%';
+    const unit = p.unit || '件';
+    const remain = Math.max(0, (p.total || 0) - (p.done || 0));
+    const main = document.getElementById('slo-stat-main');
+    if (main) main.textContent = pct + '%（' + (p.done || 0) + '/' + (p.total || 0) + unit + '・残り' + remain + unit + '）';
+    const sub = document.getElementById('slo-stat-sub');
+    if (sub) {
+      let t = '';
+      if (byBytes && p.startTs) {
+        const sec = (Date.now() - p.startTs) / 1000;
+        if (sec > 0.5 && p.bytesDone > 0) {
+          const bps = p.bytesDone / sec;
+          const speed = fmtSpeed_(bps);
+          const eta = fmtEta_((p.bytesTotal - p.bytesDone) / bps);
+          t = speed + (eta ? ' ・ あと約' + eta : '');
+        }
+      }
+      sub.textContent = t;
+    }
   }
   // 通信処理を必ずロック付きで実行する。多重起動は弾く。
   async function withServerLock(msg, fn) {
@@ -4141,6 +4195,14 @@ ${COMMON_GUARDS}`,
 
     let success = 0, skipped = 0, failed = 0;
     let didReplace = false; // 既存ファイルの上書きが起きたか（後で一覧を再読込するため）
+    // 📊 転送進捗（%・残り枚数・速度をオーバーレイに表示）
+    const xfer = {
+      done: 0, total: items.length, unit: '枚',
+      bytesDone: 0,
+      bytesTotal: items.reduce((a, it) => a + (it.size || 0), 0),
+      startTs: Date.now(),
+    };
+    updateLockProgress(xfer);
     // 役割→[ファイル名+fileId] の記録（PROMPT.mdに反映するため）
     const roleUploadMap = {};
     for (const item of items) {
@@ -4149,9 +4211,14 @@ ${COMMON_GUARDS}`,
         // 🛡 上書き(replaceFile)は uploadSmall 経由で行う。大容量経路(uploadLarge)は
         //   replaceDriveFileId を扱えず新規ファイルを作ってしまう＝「更新されない」原因になるため。
         if (item.replaceDriveFileId) didReplace = true;
-        const result = (item.size > SMALL_FILE_LIMIT && !item.replaceDriveFileId)
-          ? await uploadLarge(item, articleTitle, articleFolderId)
+        const isLarge = item.size > SMALL_FILE_LIMIT && !item.replaceDriveFileId;
+        const result = isLarge
+          ? await uploadLarge(item, articleTitle, articleFolderId, (n) => {
+              xfer.bytesDone += n; // 大容量はチャンクごとに加算（進捗がなめらかに動く）
+              updateLockProgress(xfer);
+            })
           : await uploadSmall(item, articleTitle, articleFolderId);
+        if (!isLarge) xfer.bytesDone += item.size || 0;
         if (result.ok && result.result === 'success') {
           success++;
           // 上書き保存した画像は、手元のblobを新fileIdに紐づけて一覧サムネに使う（Driveサムネ遅延回避）
@@ -4173,6 +4240,10 @@ ${COMMON_GUARDS}`,
       } catch (e) {
         failed++;
         console.error('upload error:', e);
+      } finally {
+        // 📊 成功・スキップ・失敗いずれでも「処理済み」として進捗を進める
+        xfer.done++;
+        updateLockProgress(xfer);
       }
     }
 
@@ -4341,7 +4412,7 @@ ${COMMON_GUARDS}`,
     return res.json();
   }
 
-  async function uploadLarge(item, articleTitle, articleFolderId) {
+  async function uploadLarge(item, articleTitle, articleFolderId, onChunk) {
     const qs = new URLSearchParams({
       token: TOKEN,
       action: 'resumableUrl',
@@ -4363,8 +4434,12 @@ ${COMMON_GUARDS}`,
       const headers = { 'Content-Range': 'bytes ' + offset + '-' + (end - 1) + '/' + total };
       const resp = await fetch(uploadUrl, { method: 'PUT', headers, body: chunk });
       if (resp.status === 308) offset = end;
-      else if (resp.status === 200 || resp.status === 201) return { ok: true, result: 'success' };
+      else if (resp.status === 200 || resp.status === 201) {
+        if (onChunk) onChunk(end - offset > 0 ? end - offset : chunk.size); // 最終チャンク分を進捗に加算
+        return { ok: true, result: 'success' };
+      }
       else throw new Error('Resumable PUT 失敗: ' + resp.status);
+      if (onChunk) onChunk(chunk.size); // チャンク完了分を進捗に加算
       setStatus('転送中（大容量）: ' + Math.round((offset / total) * 100) + '%');
     }
     return { ok: true, result: 'success' };

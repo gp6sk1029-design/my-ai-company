@@ -2132,3 +2132,18 @@ body.is-dropping .drop-overlay { display: flex; }
 /* 🗑 一括削除ボタン（危険操作の見た目） */
 .bulk-danger { color: #dc2626; border-color: #fca5a5; }
 .bulk-danger:not(:disabled):active { background: #fee2e2; }
+
+/* 📊 転送進捗（ロックオーバーレイ内・2026-07-12） */
+.server-lock-overlay .slo-progress { margin-top: 12px; width: min(300px, 72vw); margin-left: auto; margin-right: auto; }
+.server-lock-overlay .slo-bar {
+  height: 10px; background: rgba(255,255,255,0.22); border-radius: 999px; overflow: hidden;
+}
+.server-lock-overlay .slo-bar-fill {
+  height: 100%; width: 0%;
+  background: linear-gradient(90deg, #22d3ee, #4f46e5);
+  border-radius: 999px; transition: width 0.25s ease;
+}
+.server-lock-overlay .slo-stats {
+  margin-top: 8px; display: flex; justify-content: space-between; gap: 10px;
+  font-size: 12.5px; font-weight: 700; color: #e0e7ff; white-space: nowrap;
+}
