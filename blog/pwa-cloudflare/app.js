@@ -422,6 +422,8 @@
     }
     // キュー内容が変わるたびに、編集バナーの比較ギャラリーも更新する（都度更新）
     refreshCompareGallery();
+    // ☑ まとめて選択モード中はチェックボックスを重ねる
+    applyQueueBulkOverlays();
   }
   // 編集バナーの比較ギャラリーを今のキュー状態で再描画（表示中のときだけ）
   function refreshCompareGallery() {
@@ -1073,6 +1075,258 @@
       showToast('📄 メモを「' + pick.targetName + '」へコピーしました', 'success');
     }
   }
+
+  // ─── ☑ まとめて選択 → 📦 一括転送（2026-07-11） ─────────────────────
+  // 一時保存(queue)・既存ファイル(ef)・メモ(memo)それぞれに選択モードを持ち、
+  // チェックした項目をまとめて別の記事へコピー/移動する。
+  const bulkSel = {
+    queue: { on: false, ids: new Set() },
+    ef: { on: false, ids: new Set() },
+    memo: { on: false, ids: new Set() }, // メモは配列indexを文字列で保持
+  };
+  const BULK_UI = {
+    queue: { toggle: 'queue-select-toggle', bar: 'queue-bulk-bar', count: 'queue-bulk-count', exec: 'queue-bulk-transfer', cancel: 'queue-bulk-cancel' },
+    ef: { toggle: 'ef-select-toggle', bar: 'ef-bulk-bar', count: 'ef-bulk-count', exec: 'ef-bulk-transfer', cancel: 'ef-bulk-cancel' },
+    memo: { toggle: 'memo-select-toggle', bar: 'memo-bulk-bar', count: 'memo-bulk-count', exec: 'memo-bulk-transfer', cancel: 'memo-bulk-cancel' },
+  };
+  function updateBulkCount(kind) {
+    const ui = BULK_UI[kind];
+    const el = document.getElementById(ui.count);
+    if (el) el.textContent = bulkSel[kind].ids.size + '件選択中';
+    const b = document.getElementById(ui.exec);
+    if (b) b.disabled = bulkSel[kind].ids.size === 0;
+  }
+  function setBulkMode(kind, on) {
+    const s = bulkSel[kind];
+    s.on = on;
+    s.ids.clear();
+    const ui = BULK_UI[kind];
+    const t = document.getElementById(ui.toggle);
+    if (t) { t.textContent = on ? '☑ 選択をやめる' : '☑ まとめて選択'; t.classList.toggle('active', on); }
+    const bar = document.getElementById(ui.bar);
+    if (bar) bar.hidden = !on;
+    updateBulkCount(kind);
+    if (kind === 'queue') applyQueueBulkOverlays();
+    if (kind === 'ef') applyEfBulkOverlays();
+    if (kind === 'memo') renderMemos();
+  }
+  function exitAllBulkModes() {
+    ['queue', 'ef', 'memo'].forEach((k) => { if (bulkSel[k].on) setBulkMode(k, false); });
+  }
+  // カードにチェックボックスを重ねる（選択モードOFFなら外す）。再描画のたびに呼ぶ。
+  function applyBulkOverlaysTo(cards, kind, getId) {
+    cards.forEach((card) => {
+      const id = getId(card);
+      let box = card.querySelector('.bulk-check');
+      if (!bulkSel[kind].on) {
+        if (box) box.remove();
+        card.classList.remove('bulk-selected');
+        return;
+      }
+      if (!box) {
+        box = document.createElement('label');
+        box.className = 'bulk-check';
+        box.innerHTML = '<input type="checkbox" aria-label="選択">';
+        box.addEventListener('click', (e) => e.stopPropagation());
+        const input = box.querySelector('input');
+        input.addEventListener('change', () => {
+          if (input.checked) bulkSel[kind].ids.add(id); else bulkSel[kind].ids.delete(id);
+          card.classList.toggle('bulk-selected', input.checked);
+          updateBulkCount(kind);
+        });
+        card.appendChild(box);
+      }
+      const input = box.querySelector('input');
+      input.checked = bulkSel[kind].ids.has(id);
+      card.classList.toggle('bulk-selected', input.checked);
+    });
+  }
+  function applyQueueBulkOverlays() {
+    applyBulkOverlaysTo(Array.from(document.querySelectorAll('#queue-list .queue-item')), 'queue', (c) => c.dataset.id);
+  }
+  function applyEfBulkOverlays() {
+    applyBulkOverlaysTo(Array.from(document.querySelectorAll('#ef-grid .ef-card')), 'ef', (c) => c.dataset.fid);
+  }
+
+  // 一時保存の一括転送（ローカル完結・高速）
+  async function bulkTransferQueue() {
+    if (isUploading) { showToast('転送中はまとめて操作できません', 'warn'); return; }
+    const ids = Array.from(bulkSel.queue.ids);
+    if (ids.length === 0) return;
+    const pick = await pickTransferTarget('📦 選択した画像を別の記事へ',
+      '一時保存の画像 <b>' + ids.length + '件</b> をまとめて渡します（転送前のローカル画像）');
+    if (!pick) return;
+    const all = await queueAllRaw();
+    let done = 0;
+    for (const id of ids) {
+      const item = all.find((x) => x.id === id);
+      if (!item) continue;
+      if (pick.mode === 'move') {
+        await queueUpdate(id, (rec) => {
+          rec.ownerFolderId = pick.targetId;
+          rec.ownerTitle = '';
+          delete rec.replaceDriveFileId;
+          delete rec.editingWith;
+        });
+      } else {
+        const copy = Object.assign({}, item);
+        copy.id = Date.now() + '_' + (++itemCounter);
+        copy.createdAt = Date.now();
+        copy.ownerFolderId = pick.targetId;
+        copy.ownerTitle = '';
+        delete copy.replaceDriveFileId;
+        delete copy.editingWith;
+        await queuePut(copy);
+      }
+      done++;
+    }
+    setBulkMode('queue', false);
+    await renderQueue();
+    showToast((pick.mode === 'move' ? '📦 移動' : '📄 コピー') + '：' + done + '件を「' + pick.targetName + '」へ渡しました', 'success');
+  }
+
+  // 既存ファイル（Drive）の一括転送（GAS transferFileを順次実行・進捗表示）
+  async function bulkTransferExisting() {
+    const folderId = getSelectedArticleFolderId();
+    if (!folderId) return;
+    if (serverBusy) { showToast('いまサーバ通信中です。終わるまでお待ちください', 'warn'); return; }
+    const files = Array.from(bulkSel.ef.ids)
+      .map((id) => (lastExistingFiles || []).find((f) => f.id === id))
+      .filter(Boolean);
+    if (files.length === 0) return;
+    const pick = await pickTransferTarget('📦 選択した画像を別の記事へ',
+      'Drive上の画像 <b>' + files.length + '件</b> をまとめて渡します');
+    if (!pick) return;
+    let okCount = 0, failCount = 0, strippedCount = 0;
+    const movedFiles = [];
+    try {
+      await withServerLock('別の記事へ一括' + (pick.mode === 'move' ? '移動' : 'コピー') + '中…', async () => {
+        for (let i = 0; i < files.length; i++) {
+          const f = files[i];
+          setStatus('📦 一括転送中 ' + (i + 1) + '/' + files.length + '：' + f.name);
+          try {
+            const body = new URLSearchParams({
+              token: TOKEN, action: 'transferFile',
+              fileId: f.id, fromFolderId: folderId, toFolderId: pick.targetId, mode: pick.mode,
+            });
+            const r = await fetch(GAS_URL, {
+              method: 'POST', body: body.toString(),
+              headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
+            }).then((x) => x.json());
+            if (r && r.ok) {
+              okCount++;
+              if (r.strippedRole) strippedCount++;
+              if (pick.mode === 'move') movedFiles.push(f);
+            } else {
+              failCount++;
+              console.warn('bulk transfer failed:', f.name, r && r.message);
+            }
+          } catch (e) {
+            failCount++;
+            console.warn('bulk transfer error:', f.name, e);
+          }
+        }
+        // 移動分は元記事のPROMPT.md役割行をまとめて掃除（保存は1回）
+        if (movedFiles.length > 0) {
+          try {
+            for (const f of movedFiles) updateRoleLineForFile(f, f.name, '');
+            await savePromptToDrive(getSelectedArticleTitle(), folderId);
+          } catch (e) { console.warn('bulk role line cleanup failed:', e); }
+          await loadExistingFiles(folderId);
+        }
+      });
+    } catch (e) {
+      showToast('一括転送でエラー: ' + (e.message || e), 'error');
+    }
+    setBulkMode('ef', false);
+    let msg = (pick.mode === 'move' ? '📦 移動' : '📄 コピー') + '：' + okCount + '件を「' + pick.targetName + '」へ';
+    if (strippedCount > 0) msg += '（' + strippedCount + '件は送り先に同役割があるため役割を外しました）';
+    if (failCount > 0) msg += ' / 失敗' + failCount + '件';
+    setStatus(msg);
+    showToast(msg, failCount > 0 ? 'error' : 'success');
+  }
+
+  // メモの一括転送（送り先へのgetPrompt→追記→savePromptは1往復にまとめる）
+  async function bulkTransferMemos() {
+    const idxs = Array.from(bulkSel.memo.ids).map(Number).filter((n) => !isNaN(n)).sort((a, b) => a - b);
+    const texts = idxs.map((i) => memos[i]).filter((t) => (t || '').trim().length > 0);
+    if (texts.length === 0) { showToast('メモを選択してください', 'warn'); return; }
+    const pick = await pickTransferTarget('📦 選択したメモを別の記事へ',
+      'メモ <b>' + texts.length + '件</b> をまとめて送り先のメモに追記します');
+    if (!pick) return;
+    let result;
+    try {
+      result = await withServerLock('メモを一括' + (pick.mode === 'move' ? '移動' : 'コピー') + '中…', async () => {
+        const gp = await fetch(GAS_URL + '?' + new URLSearchParams({
+          token: TOKEN, action: 'getPrompt', articleFolderId: pick.targetId,
+        }).toString()).then((r) => r.json());
+        if (!gp || !gp.ok) throw new Error((gp && gp.message) || '送り先メモの取得に失敗');
+        const targetMemos = (gp.exists && Array.isArray(gp.memos)) ? gp.memos.slice() : [];
+        let added = 0;
+        for (const t of texts) {
+          if (!targetMemos.includes(t)) { targetMemos.push(t); added++; }
+        }
+        if (added > 0) {
+          const body = new URLSearchParams({
+            token: TOKEN, action: 'savePrompt',
+            articleTitle: '', articleFolderId: pick.targetId,
+            articleType: (gp.exists && gp.articleType) ? gp.articleType : '',
+            memosJson: JSON.stringify(targetMemos),
+          });
+          const sv = await fetch(GAS_URL, {
+            method: 'POST', body: body.toString(),
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
+          }).then((r) => r.json());
+          if (!sv || !sv.ok) throw new Error((sv && sv.message) || '送り先への保存に失敗');
+          // 送り先のローカル下書きにも即時反映
+          try {
+            const key = LS_MEMO_STATE_PREFIX + 'folder:' + pick.targetId;
+            const raw = localStorage.getItem(key);
+            if (raw) {
+              const st = JSON.parse(raw);
+              if (st && Array.isArray(st.memos)) {
+                for (const t of texts) { if (!st.memos.includes(t)) st.memos.push(t); }
+                localStorage.setItem(key, JSON.stringify(st));
+              }
+            }
+          } catch (_) {}
+        }
+        return { added: added, dup: texts.length - added };
+      });
+    } catch (e) {
+      showToast('メモの一括転送失敗: ' + (e.message || e), 'error');
+      return;
+    }
+    if (result === undefined) return; // serverBusyで弾かれた
+    if (pick.mode === 'move') {
+      for (let k = idxs.length - 1; k >= 0; k--) memos.splice(idxs[k], 1);
+      persistMemoState();
+      setBulkMode('memo', false); // renderMemosも走る
+      if (getSelectedArticleFolderId()) {
+        try { await savePromptToDrive(getSelectedArticleTitle(), getSelectedArticleFolderId()); } catch (_) {}
+      }
+      showToast('📦 メモ' + idxs.length + '件を「' + pick.targetName + '」へ移動しました' +
+        (result.dup > 0 ? '（' + result.dup + '件は送り先に既にあり追記なし）' : ''), 'success');
+    } else {
+      setBulkMode('memo', false);
+      showToast('📄 メモ' + result.added + '件を「' + pick.targetName + '」へコピーしました' +
+        (result.dup > 0 ? '（' + result.dup + '件は送り先に既にあり）' : ''), 'success');
+    }
+  }
+
+  // ボタン配線（トグル・実行・キャンセル）
+  (function wireBulkUI() {
+    const actions = { queue: bulkTransferQueue, ef: bulkTransferExisting, memo: bulkTransferMemos };
+    ['queue', 'ef', 'memo'].forEach((kind) => {
+      const ui = BULK_UI[kind];
+      const t = document.getElementById(ui.toggle);
+      if (t) t.addEventListener('click', () => setBulkMode(kind, !bulkSel[kind].on));
+      const c = document.getElementById(ui.cancel);
+      if (c) c.addEventListener('click', () => setBulkMode(kind, false));
+      const x = document.getElementById(ui.exec);
+      if (x) x.addEventListener('click', () => actions[kind]());
+    });
+  })();
 
   // ─── サーバ（Google Drive）通信中の操作ロック ─────────────
   // 通信中に画面を触ると再描画とぶつかって操作しづらいため、全画面オーバーレイで一時的に操作を止める。
@@ -4297,6 +4551,7 @@ ${COMMON_GUARDS}`,
       for (const f of files) {
         const card = document.createElement('div');
         card.className = 'ef-card';
+        card.dataset.fid = f.id; // ☑ まとめて選択の対象特定に使う
         // 役割バッジ（キューの一時保存画像と同じ見た目ルール）
         const role = resolveExistingFileRole(f);
         const roleLabel = role
@@ -4378,6 +4633,8 @@ ${COMMON_GUARDS}`,
         });
         efGrid.appendChild(card);
       }
+      // ☑ まとめて選択モード中はチェックボックスを重ねる（再読込後も維持）
+      applyEfBulkOverlays();
     } catch (e) {
       efSummaryStatus.textContent = 'エラー';
       showToast('ファイル一覧取得失敗: ' + (e.message || e), 'error');
@@ -4816,10 +5073,14 @@ ${COMMON_GUARDS}`,
           '<button class="memo-link-img" type="button">🖼 画像をリンク' + (tokens.length ? '（' + tokens.length + '）' : '') + '</button>' +
         '</div>' +
         '<div class="memo-item-actions">' +
-          '<button class="memo-item-btn up" type="button" aria-label="上へ"' + (i === 0 ? ' disabled' : '') + '>↑</button>' +
-          '<button class="memo-item-btn down" type="button" aria-label="下へ"' + (i === memos.length - 1 ? ' disabled' : '') + '>↓</button>' +
-          '<button class="memo-item-btn transfer" type="button" aria-label="別の記事へコピー/移動" title="別の記事へコピー/移動">📦</button>' +
-          '<button class="memo-item-btn delete" type="button" aria-label="削除">✕</button>' +
+        (bulkSel.memo.on
+          // ☑ まとめて選択モード：並べ替え・削除はできない（選択のindexズレ防止）
+          ? '<input type="checkbox" class="memo-bulk-check" aria-label="このメモを選択"' +
+            (bulkSel.memo.ids.has(String(i)) ? ' checked' : '') + '>'
+          : '<button class="memo-item-btn up" type="button" aria-label="上へ"' + (i === 0 ? ' disabled' : '') + '>↑</button>' +
+            '<button class="memo-item-btn down" type="button" aria-label="下へ"' + (i === memos.length - 1 ? ' disabled' : '') + '>↓</button>' +
+            '<button class="memo-item-btn transfer" type="button" aria-label="別の記事へコピー/移動" title="別の記事へコピー/移動">📦</button>' +
+            '<button class="memo-item-btn delete" type="button" aria-label="削除">✕</button>') +
         '</div>';
       const ta = row.querySelector('textarea');
       ta.value = memoBaseText(text); // 本文だけ表示（画像リンクはチップで別表示）
@@ -4836,25 +5097,35 @@ ${COMMON_GUARDS}`,
         renderMemos();
         showToast(picked.length ? '🖼 画像を' + picked.length + '件リンクしました' : '画像リンクを解除しました', 'success');
       });
-      row.querySelector('.up').addEventListener('click', () => {
+      const upBtn = row.querySelector('.up');
+      if (upBtn) upBtn.addEventListener('click', () => {
         if (i === 0) return;
         [memos[i - 1], memos[i]] = [memos[i], memos[i - 1]];
         persistMemoState();
         renderMemos();
       });
-      row.querySelector('.down').addEventListener('click', () => {
+      const downBtn = row.querySelector('.down');
+      if (downBtn) downBtn.addEventListener('click', () => {
         if (i === memos.length - 1) return;
         [memos[i], memos[i + 1]] = [memos[i + 1], memos[i]];
         persistMemoState();
         renderMemos();
       });
-      row.querySelector('.delete').addEventListener('click', () => {
+      const delBtn = row.querySelector('.delete');
+      if (delBtn) delBtn.addEventListener('click', () => {
         memos.splice(i, 1);
         persistMemoState();
         renderMemos();
       });
-      row.querySelector('.transfer').addEventListener('click', async () => {
+      const trBtn = row.querySelector('.transfer');
+      if (trBtn) trBtn.addEventListener('click', async () => {
         await transferMemo(i);
+      });
+      const bulkCheck = row.querySelector('.memo-bulk-check');
+      if (bulkCheck) bulkCheck.addEventListener('change', () => {
+        if (bulkCheck.checked) bulkSel.memo.ids.add(String(i));
+        else bulkSel.memo.ids.delete(String(i));
+        updateBulkCount('memo');
       });
       memoList.appendChild(row);
     });
@@ -4938,6 +5209,8 @@ ${COMMON_GUARDS}`,
   }
   // 記事切替・新規作成時のメモ入替（前の記事のメモは自分のキーに残る＝混入も消失もしない）
   function switchMemoContext() {
+    // ☑ まとめて選択中の記事切替は選択を解除（選択対象は前の記事の項目のため）
+    exitAllBulkModes();
     const prevKey = memoStoreKey;
     const prevCount = getValidMemos().length;
     loadMemoStateForCurrent();

@@ -73,8 +73,14 @@
       <div class="ef-actions">
         <button type="button" id="btn-reload-files" class="btn-secondary">↻ 再読込</button>
         <button type="button" id="btn-jump-queue" class="btn-secondary">⬇️ 一時保存へ</button>
+        <button type="button" id="ef-select-toggle" class="btn-secondary" title="複数の画像を選んでまとめて別の記事へ">☑ まとめて選択</button>
       </div>
       <div class="ef-grid" id="ef-grid"></div>
+      <div id="ef-bulk-bar" class="bulk-bar" hidden>
+        <span id="ef-bulk-count">0件選択中</span>
+        <button type="button" id="ef-bulk-transfer" class="btn-primary btn-small" disabled>📦 別の記事へ…</button>
+        <button type="button" id="ef-bulk-cancel" class="btn-secondary btn-small">やめる</button>
+      </div>
       <p class="ef-empty" id="ef-empty" hidden>このフォルダに画像はまだありません。</p>
     </div>
   </details>
@@ -108,7 +114,15 @@
       <div class="memo-row">
         <label class="memo-label">読者に伝えたいポイント<span class="memo-label-sub">（上から優先度順）</span></label>
         <div id="memo-list" class="memo-list"></div>
-        <button id="add-memo" type="button" class="btn-add-memo">＋ メモを追加</button>
+        <div class="memo-list-actions">
+          <button id="add-memo" type="button" class="btn-add-memo">＋ メモを追加</button>
+          <button id="memo-select-toggle" type="button" class="btn-secondary btn-small" title="複数のメモを選んでまとめて別の記事へ">☑ まとめて選択</button>
+        </div>
+        <div id="memo-bulk-bar" class="bulk-bar" hidden>
+          <span id="memo-bulk-count">0件選択中</span>
+          <button type="button" id="memo-bulk-transfer" class="btn-primary btn-small" disabled>📦 別の記事へ…</button>
+          <button type="button" id="memo-bulk-cancel" class="btn-secondary btn-small">やめる</button>
+        </div>
       </div>
 
       <p class="memo-hint">※記事作成時、このメモが転送先フォルダに <code>PROMPT.md</code> として保存され、AIが参照します。空のままなら従来方式で執筆します。</p>
@@ -418,8 +432,14 @@
       <h2>一時保存</h2>
       <span class="queue-count"><span id="queue-count">0</span>件</span>
       <button type="button" id="btn-jump-existing" class="btn-secondary btn-small">⬆️ 既存ファイル（再編集）へ</button>
+      <button type="button" id="queue-select-toggle" class="btn-secondary btn-small" title="複数の画像を選んでまとめて別の記事へ">☑ まとめて選択</button>
     </div>
     <div id="queue-list" class="queue-grid"></div>
+    <div id="queue-bulk-bar" class="bulk-bar" hidden>
+      <span id="queue-bulk-count">0件選択中</span>
+      <button type="button" id="queue-bulk-transfer" class="btn-primary btn-small" disabled>📦 別の記事へ…</button>
+      <button type="button" id="queue-bulk-cancel" class="btn-secondary btn-small">やめる</button>
+    </div>
     <div id="queue-empty" class="queue-empty">
       撮ったもの・選んだものがここに並びます
     </div>

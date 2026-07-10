@@ -2090,3 +2090,29 @@ body.is-dropping .drop-overlay { display: flex; }
   color: #f0fdf4;
   font-family: -apple-system, "Hiragino Sans", sans-serif;
 }
+
+/* ─── 📦 まとめて選択（一括転送・2026-07-11） ─────────────── */
+.bulk-bar {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  margin-top: 8px; padding: 8px 10px;
+  background: #eef2ff; border: 1px solid #c7d2fe; border-radius: 10px;
+  font-size: 13px; color: #3730a3; font-weight: 600;
+}
+.bulk-bar button { flex-shrink: 0; }
+.bulk-check {
+  position: absolute; z-index: 8;
+  background: rgba(255,255,255,0.95); border-radius: 6px; padding: 3px;
+  display: flex; box-shadow: 0 1px 4px rgba(0,0,0,0.3); cursor: pointer;
+}
+.bulk-check input { width: 20px; height: 20px; accent-color: #4f46e5; cursor: pointer; }
+/* 一時保存カード：上中央（左上IMGバッジ・右上✕と重ならない位置） */
+.queue-item .bulk-check { top: 6px; left: 50%; transform: translateX(-50%); }
+/* 既存ファイルカード：右上（左上の役割バッジと重ならない位置） */
+.ef-card { position: relative; }
+.ef-card .bulk-check { top: 6px; right: 6px; }
+.bulk-selected { outline: 3px solid #4f46e5; outline-offset: -3px; }
+.memo-bulk-check { width: 22px; height: 22px; accent-color: #4f46e5; margin-top: 4px; flex-shrink: 0; }
+.memo-list-actions { display: flex; align-items: center; gap: 10px; }
+#queue-select-toggle.active, #ef-select-toggle.active, #memo-select-toggle.active {
+  background: #4f46e5; color: #fff; border-color: #4f46e5;
+}
