@@ -1507,7 +1507,7 @@
   // 役割は記事生成スクリプトの分類キー（eyecatch_/hero_/section_/diagram_/compare_/ngsummary_/product_）。
   const TEMPLATE_TO_ROLE = {
     eyecatch: 'eyecatch', big_number: 'hero',
-    specs_card: 'section', icon_grid: 'section', pros_cons: 'section',
+    specs_card: 'section', unboxing: 'section', icon_grid: 'section', pros_cons: 'section',
     concept: 'diagram', flow: 'diagram', roi: 'diagram', decision_tree: 'diagram',
     compare: 'compare', ranking: 'section', target_buyer: 'section', ngsummary: 'ngsummary',
     bgremove: 'product', bgreplace: 'product', combine: 'product', colorfix: 'product', addtext: 'none', custom: 'none',
@@ -2597,6 +2597,12 @@
       sub:   ['製品の特徴的形状', '例：白い小型・サムターン装着'],
       mood:  ['配色',         '例：白背景＋青タイトル'],
     },
+    unboxing: {
+      title: ['タイトル',     '例：同梱物一覧（箱の中身ぜんぶ）'],
+      main:  ['同梱物（/区切り）', '例：本体 / USB-Cケーブル / 取扱説明書 / 予備両面テープ / 六角レンチ'],
+      sub:   ['補足',         '例：本体を中央に大きく・付属品は周囲に整列'],
+      mood:  ['配色',         '例：白背景＋青ラベル'],
+    },
     icon_grid: {
       title: ['グリッドタイトル', '例：6つの機能'],
       main:  ['6機能（/区切り）', '例：指紋認証 / Suica対応 / スマホ操作 / オートロック / 遠隔操作 / 音声制御'],
@@ -3133,6 +3139,33 @@ ${COMMON_GUARDS}`,
 ${mood || '白 #ffffff 背景 / タイトル青 #1d4ed8 / 価格値はオレンジ #f97316 / 罫線 薄グレー #e5e7eb / 項目名 #6b7280 / 値 #111827'}
 
 【スタイル】Apple / SwitchBot 公式プロダクトページ品質。整列完璧、余白十分、可読性最優先。
+${COMMON_GUARDS}`,
+
+    // 📦 同梱物の紹介（開封レビュー定番・付属品一覧）
+    unboxing: ({title, main, sub, mood}) => `# 同梱物一覧カード（開封レビュー定番ビジュアル）
+
+【出力仕様】1200×630px / PNG / 白背景
+
+【最重要・写真の扱い】
+- 添付画像がある場合：写っている同梱物（本体・付属品）を**そのまま使う**こと。製品の形状・色・ロゴ・質感を一切変えない。改変してよいのは「背景の白化・整列・影の整え・ラベル追加」だけ。
+- 添付画像がない場合のみ、下記リストから写実的に描く。
+
+【構図】フラットレイ（真上からの俯瞰・物撮り品質）
+- 本体を中央〜左寄りに大きく配置（面積比 約1/3）
+- 付属品は周囲に等間隔で整列（重ならない・向きを揃える）
+- 同梱物リスト：${main || '本体 / USB-Cケーブル / 取扱説明書 / 予備両面テープ / 六角レンチ'}
+- 各アイテムに引き出し線＋ラベル（14-18pt・濃グレー #374151・線は細く 1.5px #9ca3af）
+  - ラベル名は上記リストの表記をそのまま使う（勝手に英語化・言い換えしない）
+- 補足指示：${sub || '本体を主役に・付属品は周囲に整列'}
+
+【テキスト】
+- 上部にタイトル（26-32pt・青 #1d4ed8 極太・左寄せ）：「${title || '同梱物一覧'}」
+- 右下に小さく点数表記（例：全5点・12pt・グレー #6b7280）
+
+【配色】
+${mood || '白 #ffffff 背景 / タイトル青 #1d4ed8 / ラベル #374151 / 引き出し線 #9ca3af / 影は薄く自然に'}
+
+【スタイル】家電量販店の商品ページ・開封レビュー記事の「箱の中身」一級品。清潔・整然・可読性最優先。
 ${COMMON_GUARDS}`,
 
     // 🔲 機能アイコン6個グリッド（機能解説）
