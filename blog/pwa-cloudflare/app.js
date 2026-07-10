@@ -1085,9 +1085,9 @@
     memo: { on: false, ids: new Set() }, // メモは配列indexを文字列で保持
   };
   const BULK_UI = {
-    queue: { toggle: 'queue-select-toggle', bar: 'queue-bulk-bar', count: 'queue-bulk-count', exec: 'queue-bulk-transfer', cancel: 'queue-bulk-cancel' },
-    ef: { toggle: 'ef-select-toggle', bar: 'ef-bulk-bar', count: 'ef-bulk-count', exec: 'ef-bulk-transfer', cancel: 'ef-bulk-cancel' },
-    memo: { toggle: 'memo-select-toggle', bar: 'memo-bulk-bar', count: 'memo-bulk-count', exec: 'memo-bulk-transfer', cancel: 'memo-bulk-cancel' },
+    queue: { toggle: 'queue-select-toggle', bar: 'queue-bulk-bar', count: 'queue-bulk-count', exec: 'queue-bulk-transfer', del: 'queue-bulk-delete', cancel: 'queue-bulk-cancel' },
+    ef: { toggle: 'ef-select-toggle', bar: 'ef-bulk-bar', count: 'ef-bulk-count', exec: 'ef-bulk-transfer', del: 'ef-bulk-delete', cancel: 'ef-bulk-cancel' },
+    memo: { toggle: 'memo-select-toggle', bar: 'memo-bulk-bar', count: 'memo-bulk-count', exec: 'memo-bulk-transfer', del: 'memo-bulk-delete', cancel: 'memo-bulk-cancel' },
   };
   function updateBulkCount(kind) {
     const ui = BULK_UI[kind];
@@ -1095,6 +1095,8 @@
     if (el) el.textContent = bulkSel[kind].ids.size + '件選択中';
     const b = document.getElementById(ui.exec);
     if (b) b.disabled = bulkSel[kind].ids.size === 0;
+    const d = document.getElementById(ui.del);
+    if (d) d.disabled = bulkSel[kind].ids.size === 0;
   }
   function setBulkMode(kind, on) {
     const s = bulkSel[kind];
@@ -1314,9 +1316,93 @@
     }
   }
 
-  // ボタン配線（トグル・実行・キャンセル）
+  // ─── 🗑 選択して一括削除（2026-07-11） ─────────────────────
+  // 一時保存の一括削除（ローカルのみ・即時）
+  async function bulkDeleteQueue() {
+    if (isUploading) { showToast('転送中はまとめて操作できません', 'warn'); return; }
+    const ids = Array.from(bulkSel.queue.ids);
+    if (ids.length === 0) return;
+    if (!confirm('選択した一時保存の画像 ' + ids.length + '件 を削除しますか？\n（端末内の一時保存から消えます。Drive上のファイルは消えません）')) return;
+    for (const id of ids) await queueDelete(id);
+    setBulkMode('queue', false);
+    await renderQueue();
+    showToast('🗑 一時保存 ' + ids.length + '件を削除しました', 'success');
+  }
+
+  // 既存ファイル（Drive）の一括削除＝ゴミ箱へ移動（GAS deleteFile を順次実行）
+  async function bulkDeleteExisting() {
+    const folderId = getSelectedArticleFolderId();
+    if (!folderId) return;
+    if (serverBusy) { showToast('いまサーバ通信中です。終わるまでお待ちください', 'warn'); return; }
+    const files = Array.from(bulkSel.ef.ids)
+      .map((id) => (lastExistingFiles || []).find((f) => f.id === id))
+      .filter(Boolean);
+    if (files.length === 0) return;
+    if (!confirm('選択したDrive上の画像 ' + files.length + '件 を削除しますか？\n\n' +
+      files.map((f) => '・' + f.name).slice(0, 8).join('\n') + (files.length > 8 ? '\n…ほか' + (files.length - 8) + '件' : '') +
+      '\n\n（Driveのゴミ箱へ移動します。30日以内ならDriveのゴミ箱から復元できます）')) return;
+    let okCount = 0, failCount = 0;
+    const deletedFiles = [];
+    try {
+      await withServerLock('Driveの画像を一括削除中…', async () => {
+        for (let i = 0; i < files.length; i++) {
+          const f = files[i];
+          setStatus('🗑 削除中 ' + (i + 1) + '/' + files.length + '：' + f.name);
+          try {
+            const body = new URLSearchParams({
+              token: TOKEN, action: 'deleteFile',
+              fileId: f.id, articleFolderId: folderId,
+            });
+            const r = await fetch(GAS_URL, {
+              method: 'POST', body: body.toString(),
+              headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
+            }).then((x) => x.json());
+            if (r && r.ok) { okCount++; deletedFiles.push(f); }
+            else { failCount++; console.warn('bulk delete failed:', f.name, r && r.message); }
+          } catch (e) {
+            failCount++;
+            console.warn('bulk delete error:', f.name, e);
+          }
+        }
+        // 削除した画像のPROMPT.md役割行をまとめて掃除（保存は1回）
+        if (deletedFiles.length > 0) {
+          try {
+            for (const f of deletedFiles) updateRoleLineForFile(f, f.name, '');
+            await savePromptToDrive(getSelectedArticleTitle(), folderId);
+          } catch (e) { console.warn('bulk delete role line cleanup failed:', e); }
+          await loadExistingFiles(folderId);
+        }
+      });
+    } catch (e) {
+      showToast('一括削除でエラー: ' + (e.message || e), 'error');
+    }
+    setBulkMode('ef', false);
+    let msg = '🗑 ' + okCount + '件をDriveのゴミ箱へ移動しました';
+    if (failCount > 0) msg += ' / 失敗' + failCount + '件';
+    setStatus(msg);
+    showToast(msg, failCount > 0 ? 'error' : 'success');
+  }
+
+  // メモの一括削除（ローカル＋現在記事のPROMPT.mdを1回で更新）
+  async function bulkDeleteMemos() {
+    const idxs = Array.from(bulkSel.memo.ids).map(Number).filter((n) => !isNaN(n)).sort((a, b) => a - b);
+    if (idxs.length === 0) return;
+    if (!confirm('選択したメモ ' + idxs.length + '件 を削除しますか？\n（この記事のメモから消え、Driveの保存メモにも反映されます）')) return;
+    for (let k = idxs.length - 1; k >= 0; k--) memos.splice(idxs[k], 1);
+    persistMemoState();
+    setBulkMode('memo', false); // renderMemosも走る
+    if (getSelectedArticleFolderId()) {
+      try { await savePromptToDrive(getSelectedArticleTitle(), getSelectedArticleFolderId()); } catch (e) {
+        console.warn('memo bulk delete drive sync failed:', e);
+      }
+    }
+    showToast('🗑 メモ ' + idxs.length + '件を削除しました', 'success');
+  }
+
+  // ボタン配線（トグル・実行・削除・キャンセル）
   (function wireBulkUI() {
     const actions = { queue: bulkTransferQueue, ef: bulkTransferExisting, memo: bulkTransferMemos };
+    const deletes = { queue: bulkDeleteQueue, ef: bulkDeleteExisting, memo: bulkDeleteMemos };
     ['queue', 'ef', 'memo'].forEach((kind) => {
       const ui = BULK_UI[kind];
       const t = document.getElementById(ui.toggle);
@@ -1325,6 +1411,8 @@
       if (c) c.addEventListener('click', () => setBulkMode(kind, false));
       const x = document.getElementById(ui.exec);
       if (x) x.addEventListener('click', () => actions[kind]());
+      const d = document.getElementById(ui.del);
+      if (d) d.addEventListener('click', () => deletes[kind]());
     });
   })();
 

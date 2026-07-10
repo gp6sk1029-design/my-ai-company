@@ -40,7 +40,44 @@ function doPost(e) {
   if (p.action === 'createArticle') return handleCreateArticle_(p);
   if (p.action === 'renameFile') return handleRenameFile_(p);
   if (p.action === 'transferFile') return handleTransferFile_(p);
+  if (p.action === 'deleteFile') return handleDeleteFile_(p);
   return jsonResponse_({ ok: false, message: 'unknown action: ' + p.action });
+}
+
+// ─── ファイル削除（ゴミ箱へ移動・2026-07-11） ─────────────────────
+// 完全削除はしない（setTrashed＝Driveのゴミ箱行き。30日以内なら復元可能）。
+// 誤削除防止のため「指定した記事フォルダ内のファイル」しか消せない。
+function handleDeleteFile_(p) {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(15000);
+  try {
+    if (!p.fileId || !p.articleFolderId) {
+      return jsonResponse_({ ok: false, message: 'fileId/articleFolderId required' });
+    }
+    const folder = getArticleFolderById(p.articleFolderId);
+    const file = DriveApp.getFileById(p.fileId);
+    let inFolder = false;
+    const parents = file.getParents();
+    while (parents.hasNext()) {
+      if (parents.next().getId() === folder.getId()) { inFolder = true; break; }
+    }
+    if (!inFolder) return jsonResponse_({ ok: false, message: '対象ファイルが指定の記事フォルダにありません（誤削除防止のため中止）' });
+    const name = file.getName();
+    file.setTrashed(true);
+    appendLog({
+      articleTitle: folder.getName(),
+      fileName: name,
+      sizeBytes: 0,
+      result: '削除（ゴミ箱へ）',
+      note: 'fileId=' + p.fileId,
+    });
+    return jsonResponse_({ ok: true, result: 'trashed', fileId: p.fileId, fileName: name });
+  } catch (err) {
+    Logger.log('handleDeleteFile_ error: ' + err.message);
+    return jsonResponse_({ ok: false, message: err.message });
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 // ─── ファイルを別の記事フォルダへコピー/移動（2026-07-09） ─────────────────────
