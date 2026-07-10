@@ -2098,7 +2098,20 @@ body.is-dropping .drop-overlay { display: flex; }
   background: #eef2ff; border: 1px solid #c7d2fe; border-radius: 10px;
   font-size: 13px; color: #3730a3; font-weight: 600;
 }
-.bulk-bar button { flex-shrink: 0; }
+.bulk-bar > span { flex-shrink: 0; white-space: nowrap; }
+/* ボタン内では改行させない（「別の記事へ…」が2行に折れて崩れるため）。
+   幅が足りない時はバーの flex-wrap でボタンごと次の行へ落とす。
+   btn-primary既定（高さ64px・文字19px）等に引きずられないよう、バー内は全ボタン同サイズに統一 */
+.bulk-bar button {
+  flex-shrink: 0;
+  white-space: nowrap;
+  word-break: keep-all;
+  min-height: 0;
+  height: auto;
+  padding: 8px 14px;
+  font-size: 14px;
+  border-radius: 10px;
+}
 .bulk-check {
   position: absolute; z-index: 8;
   background: rgba(255,255,255,0.95); border-radius: 6px; padding: 3px;
