@@ -183,6 +183,13 @@ SESSION_ROLES = {
         "keywords": ["hook", "settings", "infra", "global_rules", "session_health"],
         "out_of_scope": "記事執筆・出品作業・SNS投稿",
     },
+    "work": {
+        "name": "生産技術主任補佐PDM（本業ツール）セッション",
+        "scope": "本業ツール群の調査・修理・開発（plc-debugger／email-assistant／media-transcriber／winding-report／drawing-checker／fp7-diff）。対象リポジトリは work-projects（my-ai-companyとは別リポジトリ）",
+        "files": ["../work-projects/CLAUDE.md", "../work-projects/MEMORY.md", "../work-projects/<対象ツール>/SKILL.md（あれば）"],
+        "keywords": ["plc", "本業", "work-projects", "メール秘書", "文字起こし", "巻線", "図面", "検図", "fp7", "smc2"],
+        "out_of_scope": "副業リポジトリ（my-ai-company）の編集（引き継ぎ書生成と各MEMORY.mdへのTODO追記のみ可）・記事執筆・SNS投稿・出品作業",
+    },
 }
 
 
@@ -205,6 +212,8 @@ def detect_session_role(modified_files: list[Path], user_messages: list[str]) ->
             score["research"] += 2
         if any(p in path_str for p in [".claude/", "global_rules/", "tools/handover", "tools/session_health"]):
             score["infra"] += 1
+        if "work-projects" in path_str:
+            score["work"] += 2
         if any(p in path_str for p in ["claude.md", "memory.md"]) and "blog/" not in path_str and "research/" not in path_str:
             score["pdm"] += 1
 
@@ -298,7 +307,7 @@ def generate_handover(title: str | None = None, recent: int = 10,
         role_prompt.strip(),
         "```",
         "",
-        "> 役割が違う場合は `python3 tools/handover.py --role <pdm|blog|ec|tools|sns|research|infra>` で再生成可能",
+        "> 役割が違う場合は `python3 tools/handover.py --role <pdm|blog|ec|tools|sns|research|infra|work>` で再生成可能",
         "",
         "---",
         "",

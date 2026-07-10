@@ -196,7 +196,7 @@ Claude（司令塔）が、必要なときに専門家 **Codex（gpt-5.5）** �
 
 **新セッション開始時は必ず「役割定義プロンプト」から始めること。** 役割が不明確なまま作業を始めると、知識の縦割り・SKILL.md読み忘れ・スコープのブレが起きやすい。
 
-### セッション役割カタログ（7種類）
+### セッション役割カタログ（8種類）
 
 | 役割キー       | 名称              | 担当範囲                                               | 必須読み込みファイル                                                                                               |
 | ---------- | --------------- | -------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
@@ -207,12 +207,13 @@ Claude（司令塔）が、必要なときに専門家 **Codex（gpt-5.5）** �
 | `sns`      | SNS統括セッション      | X/Instagram/YouTube投稿                              | sns/SKILL.md / sns/MEMORY.md                                                                             |
 | `research` | リサーチセッション       | リベシティ記事収集／掛け合わせ副業創造／単一記事からの自動化案件抽出（tools部門への提案を含む） | research/SKILL.md / research/MEMORY.md / research/skills/{collect,synthesize,automate,digest,handoff}.md |
 | `infra`    | インフラ・全体管理セッション  | hooks・global_rules・session_health等                 | CLAUDE.md / .claude/settings.json                                                                        |
+| `work`     | 生産技術主任補佐PDM（本業ツール）セッション | 本業ツール群（plc-debugger／email-assistant／media-transcriber／winding-report／drawing-checker／fp7-diff）の調査・修理・開発。**対象はwork-projectsリポジトリ（別リポジトリ）** | work-projects/CLAUDE.md / work-projects/MEMORY.md / 対象ツールのSKILL.md（あれば） |
 
 ### 必須プロトコル：新セッション開始の3ステップ
 
 **Step 1: 引き継ぎ書を生成（前セッションで実行）**
 ```bash
-python3 tools/handover.py --role <pdm|blog|ec|tools|sns|research|infra>
+python3 tools/handover.py --role <pdm|blog|ec|tools|sns|research|infra|work>
 ```
 > 🔴 **--role は必須（2026-06-12制定・役割の自己伝搬）**：役割定義プロンプトには「このセッションの役割キー」と「引き継ぎ時は `--role <キー>` で実行せよ」が埋め込まれている。Claudeはそれに従い、**推測（--role省略）に頼らない**こと。役割キー不明の場合（役割定義プロンプトなしで始まった旧セッション等）のみ `python3 tools/handover.py` の自動推定を使い、推定結果が会話の役割と合っているかユーザーに一言確認する。
 
@@ -630,13 +631,17 @@ MEMORY.md（学習・経験の蓄積）
 - 他部門連携ルール → [research/skills/handoff.md](research/skills/handoff.md)（blog/sns/tools への送出フロー）
 - データ源：リベシティ ノウハウ図書館・学長マガジン等（Claude in Chrome経由・利用規約承認必須）
 
-**本業（work-projectsリポジトリ・別リポジトリ）**
+**本業（work-projectsリポジトリ・別リポジトリ）── 担当：`work` セッション（2026-07-10傘下入り）**
+- 運用ルール：本業ツールのセッションは役割キー `work`（生産技術主任補佐PDM）として、このCLAUDE.mdの社内ルール（役割定義プロンプト・handover.py引き継ぎ・容量管理・振り返りレポート・MEMORY.md蓄積）に**完全準拠**して運用する
+- コードの置き場所は work-projects リポジトリのまま（本業と副業のファイルは混ぜない。機密分離のため）。編集権限も work-projects 配下のみ
 - メール秘書 → `email-assistant/SKILL.md`
-- PLCデバッガ → `plc-debugger/SKILL.md`
+- PLCデバッガ → `plc-debugger/`（2026-07-10復旧済み。SKILL.md未作成）
 - 文字起こしツール → `media-transcriber/SKILL.md`
 - 巻線レポート → `winding-report/SKILL.md`
 - 送別会書類 → `farewell-docs/SKILL.md`
-- 図面検図ツール → `drawing-checker/SKILL.md`（⚠️ 2026-06-12時点でMac側work-projectsに未同期。Windows側PCで未pushの可能性）
+- 図面検図ツール → `drawing-checker/SKILL.md`
+- FP7差分ツール → `fp7-diff/`（2026-07-10にWindows側未push分を保存済み）
+- ⚠️ 既知の落とし穴（2026-07-10解決済み・再発防止済み）：Windows用起動スクリプト（.bat/.vbs/.ps1）がLF改行になると起動不能になる → work-projects の `.gitattributes` で改行変換を禁止済み。2台PC間の同期ズレも同日解消
 
 ---
 
