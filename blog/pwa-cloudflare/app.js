@@ -2912,12 +2912,14 @@
       const query = (q.value || '').trim();
       if (!query) { showToast('商品名かURLを入力してください', 'error'); return; }
       const prompt = buildProductResearchPrompt(query);
-      try {
-        await navigator.clipboard.writeText(prompt);
-        showToast('🔍 商品リサーチプロンプトをコピー。ChatGPT/Gemini/Claudeに貼って回答を取得してください', 'success');
-      } catch (e) {
-        window.prompt('以下をAIに貼って商品情報を調べてください', prompt);
-      }
+      // ① クリップボードにも入れる（Gemini/Claudeを使う場合やURLが長い時の保険）
+      try { await navigator.clipboard.writeText(prompt); } catch (e) {}
+      // ② ChatGPTを開いてプロンプトを自動入力（既存の buildAIUrl＝?q= プリフィルを流用）
+      //    リサーチプロンプトは短い(約400字)のでURLに丸ごと載る＝そのまま貼付済みで開く
+      const url = buildAIUrl('chatgpt', prompt);
+      const w = openFreshAI('chatgpt', url, 'width=900,height=900,scrollbars=yes,resizable=yes');
+      if (!w) window.open(url, '_blank');
+      showToast('🤖 ChatGPTを開きました。商品リサーチのプロンプトは自動入力済み → 送信するだけ（回答を下に貼り戻してください）', 'success');
     });
 
     // AIの回答テキストを {label, value} の配列へ分解する。

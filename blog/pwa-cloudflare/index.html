@@ -94,14 +94,14 @@
     </summary>
     <div class="pi-body">
       <p class="pi-intro">
-        商品名かページURLを入れて <strong>①リサーチプロンプトをコピー → ②ChatGPT/Gemini/Claudeに貼る → ③返ってきた内容をここに貼り戻す</strong>。
+        商品名かページURLを入れて <strong>①ChatGPTで調べる（自動で開いて入力）→ ②回答をここに貼り戻す → ③取り込む</strong>。
         取り込んだ情報は下の「📝 メモ」「🖼 画像にリンク」「📥 プロンプト欄」へ反映できます。
       </p>
       <div class="pi-row">
         <input type="text" id="pi-query" class="pi-input" placeholder="例：SwitchBot ロックLite　または　Amazonの商品ページURL">
-        <button type="button" id="pi-copy-prompt" class="btn-primary btn-small">🔍 リサーチプロンプトをコピー</button>
+        <button type="button" id="pi-copy-prompt" class="btn-primary btn-small">🤖 ChatGPTで調べる</button>
       </div>
-      <small class="pi-hint">↑ 押すとプロンプトがコピーされます。AIに貼って回答をもらってください。</small>
+      <small class="pi-hint">↑ ChatGPTが開いてプロンプトが自動入力されます（送信するだけ）。クリップボードにもコピー済みなので、Gemini/Claudeを使う場合はそちらに貼り付けてもOK。</small>
 
       <label class="pi-paste-label" for="pi-answer">② AIの回答をここに貼り付け（⌘V）</label>
       <textarea id="pi-answer" class="pi-answer" rows="6" placeholder="AIが返した商品情報（商品名・価格・特徴・スペック・注意点など）をそのまま貼り付け"></textarea>
