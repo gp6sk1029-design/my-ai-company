@@ -2220,3 +2220,6 @@ body.is-dropping .drop-overlay { display: flex; }
 
 /* 🛒 バナー内の「商品情報を入れる」ボタン（リサーチボタンと並ぶ・区別のため薄紫） */
 .bps-pi-btn { margin-top: 6px; background: #eef2ff; color: #3730a3; border: 1px solid #c7d2fe; }
+
+/* 商品情報コーナー：Driveに保存ボタンをコンパクトに（pi-rowと同じ扱い） */
+#pi-save-drive { min-height: 0; height: auto; padding: 8px 14px; font-size: 13.5px; border-radius: 10px; white-space: nowrap; }

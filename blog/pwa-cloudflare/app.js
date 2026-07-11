@@ -2868,6 +2868,8 @@
   // ═══════════════════════════════════════════════════════════
   // 取り込んだ商品情報を共有（コーナーだけでなく編集カード/プロンプト準備からも使えるように）
   let productInfoItems = [];
+  // 記事切替・起動時に「その記事の商品情報」を読み直す（initProductInfoで実体を代入）
+  let piReloadForCurrent = function () {};
   // 現在のテンプレの入力欄ラベル（同梱物・配色などテンプレで名前が変わる。「使用しない」欄は除外）
   function piCurrentFieldOptions() {
     const key = (document.getElementById('ai-template-select') || {}).value || 'eyecatch';
@@ -3028,8 +3030,10 @@
       for (let raw of lines) {
         const line = raw.trim();
         if (!line) continue;
+        // 見出し(# …)・引用(> …)・区切り線は項目にしない（保存ファイルのヘッダ等を拾わないため）
+        if (/^#/.test(line) || /^>/.test(line) || /^[-–—─]{2,}$/.test(line)) continue;
         let m;
-        if ((m = /^[#>\s]*【\s*([^】]+?)\s*】\s*(.*)$/.exec(line))) {
+        if ((m = /^【\s*([^】]+?)\s*】\s*(.*)$/.exec(line))) {
           if (m[2]) addTo(m[1].trim(), m[2]);
         } else if ((m = /^[#>\s]*([^:：]{1,16})\s*[:：]\s*(.+)$/.exec(line))) {
           addTo(m[1].trim(), m[2]);
@@ -3109,17 +3113,101 @@
     const piTplSel = document.getElementById('ai-template-select');
     if (piTplSel) piTplSel.addEventListener('change', () => { if (piItems.length) renderItems(); });
 
+    // ─── 記事別の保存（localStorage即時＋Driveサーバー保存・2026-07-12）───
+    const LS_PI_PREFIX = 'kiji-meshi:product-info:';
+    function piCtx() {
+      if (typeof computeMemoContext === 'function') return computeMemoContext();
+      const fid = getSelectedArticleFolderId();
+      if (fid) return 'folder:' + fid;
+      const t = getSelectedArticleTitle();
+      return t ? ('title:' + t) : 'unassigned';
+    }
+    function savePiLocal() {
+      try { localStorage.setItem(LS_PI_PREFIX + piCtx(), JSON.stringify(piItems)); } catch (_) {}
+    }
+    // Driveへ保存（記事フォルダが必要）。空でも呼べば既存を消す。
+    async function savePiToDrive() {
+      const folderId = getSelectedArticleFolderId();
+      const title = getSelectedArticleTitle();
+      if (!folderId && !title) { showToast('記事を選択／作成してから保存してください', 'warn'); return false; }
+      try {
+        const body = new URLSearchParams({
+          token: TOKEN, action: 'saveProductInfo',
+          articleFolderId: folderId || '', articleTitle: folderId ? '' : title,
+          itemsJson: JSON.stringify(piItems.map(it => ({ label: it.label, value: it.value }))),
+        });
+        const r = await fetch(GAS_URL, {
+          method: 'POST', body: body.toString(),
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
+        }).then(x => x.json());
+        return !!(r && r.ok);
+      } catch (e) { console.warn('savePiToDrive failed:', e); return false; }
+    }
+    // 現在の記事の商品情報を読み込む（localStorage即時→Drive上書き）。記事切替/起動で呼ぶ。
+    async function loadPiForCurrent() {
+      // ① localStorage（即時・オフラインでも残る）
+      piItems = [];
+      try {
+        const raw = localStorage.getItem(LS_PI_PREFIX + piCtx());
+        if (raw) { const arr = JSON.parse(raw); if (Array.isArray(arr)) piItems = arr; }
+      } catch (_) {}
+      renderItems();
+      // ② Drive（サーバー・別端末とも同期）。あれば正とする
+      const folderId = getSelectedArticleFolderId();
+      if (!folderId) return;
+      try {
+        const gp = await fetch(GAS_URL + '?' + new URLSearchParams({
+          token: TOKEN, action: 'getProductInfo', articleFolderId: folderId,
+        }).toString()).then(r => r.json());
+        if (gp && gp.ok && gp.exists && gp.raw) {
+          const parsed = parseAnswer(gp.raw);
+          if (parsed.length) { piItems = parsed; renderItems(); savePiLocal(); return; }
+        }
+      } catch (e) { console.warn('loadPiForCurrent drive failed:', e); }
+      // ③ この記事にまだ無く、記事未選択中に取り込んだ下書きがあれば引き取る
+      if (piItems.length === 0) {
+        try {
+          const uraw = localStorage.getItem(LS_PI_PREFIX + 'unassigned');
+          if (uraw) {
+            const arr = JSON.parse(uraw);
+            if (Array.isArray(arr) && arr.length) {
+              piItems = arr; renderItems(); savePiLocal();
+              localStorage.removeItem(LS_PI_PREFIX + 'unassigned');
+              showToast('🛒 記事未選択で取り込んだ商品情報をこの記事に引き取りました', 'success');
+            }
+          }
+        } catch (_) {}
+      }
+    }
+    piReloadForCurrent = loadPiForCurrent; // 記事切替フックから呼べるよう公開
+
     parseBtn && parseBtn.addEventListener('click', () => {
       const text = (answer.value || '').trim();
       if (!text) { showToast('AIの回答を貼り付けてください', 'error'); return; }
       piItems = parseAnswer(text);
       if (piItems.length === 0) { showToast('項目を取り出せませんでした。回答をそのまま貼り付けているか確認してください', 'warn'); return; }
       renderItems();
+      savePiLocal(); // 即時にこの記事へ保存（切替・リロードで残る）
       showToast('📥 ' + piItems.length + '件の情報を取り込みました。反映先を選んでください', 'success');
     });
 
-    clearBtn && clearBtn.addEventListener('click', () => {
+    clearBtn && clearBtn.addEventListener('click', async () => {
       answer.value = ''; piItems = []; renderItems();
+      savePiLocal();
+      // Driveにも保存済みなら消す（記事選択時のみ）
+      if (getSelectedArticleFolderId()) { try { await savePiToDrive(); } catch (_) {} }
+    });
+
+    // 💾 Driveに保存ボタン
+    const saveBtn = document.getElementById('pi-save-drive');
+    if (saveBtn) saveBtn.addEventListener('click', async () => {
+      if (piItems.length === 0) { showToast('保存する商品情報がありません（先に取り込んでください）', 'warn'); return; }
+      const orig = saveBtn.textContent;
+      saveBtn.disabled = true; saveBtn.textContent = '保存中…';
+      const ok = await savePiToDrive();
+      if (ok) savePiLocal();
+      saveBtn.disabled = false; saveBtn.textContent = orig;
+      showToast(ok ? '💾 この記事の商品情報をDriveに保存しました' : '保存に失敗しました（記事を選択しているか確認してください）', ok ? 'success' : 'error');
     });
 
     function checkedItems() { return piItems.filter(it => it.checked); }
@@ -5804,6 +5892,8 @@ ${COMMON_GUARDS}`,
   function switchMemoContext() {
     // ☑ まとめて選択中の記事切替は選択を解除（選択対象は前の記事の項目のため）
     exitAllBulkModes();
+    // 🛒 商品情報もこの記事の分に読み替える（localStorage即時→Drive同期）
+    try { piReloadForCurrent(); } catch (_) {}
     const prevKey = memoStoreKey;
     const prevCount = getValidMemos().length;
     loadMemoStateForCurrent();
@@ -6044,6 +6134,7 @@ ${COMMON_GUARDS}`,
     //   （旧実装は選択前に単一スロットのメモを無条件復元していたため、
     //    前の記事のメモが起動直後から「引き継がれて見える」原因だった）
     loadMemoStateForCurrent();
+    try { piReloadForCurrent(); } catch (_) {} // 🛒 この記事の商品情報を復元
     await renderQueue();
     if (restoredFolder) {
       try {

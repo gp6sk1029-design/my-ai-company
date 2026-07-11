@@ -22,6 +22,8 @@ function doGet(e) {
       return handleListArticleFiles_(p);
     case 'downloadFile':
       return handleDownloadFile_(p);
+    case 'getProductInfo':
+      return handleGetProductInfo_(p);
     case 'ping':
       return jsonResponse_({ ok: true, time: new Date().toISOString() });
     default:
@@ -41,6 +43,7 @@ function doPost(e) {
   if (p.action === 'renameFile') return handleRenameFile_(p);
   if (p.action === 'transferFile') return handleTransferFile_(p);
   if (p.action === 'deleteFile') return handleDeleteFile_(p);
+  if (p.action === 'saveProductInfo') return handleSaveProductInfo_(p);
   return jsonResponse_({ ok: false, message: 'unknown action: ' + p.action });
 }
 
@@ -483,6 +486,76 @@ function handleUploadSmall_(p) {
     return jsonResponse_({ ok: false, message: err.message });
   } finally {
     lock.releaseLock();
+  }
+}
+
+// ─── 商品情報（PRODUCT_INFO.md）保存（2026-07-12） ─────────────────────
+// 記事めしPWAの「商品情報を取得」で解析した項目を記事フォルダに保存する。
+// itemsJson = [{label, value}, ...]。空なら既存を削除（クリア相当）。
+function handleSaveProductInfo_(p) {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(15000);
+  try {
+    const folder = resolveArticleFolder_(p);
+    let items = [];
+    try {
+      const parsed = JSON.parse(p.itemsJson || '[]');
+      if (Array.isArray(parsed)) items = parsed;
+    } catch (_) {}
+    const name = 'PRODUCT_INFO.md';
+    const existing = folder.getFilesByName(name);
+    if (items.length === 0) {
+      while (existing.hasNext()) existing.next().setTrashed(true);
+      return jsonResponse_({ ok: true, result: 'cleared', articleFolderId: folder.getId() });
+    }
+    let md = '# 商品情報（記事めしPWAで取得）\n\n';
+    md += '> 「商品情報を取得」コーナーで取り込んだ商品データ。記事執筆の参考に。\n\n';
+    for (var i = 0; i < items.length; i++) {
+      const label = String((items[i] && items[i].label) || '').trim();
+      const value = String((items[i] && items[i].value) || '').trim();
+      if (!value) continue;
+      md += label ? ('【' + label + '】' + value + '\n') : (value + '\n');
+    }
+    let file;
+    if (existing.hasNext()) {
+      file = existing.next();
+      file.setContent(md);
+      while (existing.hasNext()) existing.next().setTrashed(true);
+    } else {
+      file = folder.createFile(Utilities.newBlob(md, 'text/markdown', name));
+    }
+    appendLog({
+      articleTitle: folder.getName(),
+      fileName: name,
+      sizeBytes: md.length,
+      result: '商品情報保存',
+      note: 'items=' + items.length,
+    });
+    return jsonResponse_({
+      ok: true, result: 'success',
+      fileId: file.getId(),
+      articleFolderId: folder.getId(),
+      articleFolderName: folder.getName(),
+    });
+  } catch (err) {
+    Logger.log('handleSaveProductInfo_ error: ' + err.message + '\n' + err.stack);
+    return jsonResponse_({ ok: false, message: err.message });
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+// ─── 商品情報（PRODUCT_INFO.md）取得 ─────────────────────
+function handleGetProductInfo_(p) {
+  try {
+    if (!p.articleFolderId) return jsonResponse_({ ok: true, exists: false });
+    const folder = getArticleFolderById(p.articleFolderId);
+    const files = folder.getFilesByName('PRODUCT_INFO.md');
+    if (!files.hasNext()) return jsonResponse_({ ok: true, exists: false });
+    const text = files.next().getBlob().getDataAsString('UTF-8');
+    return jsonResponse_({ ok: true, exists: true, raw: text });
+  } catch (err) {
+    return jsonResponse_({ ok: false, message: err.message });
   }
 }
 
