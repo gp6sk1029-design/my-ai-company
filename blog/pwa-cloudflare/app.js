@@ -2922,18 +2922,36 @@
       showToast('🤖 ChatGPTを開きました。商品リサーチのプロンプトは自動入力済み → 送信するだけ（回答を下に貼り戻してください）', 'success');
     });
 
-    // AIの回答テキストを {label, value} の配列へ分解する。
-    // ①【ラベル】値 形式を最優先 ②「ラベル：値」形式 ③箇条書き/普通の行 も拾う。
+    // AIが付ける引用・装飾を除去（[MaGdget][1] や (【…】) や **太字** [1] 等）
+    function cleanValue(s) {
+      return String(s || '')
+        .replace(/\(\s*\[[^\]]*\](?:\[[^\]]*\])?\s*\)/g, '')   // ([text][1]) 形式の引用まるごと
+        .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')                // [text](url) → text
+        .replace(/\[([^\]]*)\]\[[^\]]*\]/g, '$1')               // [text][ref] → text
+        .replace(/\[\d+\]/g, '')                                // [1] 出典番号
+        .replace(/\*\*/g, '')                                   // **太字** 記号
+        .replace(/\s{2,}/g, ' ')
+        .trim();
+    }
+
+    // AIの回答テキストを「カテゴリ（ラベル）ごとに1件」へまとめる。
+    // 分解しすぎ防止：【主な特徴】A / B / C は 1件（値は / でつないだまま）にする。
+    // 同じラベルが複数行あれば1件に統合。重複値は除く。
     function parseAnswer(text) {
-      const out = [];
-      const seen = new Set();
-      const push = (label, value) => {
-        const v = (value || '').trim().replace(/^[-・*\s]+/, '').trim();
-        if (!v || v === '不明') return;
-        const key = (label || '') + '::' + v;
-        if (seen.has(key)) return;
-        seen.add(key);
-        out.push({ label: (label || '').trim(), value: v, checked: true });
+      const order = [];            // ラベルの出現順を保持
+      const byLabel = new Map();   // label -> [値の配列]
+      const noLabel = [];          // ラベル無し（箇条書き等）
+      const addTo = (label, value) => {
+        const parts = cleanValue(value)
+          .split(/\s*[\/／、]\s*/).map(s => cleanValue(s)).filter(s => s && s !== '不明');
+        if (parts.length === 0) return;
+        if (label) {
+          if (!byLabel.has(label)) { byLabel.set(label, []); order.push(label); }
+          const arr = byLabel.get(label);
+          parts.forEach(p => { if (!arr.includes(p)) arr.push(p); });
+        } else {
+          parts.forEach(p => { if (!noLabel.includes(p)) noLabel.push(p); });
+        }
       };
       const lines = (text || '').split(/\r?\n/);
       for (let raw of lines) {
@@ -2941,20 +2959,18 @@
         if (!line) continue;
         let m;
         if ((m = /^[#>\s]*【\s*([^】]+?)\s*】\s*(.*)$/.exec(line))) {
-          // 【ラベル】値。値が「/」区切りなら分割して個別項目にする
-          const label = m[1], rest = m[2];
-          if (!rest) continue;
-          const parts = rest.split(/\s*[\/／]\s*/).map(s => s.trim()).filter(Boolean);
-          if (parts.length > 1) parts.forEach(p => push(label, p));
-          else push(label, rest);
+          if (m[2]) addTo(m[1].trim(), m[2]);
         } else if ((m = /^[#>\s]*([^:：]{1,16})\s*[:：]\s*(.+)$/.exec(line))) {
-          push(m[1], m[2]);
+          addTo(m[1].trim(), m[2]);
         } else if (/^[-・*]/.test(raw) || /^\d+[.)]/.test(line)) {
-          push('', line.replace(/^[-・*\s]+/, '').replace(/^\d+[.)]\s*/, ''));
+          addTo('', line.replace(/^[-・*\s]+/, '').replace(/^\d+[.)]\s*/, ''));
         } else {
-          push('', line);
+          addTo('', line);
         }
       }
+      // 1ラベル=1件（値は / でつなぐ）。ラベル無しは末尾にまとめる
+      const out = order.map(label => ({ label, value: byLabel.get(label).join(' / '), checked: true }));
+      noLabel.forEach(v => out.push({ label: '', value: v, checked: true }));
       return out;
     }
 
