@@ -542,14 +542,17 @@
       return engine === 'gemini' ? getGeminiUrl() : getChatGPTUrl();
     }
     // プロンプトあり
-    // ChatGPTサーバーは長いURLで HTTP 431 を返す。安全圏は raw 日本語 300文字以内（≈ URL 2700バイト）
-    const MAX = 300;
+    // ChatGPTサーバーは長いURLで HTTP 431 を返す。
+    // 🔬 2026-07-11 実測（本人のChrome・ログインCookie込み）：URL約6.1KBまで200 OK・6.3KL超で431。
+    //   Cookieは増減するためマージンを取り、URLエンコード後 5000バイト（日本語≈550字）を上限とする。
+    //   ※判定は文字数でなくエンコード後バイト数（ASCII混在プロンプトで損しないため）
+    const MAX_ENC_BYTES = 5000;
     let p = prompt;
-    if (p.length > MAX) {
-      // 🛡 短縮版は「先頭300字」ではなく、ユーザーが入力した変数（タイトル・内容・補足・配色）を
+    if (encodeURIComponent(p).length > MAX_ENC_BYTES) {
+      // 🛡 短縮版は「先頭から切る」ではなく、ユーザーが入力した変数（タイトル・内容・補足・配色）を
       // 最優先で載せる（2026-07-11修正）。先頭だけだと共通の定型文で枠が尽きて、
       // せっかく入力した補足・配色がAIに一切届かないバグになっていた。
-      p = buildUrlPromptSummary_(prompt, MAX);
+      p = buildUrlPromptSummary_(prompt, MAX_ENC_BYTES);
     }
     if (engine === 'gemini') {
       const saved = (localStorage.getItem(CONN_KEY_GEM) || '').trim();
@@ -567,9 +570,12 @@
     return 'https://chatgpt.com/?q=' + encodeURIComponent(p);
   }
 
-  // URL埋め込み用の短縮プロンプトを作る：1行目（何を作るか）＋ユーザー入力の変数を優先して詰める。
-  // 全テンプレ共通（つくるもの・タイトル・内容・補足・配色の実入力値がURL経由でも必ずAIに届く）。
-  function buildUrlPromptSummary_(prompt, MAX) {
+  // URL埋め込み用の短縮プロンプトを作る：1行目（何を作るか）＋ユーザー入力の変数を優先して詰め、
+  // 余った枠にテンプレ本文の先頭部分を足す。全テンプレ共通
+  // （つくるもの・タイトル・内容・補足・配色の実入力値がURL経由でも必ずAIに届く）。
+  // maxEnc = encodeURIComponent後のバイト数上限。
+  function buildUrlPromptSummary_(prompt, maxEnc) {
+    const enc = (s) => encodeURIComponent(s).length;
     const tail = '\n※これは要約版。詳細な指示文はPWAの「📝プロンプトをコピー」で貼れます';
     let out = (prompt.split('\n')[0] || '').trim().slice(0, 80);
     try {
@@ -577,19 +583,36 @@
       const key = (tplSel && tplSel.value) || '';
       const tf = (typeof TEMPLATE_FIELDS !== 'undefined' && TEMPLATE_FIELDS[key]) ? TEMPLATE_FIELDS[key] : null;
       const fallback = { title: 'タイトル', main: '内容', sub: '補足', mood: '配色' };
+      const usedVals = [];
       for (const k of ['title', 'main', 'sub', 'mood']) {
         const el = document.getElementById('ai-var-' + k);
         const v = ((el && el.value) || '').trim();
         if (!v) continue;
         const label = (tf && tf[k] && tf[k][0]) ? tf[k][0] : fallback[k];
         let line = '\n【' + label + '】' + v;
-        const budget = MAX - tail.length - out.length;
-        if (budget <= 12) break; // もう載らない
-        if (line.length > budget) line = line.slice(0, budget - 1) + '…';
+        // 収まるまで末尾から削る（入力値そのものは最優先で可能な限り残す）
+        while (line.length > 14 && enc(out + line + tail) > maxEnc) {
+          line = line.slice(0, -10) + '…';
+        }
+        if (enc(out + line + tail) > maxEnc) break;
+        out += line;
+        usedVals.push(v);
+      }
+      // 余った枠にテンプレ本文（2行目以降）を先頭から足す。
+      // 入力値が既に【ラベル】行で載っている行はスキップして枠をムダにしない
+      const bodyLines = prompt.split('\n').slice(1);
+      for (const bl of bodyLines) {
+        if (!bl.trim()) continue;
+        if (usedVals.some((v) => v && bl.indexOf(v) >= 0)) continue;
+        const line = '\n' + bl;
+        if (enc(out + line + tail) > maxEnc) break;
         out += line;
       }
     } catch (e) {
-      return prompt.slice(0, MAX) + tail;
+      // フォールバック：先頭から収まるだけ
+      let cut = prompt;
+      while (cut.length > 50 && enc(cut + tail) > maxEnc) cut = cut.slice(0, -100);
+      return cut + tail;
     }
     return out + tail;
   }
