@@ -3979,10 +3979,18 @@ ${COMMON_GUARDS}`,
   }
 
   document.addEventListener('paste', async (e) => {
+    // 🛡 テキスト入力欄（タイトル・同梱物・補足・メモ等）への ⌘V は横取りしない（2026-07-11）。
+    // クリップボードに画像が残っていると、入力欄への文字貼り付けのつもりが
+    // 「編集後の画像の取込（保存方法ポップアップ）」に化ける誤動作の原因だった。
+    // 画像として取り込むのは「入力欄の外」または専用貼付ゾーン（paste-target）だけ。
+    const t = e.target;
+    const el = (t && t.nodeType === 3) ? t.parentElement : t; // テキストノード対策
+    const inTextField = !!(el && el.closest && el.closest('input, textarea, select, [contenteditable="true"], [contenteditable=""]'));
+    const inDedicatedZone = !!(el && el.closest && el.closest('#paste-target'));
+    if (inTextField && !inDedicatedZone) return; // 通常の貼り付けに任せる
     const items = (e.clipboardData && e.clipboardData.items) ? Array.from(e.clipboardData.items) : [];
     const hasImage = items.some(it => it && it.type && it.type.startsWith('image/'));
     if (!hasImage) return;
-    // 画像が含まれていれば、テキスト入力欄でも横取りして取り込む
     e.preventDefault();
     await handlePastedItems(items);
   });
