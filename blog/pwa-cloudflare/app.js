@@ -2925,7 +2925,9 @@
             const lbl = (opts.find(o => o.key === fk) || {}).label || '入力欄';
             if (res === 'dup') showToast('「' + lbl + '」欄には既に入っています', 'warn');
             else showToast(res ? ('「' + lbl + '」欄に入れました') : '入力欄が見つかりません', res ? 'success' : 'error');
-            sel.value = '';
+            // 🛡 選択を保持（どの欄に入れたか見えるように）＋入れた印に緑ハイライト
+            if (res) { sel.style.background = '#dcfce7'; sel.style.borderColor = '#22c55e'; sel.style.color = '#166534'; }
+            else { sel.value = ''; }
           });
         });
       },
@@ -3091,7 +3093,9 @@
           const lbl = (fieldOpts.find(o => o.key === fk) || {}).label || '入力欄';
           if (res === 'dup') showToast('「' + lbl + '」欄には既に入っています', 'warn');
           else showToast(res ? '「' + lbl + '」欄に入れました' : '入力欄が見つかりません', res ? 'success' : 'error');
-          fsel.value = '';
+          // 🛡 選択を保持（どの欄に入れたか見えるように）＋入れた印に緑ハイライト
+          if (res) { fsel.style.background = '#dcfce7'; fsel.style.borderColor = '#22c55e'; fsel.style.color = '#166534'; }
+          else { fsel.value = ''; }
           // ヘルパーを開いて反映を見せる
           const helper = document.getElementById('ai-helper');
           if (res && helper && !helper.open) helper.open = true;
