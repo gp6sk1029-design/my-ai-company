@@ -131,6 +131,40 @@
     </div>
   </details>
 
+  <!-- 🛒 商品情報を取得（AIリサーチ方式・API課金なし） -->
+  <details class="product-info-details" id="product-info-details">
+    <summary>
+      <span class="pi-summary-label">🛒 商品情報を取得</span>
+      <span class="pi-summary-status" id="pi-summary-status">未取得</span>
+    </summary>
+    <div class="pi-body">
+      <p class="pi-intro">
+        商品名かページURLを入れて <strong>①リサーチプロンプトをコピー → ②ChatGPT/Gemini/Claudeに貼る → ③返ってきた内容をここに貼り戻す</strong>。
+        取り込んだ情報は「📝 メモ」「🖼 画像にリンク」「📥 プロンプト欄」へ反映できます。
+      </p>
+      <div class="pi-row">
+        <input type="text" id="pi-query" class="pi-input" placeholder="例：SwitchBot ロックLite　または　Amazonの商品ページURL">
+        <button type="button" id="pi-copy-prompt" class="btn-primary btn-small">🔍 リサーチプロンプトをコピー</button>
+      </div>
+      <small class="pi-hint">↑ 押すとプロンプトがコピーされます。AIに貼って回答をもらってください。</small>
+
+      <label class="pi-paste-label" for="pi-answer">② AIの回答をここに貼り付け（⌘V）</label>
+      <textarea id="pi-answer" class="pi-answer" rows="6" placeholder="AIが返した商品情報（商品名・価格・特徴・スペック・注意点など）をそのまま貼り付け"></textarea>
+      <div class="pi-row">
+        <button type="button" id="pi-parse" class="btn-secondary btn-small">📥 取り込む（項目に分解）</button>
+        <button type="button" id="pi-clear" class="btn-ghost btn-small">クリア</button>
+      </div>
+
+      <div id="pi-items" class="pi-items" hidden></div>
+      <div id="pi-actions" class="pi-actions" hidden>
+        <span id="pi-selected-count" class="pi-selected-count">0件選択中</span>
+        <button type="button" id="pi-to-memo" class="btn-primary btn-small" disabled>📝 メモに追加</button>
+        <button type="button" id="pi-to-image" class="btn-secondary btn-small" disabled>🖼 画像にリンク</button>
+        <button type="button" id="pi-to-prompt" class="btn-secondary btn-small" disabled>📥 プロンプト欄へ</button>
+      </div>
+    </div>
+  </details>
+
   <!-- 撮影モード切替 -->
   <div class="mode-tabs">
     <button class="mode-tab active" data-mode="live" type="button">📷 カメラ</button>

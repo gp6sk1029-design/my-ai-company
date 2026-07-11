@@ -2147,3 +2147,64 @@ body.is-dropping .drop-overlay { display: flex; }
   margin-top: 8px; display: flex; justify-content: space-between; gap: 10px;
   font-size: 12.5px; font-weight: 700; color: #e0e7ff; white-space: nowrap;
 }
+
+/* 🛒 商品情報を取得コーナー（2026-07-12） */
+.product-info-details {
+  background: var(--bg-card, #fff); border-radius: 14px; margin: 12px 0;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.06); overflow: hidden;
+}
+.product-info-details > summary {
+  list-style: none; cursor: pointer; padding: 14px 16px;
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  font-weight: 800; font-size: 15px;
+}
+.product-info-details > summary::-webkit-details-marker { display: none; }
+.pi-summary-status { font-size: 12px; font-weight: 700; color: var(--text-muted, #6b7280); }
+.pi-body { padding: 0 16px 16px; }
+.pi-intro { font-size: 12.5px; color: var(--text-muted, #6b7280); line-height: 1.6; margin: 4px 0 12px; }
+.pi-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin: 8px 0; }
+.pi-input {
+  flex: 1 1 200px; min-width: 0; padding: 10px 12px; font-size: 15px;
+  border: 1px solid #d1d5db; border-radius: 10px; font-family: inherit;
+}
+.pi-input:focus { border-color: var(--accent, #4f46e5); outline: none; }
+.pi-hint { display: block; font-size: 11.5px; color: var(--text-muted, #9ca3af); margin: 2px 0 10px; }
+.pi-paste-label { display: block; font-size: 12.5px; font-weight: 700; margin: 12px 0 6px; }
+.pi-answer {
+  width: 100%; box-sizing: border-box; padding: 10px 12px; font-size: 14px;
+  border: 1px solid #d1d5db; border-radius: 10px; font-family: inherit; resize: vertical;
+}
+.pi-answer:focus { border-color: var(--accent, #4f46e5); outline: none; }
+.pi-items {
+  margin: 12px 0; border: 1px solid #e5e7eb; border-radius: 10px;
+  max-height: 300px; overflow-y: auto; background: #fafafa;
+}
+.pi-item {
+  display: flex; align-items: flex-start; gap: 8px; padding: 8px 10px;
+  border-bottom: 1px solid #eee; font-size: 13.5px; cursor: pointer;
+}
+.pi-item:last-child { border-bottom: none; }
+.pi-item input { width: 18px; height: 18px; margin-top: 1px; accent-color: var(--accent, #4f46e5); flex-shrink: 0; }
+.pi-item-label {
+  flex-shrink: 0; font-weight: 700; color: var(--accent, #4f46e5);
+  background: #eef2ff; padding: 1px 7px; border-radius: 6px; font-size: 12px;
+}
+.pi-item-value { flex: 1; line-height: 1.5; word-break: break-word; }
+.pi-actions {
+  display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 10px;
+  padding: 10px; background: #eef2ff; border: 1px solid #c7d2fe; border-radius: 10px;
+}
+.pi-selected-count { font-size: 12.5px; font-weight: 700; color: #3730a3; white-space: nowrap; }
+.pi-actions button { min-height: 0; height: auto; padding: 8px 14px; font-size: 13.5px; border-radius: 10px; white-space: nowrap; }
+
+/* 商品情報コーナー：ボタンの折り返し防止・サイズ統一（bulk-barと同じ方針） */
+.pi-row button, .pi-copy-prompt, #pi-copy-prompt {
+  white-space: nowrap; word-break: keep-all;
+  min-height: 0; height: auto; padding: 8px 14px; font-size: 13.5px; border-radius: 10px;
+  flex-shrink: 0;
+}
+/* 入力欄は1行占有→ボタンは次行に回す（狭い画面でボタンが潰れない） */
+.pi-row #pi-copy-prompt { flex: 0 0 auto; }
+
+/* hidden属性が display:flex に負けるのを防ぐ（取込前はアクション/項目を隠す） */
+.pi-actions[hidden], .pi-items[hidden] { display: none !important; }

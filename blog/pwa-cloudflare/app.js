@@ -2858,6 +2858,222 @@
     }
   }
 
+  // ═══════════════════════════════════════════════════════════
+  // 🛒 商品情報を取得（AIリサーチ方式・2026-07-12）
+  // 商品名/URL → リサーチプロンプト生成 → AIに貼る → 回答を貼り戻す →
+  // 項目に分解 → メモ/画像リンク/プロンプト欄へ反映。API課金なし（Claude in Chrome方針準拠）。
+  // ═══════════════════════════════════════════════════════════
+  (function initProductInfo() {
+    const q = document.getElementById('pi-query');
+    const copyBtn = document.getElementById('pi-copy-prompt');
+    const answer = document.getElementById('pi-answer');
+    const parseBtn = document.getElementById('pi-parse');
+    const clearBtn = document.getElementById('pi-clear');
+    const itemsBox = document.getElementById('pi-items');
+    const actionsBox = document.getElementById('pi-actions');
+    const selCountEl = document.getElementById('pi-selected-count');
+    const toMemoBtn = document.getElementById('pi-to-memo');
+    const toImageBtn = document.getElementById('pi-to-image');
+    const toPromptBtn = document.getElementById('pi-to-prompt');
+    const statusEl = document.getElementById('pi-summary-status');
+    if (!q || !copyBtn || !answer) return; // 要素が無ければ何もしない
+
+    let piItems = []; // {label, value, checked}
+
+    // リサーチ用プロンプト（AIが解析しやすい固定フォーマットで返させる）
+    function buildProductResearchPrompt(query) {
+      const isUrl = /^https?:\/\//i.test(query.trim());
+      const subject = isUrl
+        ? '次の商品ページの製品について調べてください：\n' + query.trim()
+        : '次の製品について調べてください：「' + query.trim() + '」';
+      return [
+        subject,
+        '',
+        'ガジェット系ブログのレビュー記事を書くための下調べです。以下の【ラベル】形式で、',
+        '各項目1行（複数ある場合は「 / 」区切り）で、事実ベースで簡潔に返してください。',
+        '不明な項目は「不明」と書いてください。推測は避け、確度の低いものは末尾に(要確認)と付けてください。',
+        '',
+        '【商品名】正式名称',
+        '【メーカー】',
+        '【価格】実売価格の目安（円）',
+        '【カテゴリ】',
+        '【主な特徴】3〜5個を / 区切り',
+        '【主要スペック】重要な数値スペックを / 区切り（例：重量◯g / バッテリー◯時間）',
+        '【メリット】2〜3個を / 区切り',
+        '【デメリット・注意点】2〜3個を / 区切り',
+        '【こんな人におすすめ】1〜2個を / 区切り',
+        '【同梱物】箱の中身を / 区切り（分かれば）',
+        '',
+        '※上記フォーマットのテキストだけを返してください（前置き・後書き不要）。',
+      ].join('\n');
+    }
+
+    copyBtn.addEventListener('click', async () => {
+      const query = (q.value || '').trim();
+      if (!query) { showToast('商品名かURLを入力してください', 'error'); return; }
+      const prompt = buildProductResearchPrompt(query);
+      try {
+        await navigator.clipboard.writeText(prompt);
+        showToast('🔍 商品リサーチプロンプトをコピー。ChatGPT/Gemini/Claudeに貼って回答を取得してください', 'success');
+      } catch (e) {
+        window.prompt('以下をAIに貼って商品情報を調べてください', prompt);
+      }
+    });
+
+    // AIの回答テキストを {label, value} の配列へ分解する。
+    // ①【ラベル】値 形式を最優先 ②「ラベル：値」形式 ③箇条書き/普通の行 も拾う。
+    function parseAnswer(text) {
+      const out = [];
+      const seen = new Set();
+      const push = (label, value) => {
+        const v = (value || '').trim().replace(/^[-・*\s]+/, '').trim();
+        if (!v || v === '不明') return;
+        const key = (label || '') + '::' + v;
+        if (seen.has(key)) return;
+        seen.add(key);
+        out.push({ label: (label || '').trim(), value: v, checked: true });
+      };
+      const lines = (text || '').split(/\r?\n/);
+      for (let raw of lines) {
+        const line = raw.trim();
+        if (!line) continue;
+        let m;
+        if ((m = /^[#>\s]*【\s*([^】]+?)\s*】\s*(.*)$/.exec(line))) {
+          // 【ラベル】値。値が「/」区切りなら分割して個別項目にする
+          const label = m[1], rest = m[2];
+          if (!rest) continue;
+          const parts = rest.split(/\s*[\/／]\s*/).map(s => s.trim()).filter(Boolean);
+          if (parts.length > 1) parts.forEach(p => push(label, p));
+          else push(label, rest);
+        } else if ((m = /^[#>\s]*([^:：]{1,16})\s*[:：]\s*(.+)$/.exec(line))) {
+          push(m[1], m[2]);
+        } else if (/^[-・*]/.test(raw) || /^\d+[.)]/.test(line)) {
+          push('', line.replace(/^[-・*\s]+/, '').replace(/^\d+[.)]\s*/, ''));
+        } else {
+          push('', line);
+        }
+      }
+      return out;
+    }
+
+    function updateSelCount() {
+      const n = piItems.filter(it => it.checked).length;
+      if (selCountEl) selCountEl.textContent = n + '件選択中';
+      [toMemoBtn, toImageBtn, toPromptBtn].forEach(b => { if (b) b.disabled = n === 0; });
+    }
+
+    function itemText(it) {
+      return it.label ? (it.label + '：' + it.value) : it.value;
+    }
+
+    function renderItems() {
+      if (!itemsBox) return;
+      itemsBox.innerHTML = '';
+      if (piItems.length === 0) {
+        itemsBox.hidden = true; actionsBox.hidden = true;
+        if (statusEl) statusEl.textContent = '未取得';
+        return;
+      }
+      itemsBox.hidden = false; actionsBox.hidden = false;
+      piItems.forEach((it, i) => {
+        const row = document.createElement('label');
+        row.className = 'pi-item';
+        row.innerHTML =
+          '<input type="checkbox"' + (it.checked ? ' checked' : '') + '>' +
+          (it.label ? '<span class="pi-item-label">' + escHtml(it.label) + '</span>' : '') +
+          '<span class="pi-item-value">' + escHtml(it.value) + '</span>';
+        row.querySelector('input').addEventListener('change', (e) => {
+          piItems[i].checked = e.target.checked;
+          updateSelCount();
+        });
+        itemsBox.appendChild(row);
+      });
+      if (statusEl) statusEl.textContent = piItems.length + '件取込';
+      updateSelCount();
+    }
+
+    parseBtn && parseBtn.addEventListener('click', () => {
+      const text = (answer.value || '').trim();
+      if (!text) { showToast('AIの回答を貼り付けてください', 'error'); return; }
+      piItems = parseAnswer(text);
+      if (piItems.length === 0) { showToast('項目を取り出せませんでした。回答をそのまま貼り付けているか確認してください', 'warn'); return; }
+      renderItems();
+      showToast('📥 ' + piItems.length + '件の情報を取り込みました。反映先を選んでください', 'success');
+    });
+
+    clearBtn && clearBtn.addEventListener('click', () => {
+      answer.value = ''; piItems = []; renderItems();
+    });
+
+    function checkedItems() { return piItems.filter(it => it.checked); }
+
+    // 📝 メモに追加：選んだ項目を記事作成メモの末尾へ（1項目=1メモ・1行厳守）
+    toMemoBtn && toMemoBtn.addEventListener('click', () => {
+      const picks = checkedItems();
+      if (picks.length === 0) return;
+      const existing = new Set(getValidMemos());
+      let added = 0;
+      picks.forEach(it => {
+        const t = itemText(it);
+        if (!existing.has(t)) { memos.push(t); existing.add(t); added++; }
+      });
+      persistMemoState();
+      renderMemos();
+      const det = document.getElementById('memo-details');
+      if (det && !det.open) det.open = true;
+      showToast('📝 メモに' + added + '件追加しました' + (added < picks.length ? '（重複' + (picks.length - added) + '件は除外）' : ''), 'success');
+    });
+
+    // 🖼 画像にリンク：選んだ情報を1つのメモにまとめ、指定した画像に紐付ける
+    toImageBtn && toImageBtn.addEventListener('click', async () => {
+      const picks = checkedItems();
+      if (picks.length === 0) return;
+      // 画像を選ぶ（既存の候補ピッカーを流用）。トークン選択で画像を1枚特定する。
+      const tokens = await pickImagesForMemo([]);
+      if (tokens === null) return; // キャンセル or 候補なし（pickImagesForMemo内で案内）
+      if (tokens.length === 0) { showToast('リンクする画像を選んでください', 'warn'); return; }
+      // 情報をまとめて1メモ化（商品名があれば見出しに）
+      const name = (piItems.find(it => /商品名|製品名|品名/.test(it.label)) || {}).value;
+      const body = picks.map(it => itemText(it)).join('・');
+      const base = (name ? name + '｜' : '') + body;
+      const memoText = setMemoImages(base, tokens);
+      memos.push(memoText);
+      persistMemoState();
+      renderMemos();
+      const det = document.getElementById('memo-details');
+      if (det && !det.open) det.open = true;
+      showToast('🖼 商品情報を画像にリンクしてメモに追加しました', 'success');
+    });
+
+    // 📥 プロンプト欄へ：商品名→タイトル / 価格→内容 / 特徴→補足（空欄のみ埋める）
+    toPromptBtn && toPromptBtn.addEventListener('click', () => {
+      const pick = (re) => {
+        const it = piItems.find(x => x.checked && re.test(x.label));
+        return it ? it.value : '';
+      };
+      const name = pick(/商品名|製品名|品名/);
+      const price = pick(/価格|値段/);
+      const features = piItems.filter(x => x.checked && /特徴|メリット|スペック/.test(x.label)).map(x => x.value);
+      const tTitle = document.getElementById('ai-var-title');
+      const tMain = document.getElementById('ai-var-main');
+      const tSub = document.getElementById('ai-var-sub');
+      const filled = [];
+      if (tTitle && !tTitle.value.trim() && name) { tTitle.value = name; filled.push('タイトル'); }
+      if (tMain && !tMain.value.trim() && (price || features.length)) {
+        tMain.value = price || features[0] || ''; filled.push('内容');
+      }
+      if (tSub && !tSub.value.trim() && features.length) {
+        tSub.value = features.join(' / '); filled.push('補足');
+      }
+      // 反映後にプロンプト本文を作り直す
+      if (typeof regenerateAIPrompt === 'function') regenerateAIPrompt();
+      const helper = document.getElementById('ai-helper');
+      if (helper && !helper.open) helper.open = true;
+      if (filled.length) showToast('📥 プロンプト欄の「' + filled.join('・') + '」に反映しました（空欄のみ・上書きはしません）', 'success');
+      else showToast('プロンプト欄は既に入力済みのため上書きしませんでした（必要なら手動で調整してください）', 'warn');
+    });
+  })();
+
   // テンプレ切替時に入力欄のラベル＆プレースホルダーを書き換える
   // scope: 'helper' = 上部AIヘルパー / 'banner' = バナー内プロンプト編集
   function applyTemplateFields(key, scope) {
