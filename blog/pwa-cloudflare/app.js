@@ -543,12 +543,13 @@
     }
     // プロンプトあり
     // ChatGPTサーバーは長いURLで HTTP 431 を返す。安全圏は raw 日本語 300文字以内（≈ URL 2700バイト）
-    // ※ 完全版プロンプトはクリップボード経由で渡す（btnOpenAIのonclick内で navigator.clipboard.writeText）
     const MAX = 300;
     let p = prompt;
     if (p.length > MAX) {
-      // URL用は冒頭サマリだけ。詳細はクリップボードからペーストする旨を末尾に
-      p = p.slice(0, MAX) + '\n…（詳細はPWAの📋プロンプトボタン経由でペーストしてください）';
+      // 🛡 短縮版は「先頭300字」ではなく、ユーザーが入力した変数（タイトル・内容・補足・配色）を
+      // 最優先で載せる（2026-07-11修正）。先頭だけだと共通の定型文で枠が尽きて、
+      // せっかく入力した補足・配色がAIに一切届かないバグになっていた。
+      p = buildUrlPromptSummary_(prompt, MAX);
     }
     if (engine === 'gemini') {
       const saved = (localStorage.getItem(CONN_KEY_GEM) || '').trim();
@@ -564,6 +565,33 @@
     // ChatGPT: プロンプトがある場合は chatgpt.com ルートを強制（プロジェクトURLは ?q= を無視するため）
     // → プロンプト自動入力を最優先。プロジェクト文脈を使いたい場合はChatGPT側で手動切替
     return 'https://chatgpt.com/?q=' + encodeURIComponent(p);
+  }
+
+  // URL埋め込み用の短縮プロンプトを作る：1行目（何を作るか）＋ユーザー入力の変数を優先して詰める。
+  // 全テンプレ共通（つくるもの・タイトル・内容・補足・配色の実入力値がURL経由でも必ずAIに届く）。
+  function buildUrlPromptSummary_(prompt, MAX) {
+    const tail = '\n※これは要約版。詳細な指示文はPWAの「📝プロンプトをコピー」で貼れます';
+    let out = (prompt.split('\n')[0] || '').trim().slice(0, 80);
+    try {
+      const tplSel = document.getElementById('ai-template-select');
+      const key = (tplSel && tplSel.value) || '';
+      const tf = (typeof TEMPLATE_FIELDS !== 'undefined' && TEMPLATE_FIELDS[key]) ? TEMPLATE_FIELDS[key] : null;
+      const fallback = { title: 'タイトル', main: '内容', sub: '補足', mood: '配色' };
+      for (const k of ['title', 'main', 'sub', 'mood']) {
+        const el = document.getElementById('ai-var-' + k);
+        const v = ((el && el.value) || '').trim();
+        if (!v) continue;
+        const label = (tf && tf[k] && tf[k][0]) ? tf[k][0] : fallback[k];
+        let line = '\n【' + label + '】' + v;
+        const budget = MAX - tail.length - out.length;
+        if (budget <= 12) break; // もう載らない
+        if (line.length > budget) line = line.slice(0, budget - 1) + '…';
+        out += line;
+      }
+    } catch (e) {
+      return prompt.slice(0, MAX) + tail;
+    }
+    return out + tail;
   }
 
   // Engine ラベル取得（バナー表示用）
