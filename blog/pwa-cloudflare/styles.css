@@ -2208,3 +2208,12 @@ body.is-dropping .drop-overlay { display: flex; }
 
 /* hidden属性が display:flex に負けるのを防ぐ（取込前はアクション/項目を隠す） */
 .pi-actions[hidden], .pi-items[hidden] { display: none !important; }
+
+/* 商品情報：各項目を「→入力欄」へ入れるセレクト（2026-07-12） */
+.pi-item { flex-wrap: wrap; }
+.pi-item-check { display: flex; align-items: flex-start; gap: 8px; flex: 1 1 auto; min-width: 0; cursor: pointer; }
+.pi-item-field {
+  flex: 0 0 auto; align-self: center; font-size: 12px; padding: 4px 6px;
+  border: 1px solid #c7d2fe; border-radius: 8px; background: #eef2ff; color: #3730a3;
+  font-family: inherit; cursor: pointer; max-width: 40vw;
+}

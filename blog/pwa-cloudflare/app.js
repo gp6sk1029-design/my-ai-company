@@ -2984,6 +2984,30 @@
       return it.label ? (it.label + '：' + it.value) : it.value;
     }
 
+    // 現在のテンプレの入力欄ラベル（タイトル/内容/補足/配色は選んだテンプレで名前が変わる）
+    function currentFieldOptions() {
+      const key = (document.getElementById('ai-template-select') || {}).value || 'eyecatch';
+      const def = (typeof TEMPLATE_FIELDS !== 'undefined' && TEMPLATE_FIELDS[key]) || null;
+      const fallback = { title: 'タイトル', main: '内容', sub: '補足', mood: '配色' };
+      return ['title', 'main', 'sub', 'mood']
+        .map(k => ({ key: k, label: (def && def[k] && def[k][0]) ? def[k][0] : fallback[k] }))
+        // 「（使用しない）」欄は候補から外す
+        .filter(o => !/使用しない/.test(o.label));
+    }
+    // 選んだ項目の値を、指定した入力欄へ入れる（空なら設定・入っていれば末尾に追記）
+    function insertIntoField(fieldKey, value) {
+      const target = document.getElementById('ai-var-' + fieldKey);
+      if (!target) return false;
+      const cur = (target.value || '').trim();
+      // 既に同じ値が入っていれば追記しない（二度押しの重複防止）
+      const parts = cur ? cur.split(/\s*\/\s*/).map(s => s.trim()) : [];
+      if (parts.includes(value.trim())) return 'dup';
+      target.value = cur ? (cur + ' / ' + value) : value;
+      // 上部ヘルパー→本文・バナーへ反映（inputイベントで regenerateAIPrompt が走る）
+      target.dispatchEvent(new Event('input', { bubbles: true }));
+      return true;
+    }
+
     function renderItems() {
       if (!itemsBox) return;
       itemsBox.innerHTML = '';
@@ -2993,22 +3017,46 @@
         return;
       }
       itemsBox.hidden = false; actionsBox.hidden = false;
+      const fieldOpts = currentFieldOptions();
       piItems.forEach((it, i) => {
-        const row = document.createElement('label');
+        const row = document.createElement('div');
         row.className = 'pi-item';
+        // チェック部（メモ/画像/一括反映用）＋「→入力欄」セレクト（個別に欄へ入れる）
         row.innerHTML =
-          '<input type="checkbox"' + (it.checked ? ' checked' : '') + '>' +
-          (it.label ? '<span class="pi-item-label">' + escHtml(it.label) + '</span>' : '') +
-          '<span class="pi-item-value">' + escHtml(it.value) + '</span>';
+          '<label class="pi-item-check">' +
+            '<input type="checkbox"' + (it.checked ? ' checked' : '') + '>' +
+            (it.label ? '<span class="pi-item-label">' + escHtml(it.label) + '</span>' : '') +
+            '<span class="pi-item-value">' + escHtml(it.value) + '</span>' +
+          '</label>' +
+          '<select class="pi-item-field" title="この情報を入力欄へ入れる">' +
+            '<option value="">→ 入力欄へ</option>' +
+            fieldOpts.map(o => '<option value="' + o.key + '">' + escHtml(o.label) + '</option>').join('') +
+          '</select>';
         row.querySelector('input').addEventListener('change', (e) => {
           piItems[i].checked = e.target.checked;
           updateSelCount();
+        });
+        const fsel = row.querySelector('.pi-item-field');
+        fsel.addEventListener('change', () => {
+          const fk = fsel.value;
+          if (!fk) return;
+          const res = insertIntoField(fk, it.value);
+          const lbl = (fieldOpts.find(o => o.key === fk) || {}).label || '入力欄';
+          if (res === 'dup') showToast('「' + lbl + '」欄には既に入っています', 'warn');
+          else showToast(res ? '「' + lbl + '」欄に入れました' : '入力欄が見つかりません', res ? 'success' : 'error');
+          fsel.value = '';
+          // ヘルパーを開いて反映を見せる
+          const helper = document.getElementById('ai-helper');
+          if (res && helper && !helper.open) helper.open = true;
         });
         itemsBox.appendChild(row);
       });
       if (statusEl) statusEl.textContent = piItems.length + '件取込';
       updateSelCount();
     }
+    // テンプレを変えたら「→入力欄」の候補名も最新に（同梱物・配色など名前が変わる）
+    const piTplSel = document.getElementById('ai-template-select');
+    if (piTplSel) piTplSel.addEventListener('change', () => { if (piItems.length) renderItems(); });
 
     parseBtn && parseBtn.addEventListener('click', () => {
       const text = (answer.value || '').trim();
