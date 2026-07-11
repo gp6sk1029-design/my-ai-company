@@ -2109,6 +2109,7 @@
         '<span class="bps-head-hint">（この場で書き換えOK・上の準備欄と自動同期）</span></div>' +
       '<div class="bps-flex">' + thumb + '<div class="bps-rows">' + rows.join('') + '</div></div>' +
       '<button type="button" class="bps-research-btn" id="bps-research">🔍 リサーチプロンプトをコピー</button>' +
+      '<button type="button" class="bps-research-btn bps-pi-btn" id="bps-pi-fill">🛒 取り込んだ商品情報を入れる</button>' +
       '<div class="bps-research-hint">↑ ChatGPT/Gemini/Claudeに貼って回答取得 → 上の欄に転記</div>' +
       (isCompare ? '<div class="bps-compare-gallery" id="bps-cmp-gallery"><div class="bps-cmp-loading">比較画像を読み込み中…</div></div>' : '') +
       (full
@@ -2173,6 +2174,8 @@
     });
     const researchBtn = el.querySelector('#bps-research');
     if (researchBtn) researchBtn.addEventListener('click', () => copyResearchPromptForCurrent('helper'));
+    const piFillBtn = el.querySelector('#bps-pi-fill');
+    if (piFillBtn) piFillBtn.addEventListener('click', () => openProductInfoPicker());
   }
   // 上部ヘルパーの編集にライブ追従：
   //  - 変数欄・テンプレ変更は regenerateAIPrompt の末尾から呼ばれる（main/sub/mood含め全欄カバー）
@@ -2863,6 +2866,72 @@
   // 商品名/URL → リサーチプロンプト生成 → AIに貼る → 回答を貼り戻す →
   // 項目に分解 → メモ/画像リンク/プロンプト欄へ反映。API課金なし（Claude in Chrome方針準拠）。
   // ═══════════════════════════════════════════════════════════
+  // 取り込んだ商品情報を共有（コーナーだけでなく編集カード/プロンプト準備からも使えるように）
+  let productInfoItems = [];
+  // 現在のテンプレの入力欄ラベル（同梱物・配色などテンプレで名前が変わる。「使用しない」欄は除外）
+  function piCurrentFieldOptions() {
+    const key = (document.getElementById('ai-template-select') || {}).value || 'eyecatch';
+    const def = (typeof TEMPLATE_FIELDS !== 'undefined' && TEMPLATE_FIELDS[key]) || null;
+    const fallback = { title: 'タイトル', main: '内容', sub: '補足', mood: '配色' };
+    return ['title', 'main', 'sub', 'mood']
+      .map(k => ({ key: k, label: (def && def[k] && def[k][0]) ? def[k][0] : fallback[k] }))
+      .filter(o => !/使用しない/.test(o.label));
+  }
+  // 指定した入力欄へ値を入れる（空なら設定・入っていれば/追記・同じ値はスキップ）
+  function piInsertIntoField(fieldKey, value) {
+    const target = document.getElementById('ai-var-' + fieldKey);
+    if (!target) return false;
+    const cur = (target.value || '').trim();
+    const parts = cur ? cur.split(/\s*\/\s*/).map(s => s.trim()) : [];
+    if (parts.includes(String(value).trim())) return 'dup';
+    target.value = cur ? (cur + ' / ' + value) : value;
+    target.dispatchEvent(new Event('input', { bubbles: true })); // ヘルパー→本文・編集カードへ反映
+    return true;
+  }
+  // 「🛒 商品情報を入れる」ピッカー（編集カード・プロンプト準備から呼ぶ）。
+  // 取り込んだ各項目を、選んだ入力欄へその場で流し込める（上のコーナーへ戻らなくてよい）。
+  function openProductInfoPicker() {
+    if (!productInfoItems.length) {
+      showToast('先に上の「🛒 商品情報を取得」で情報を取り込んでください', 'warn');
+      const det = document.getElementById('product-info-details');
+      if (det) { det.open = true; det.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+      return;
+    }
+    const opts = piCurrentFieldOptions();
+    const body =
+      '<div style="font-size:12.5px;color:#666;margin-bottom:8px;">各項目の右で「入力欄」を選ぶと、その欄に入ります（続けて何個でも）。</div>' +
+      '<div style="display:flex;flex-direction:column;gap:8px;max-height:52vh;overflow:auto;">' +
+      productInfoItems.map((it, i) =>
+        '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;border-bottom:1px solid #eee;padding-bottom:6px;">' +
+          '<div style="flex:1 1 160px;min-width:0;font-size:13px;line-height:1.5;">' +
+            (it.label ? '<b style="color:#4f46e5;">' + escHtml(it.label) + '</b> ' : '') + escHtml(it.value) +
+          '</div>' +
+          '<select data-i="' + i + '" class="pip-field" style="flex:0 0 auto;font-size:12px;padding:5px 7px;border:1px solid #c7d2fe;border-radius:8px;background:#eef2ff;color:#3730a3;">' +
+            '<option value="">→ 入力欄へ</option>' +
+            opts.map(o => '<option value="' + o.key + '">' + escHtml(o.label) + '</option>').join('') +
+          '</select>' +
+        '</div>'
+      ).join('') + '</div>';
+    openModal({
+      title: '🛒 商品情報を入力欄へ',
+      bodyHTML: body,
+      buttons: [{ label: '閉じる', primary: true, value: true }],
+      onRender: (root) => {
+        root.querySelectorAll('.pip-field').forEach(sel => {
+          sel.addEventListener('change', () => {
+            const fk = sel.value; if (!fk) return;
+            const it = productInfoItems[Number(sel.dataset.i)];
+            const res = piInsertIntoField(fk, it.value);
+            const lbl = (opts.find(o => o.key === fk) || {}).label || '入力欄';
+            if (res === 'dup') showToast('「' + lbl + '」欄には既に入っています', 'warn');
+            else showToast(res ? ('「' + lbl + '」欄に入れました') : '入力欄が見つかりません', res ? 'success' : 'error');
+            sel.value = '';
+          });
+        });
+      },
+    });
+  }
+
   (function initProductInfo() {
     const q = document.getElementById('pi-query');
     const copyBtn = document.getElementById('pi-copy-prompt');
@@ -2984,32 +3053,10 @@
       return it.label ? (it.label + '：' + it.value) : it.value;
     }
 
-    // 現在のテンプレの入力欄ラベル（タイトル/内容/補足/配色は選んだテンプレで名前が変わる）
-    function currentFieldOptions() {
-      const key = (document.getElementById('ai-template-select') || {}).value || 'eyecatch';
-      const def = (typeof TEMPLATE_FIELDS !== 'undefined' && TEMPLATE_FIELDS[key]) || null;
-      const fallback = { title: 'タイトル', main: '内容', sub: '補足', mood: '配色' };
-      return ['title', 'main', 'sub', 'mood']
-        .map(k => ({ key: k, label: (def && def[k] && def[k][0]) ? def[k][0] : fallback[k] }))
-        // 「（使用しない）」欄は候補から外す
-        .filter(o => !/使用しない/.test(o.label));
-    }
-    // 選んだ項目の値を、指定した入力欄へ入れる（空なら設定・入っていれば末尾に追記）
-    function insertIntoField(fieldKey, value) {
-      const target = document.getElementById('ai-var-' + fieldKey);
-      if (!target) return false;
-      const cur = (target.value || '').trim();
-      // 既に同じ値が入っていれば追記しない（二度押しの重複防止）
-      const parts = cur ? cur.split(/\s*\/\s*/).map(s => s.trim()) : [];
-      if (parts.includes(value.trim())) return 'dup';
-      target.value = cur ? (cur + ' / ' + value) : value;
-      // 上部ヘルパー→本文・バナーへ反映（inputイベントで regenerateAIPrompt が走る）
-      target.dispatchEvent(new Event('input', { bubbles: true }));
-      return true;
-    }
-
+    // ラベル候補・欄への挿入は共有関数（piCurrentFieldOptions / piInsertIntoField）を使う
     function renderItems() {
       if (!itemsBox) return;
+      productInfoItems = piItems; // 編集カード/プロンプト準備のピッカーと共有
       itemsBox.innerHTML = '';
       if (piItems.length === 0) {
         itemsBox.hidden = true; actionsBox.hidden = true;
@@ -3017,7 +3064,7 @@
         return;
       }
       itemsBox.hidden = false; actionsBox.hidden = false;
-      const fieldOpts = currentFieldOptions();
+      const fieldOpts = piCurrentFieldOptions();
       piItems.forEach((it, i) => {
         const row = document.createElement('div');
         row.className = 'pi-item';
@@ -3040,7 +3087,7 @@
         fsel.addEventListener('change', () => {
           const fk = fsel.value;
           if (!fk) return;
-          const res = insertIntoField(fk, it.value);
+          const res = piInsertIntoField(fk, it.value);
           const lbl = (fieldOpts.find(o => o.key === fk) || {}).label || '入力欄';
           if (res === 'dup') showToast('「' + lbl + '」欄には既に入っています', 'warn');
           else showToast(res ? '「' + lbl + '」欄に入れました' : '入力欄が見つかりません', res ? 'success' : 'error');
@@ -3801,6 +3848,11 @@ ${COMMON_GUARDS}`,
   const btnResearchHelper = $('btn-research-helper');
   if (btnResearchHelper) {
     btnResearchHelper.addEventListener('click', () => copyResearchPromptForCurrent('helper'));
+  }
+  // 🛒 取り込んだ商品情報を入れる（上部ヘルパー）
+  const btnPiFillHelper = $('btn-pi-fill-helper');
+  if (btnPiFillHelper) {
+    btnPiFillHelper.addEventListener('click', () => openProductInfoPicker());
   }
 
   // 「📋 プロンプトをコピー」

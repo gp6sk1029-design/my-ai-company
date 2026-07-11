@@ -2217,3 +2217,6 @@ body.is-dropping .drop-overlay { display: flex; }
   border: 1px solid #c7d2fe; border-radius: 8px; background: #eef2ff; color: #3730a3;
   font-family: inherit; cursor: pointer; max-width: 40vw;
 }
+
+/* 🛒 バナー内の「商品情報を入れる」ボタン（リサーチボタンと並ぶ・区別のため薄紫） */
+.bps-pi-btn { margin-top: 6px; background: #eef2ff; color: #3730a3; border: 1px solid #c7d2fe; }
