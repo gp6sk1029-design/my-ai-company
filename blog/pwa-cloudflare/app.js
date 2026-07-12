@@ -1627,6 +1627,52 @@
     diagram: 'concept', compare: 'compare', comparetable: 'compare', ngsummary: 'ngsummary', product: 'colorfix',
   };
 
+  // 既存Driveファイル用：一時保存画像と同じ「つくるもの（16テンプレ）」ピッカーを開き、
+  // 選んだテンプレをファイル名prefixへ変換して返す（役割名の語彙を全画面で統一するため）。
+  // 戻り値：{prefix} / null(キャンセル)。prefix='' は役割なし。
+  async function openRolePickerForExistingFile(curPrefix) {
+    const tplSrc = document.getElementById('ai-template-select');
+    // 現在のprefix → role → templateKey を逆引き
+    const mCmp = /^compare_p(\d+)_/i.exec(curPrefix || '');
+    const prefixToRole = {
+      'eyecatch_': 'eyecatch', 'hero_': 'hero', 'section_': 'section', 'product_': 'product',
+      'diagram_': 'diagram', 'compare_': 'compare', 'comparetable_': 'comparetable', 'ngsummary_': 'ngsummary',
+    };
+    const curRole = mCmp ? 'compare' : (prefixToRole[(curPrefix || '').toLowerCase()] || 'none');
+    const curTpl = ROLE_TO_TEMPLATE[curRole] || '';
+    const cmpVal = mCmp ? mCmp[1] : '';
+    const cmpOptsHtml = ['', '1', '2', '3', '4'].map(v =>
+      '<option value="' + v + '"' + (cmpVal === v ? ' selected' : '') + '>' + (v ? '製品' + v : '未割当') + '</option>'
+    ).join('');
+    const body =
+      '<label class="km-edit-field"><span>この画像の用途（つくるもの）</span>' +
+        '<select id="km-ef-tpl"><option value="">☆ 役割なし</option>' + (tplSrc ? tplSrc.innerHTML : '') + '</select></label>' +
+      '<label class="km-edit-field" id="km-ef-cmp-wrap"' + (curTpl === 'compare' ? '' : ' style="display:none"') + '>' +
+        '<span>比較の製品番号</span><select id="km-ef-cmp">' + cmpOptsHtml + '</select></label>';
+    const res = await openModal({
+      title: '🏷 この画像の用途を選ぶ',
+      bodyHTML: body,
+      buttons: [
+        { label: 'キャンセル', value: null },
+        { label: '✅ 決定', primary: true, onClick: (r) => ({
+            tpl: (r.querySelector('#km-ef-tpl') || {}).value || '',
+            cmp: (r.querySelector('#km-ef-cmp') || {}).value || '',
+          }) },
+      ],
+      onRender: (r) => {
+        const ts = r.querySelector('#km-ef-tpl');
+        const w = r.querySelector('#km-ef-cmp-wrap');
+        if (ts) ts.value = curTpl;
+        if (ts && w) ts.addEventListener('change', () => { w.style.display = ts.value === 'compare' ? '' : 'none'; });
+      },
+    });
+    if (res === null) return null;
+    const role = res.tpl ? (TEMPLATE_TO_ROLE[res.tpl] || 'none') : 'none';
+    if (role === 'none') return { prefix: '' };
+    if (role === 'compare') return { prefix: res.cmp ? ('compare_p' + res.cmp + '_') : 'compare_' };
+    return { prefix: getRoleDef(role).prefix || '' };
+  }
+
   // ─── 役割を与える選択（16テンプレ一覧のポップアップ）─────────────
   // 役割ボタンのタップで開く。編集確認ポップアップと同じ選択肢に統一。
   async function openRolePickerForItem(targetId) {
@@ -5260,12 +5306,10 @@ ${COMMON_GUARDS}`,
         }
         // PROMPT.md上は役割があるのにファイル名に未反映 → 記事生成に効かないので修復ボタンを出す
         const needsHeal = !!curPrefix && namePrefix !== curPrefix;
+        // 用途セレクタは一時保存画像と同じ「つくるもの（16テンプレ）」ピッカーに統一（語彙を合わせる）
+        const curRoleLabel = roleLabel || '☆ 役割なし';
         const roleSelHtml =
-          '<select class="ef-role-sel" title="この画像の役割を変更（Drive上のファイル名が変わります）">' +
-          EF_ROLE_OPTIONS.map(o =>
-            `<option value="${o.v}"${o.v === curPrefix ? ' selected' : ''}>${o.t}</option>`
-          ).join('') +
-          '</select>' +
+          '<button class="ef-role-btn" title="この画像の用途（つくるもの）を変更（Drive上のファイル名が変わります）">🏷 ' + escHtml(curRoleLabel) + '</button>' +
           (needsHeal
             ? '<button class="ef-heal-btn" title="役割がファイル名に未反映のため、このままでは記事生成に効きません。タップで反映">🏷 役割を名前に反映</button>'
             : '');
@@ -5298,24 +5342,18 @@ ${COMMON_GUARDS}`,
           if (ok) showToast('🏷 役割をファイル名に反映しました（記事生成に効くようになります）', 'success');
           else healBtn.disabled = false;
         };
-        const roleSel = card.querySelector('.ef-role-sel');
-        roleSel.addEventListener('change', async () => {
-          if (serverBusy) { showToast('いまサーバ通信中です。終わるまでお待ちください', 'warn'); roleSel.value = curPrefix; return; }
-          const newPrefix = roleSel.value;
-          roleSel.disabled = true;
-          const ok = await withServerLock('役割を更新中…', async () => {
-            const r = await changeExistingFileRole(f, newPrefix, folderId);
+        const roleBtn = card.querySelector('.ef-role-btn');
+        roleBtn.addEventListener('click', async () => {
+          if (serverBusy) { showToast('いまサーバ通信中です。終わるまでお待ちください', 'warn'); return; }
+          const picked = await openRolePickerForExistingFile(curPrefix);
+          if (picked === null) return; // キャンセル
+          if (picked.prefix === curPrefix) return; // 変更なし
+          const ok = await withServerLock('用途を更新中…', async () => {
+            const r = await changeExistingFileRole(f, picked.prefix, folderId);
             if (r) await loadExistingFiles(folderId); // 一覧を更新（バッジ・名前を反映）
             return r;
           });
-          if (ok) {
-            showToast(newPrefix
-              ? `🏷 役割を「${(EF_ROLE_OPTIONS.find(o => o.v === newPrefix) || {}).t}」に変更しました`
-              : '🏷 役割を解除しました', 'success');
-          } else {
-            roleSel.value = curPrefix; // 失敗・キャンセル時は元に戻す
-            roleSel.disabled = false;
-          }
+          if (ok) showToast(picked.prefix ? '🏷 用途を変更しました' : '🏷 用途を解除しました', 'success');
         });
         efGrid.appendChild(card);
       }

@@ -2223,3 +2223,12 @@ body.is-dropping .drop-overlay { display: flex; }
 
 /* 商品情報コーナー：Driveに保存ボタンをコンパクトに（pi-rowと同じ扱い） */
 #pi-save-drive { min-height: 0; height: auto; padding: 8px 14px; font-size: 13.5px; border-radius: 10px; white-space: nowrap; }
+
+/* 既存ファイルの用途変更ボタン（役割セレクタをテンプレピッカーに統一・2026-07-13） */
+.ef-role-btn {
+  width: 100%; box-sizing: border-box; margin-top: 4px; padding: 6px 8px;
+  font-size: 12px; border: 1px solid #d1d5db; border-radius: 8px;
+  background: #f9fafb; color: #111827; cursor: pointer; font-family: inherit;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: left;
+}
+.ef-role-btn:active { background: #eef2ff; }
