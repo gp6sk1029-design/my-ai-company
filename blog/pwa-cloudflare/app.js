@@ -5343,19 +5343,16 @@ ${COMMON_GUARDS}`,
         const card = document.createElement('div');
         card.className = 'ef-card';
         card.dataset.fid = f.id; // ☑ まとめて選択の対象特定に使う
-        // 役割バッジ（キューの一時保存画像と同じ見た目ルール）
+        // 役割（記事生成に効くファイル名prefixの元。バッジ色にも使う）
         const role = resolveExistingFileRole(f);
         const roleLabel = role
           ? (role.def.key === 'compare'
               ? `${role.def.emoji} 比較 製品${role.pnum || '?'}${role.pname ? '＝' + role.pname.slice(0, 6) : ''}`
               : `${role.def.emoji} ${role.def.label}`)
           : '';
-        const roleBadgeHtml = role
-          ? `<div class="ef-role-badge" style="background:${role.def.color}" title="この画像の役割">${roleLabel}</div>`
-          : '';
         // 役割変更セレクタの現在値：バッジと同じ2段逆引き（ファイル名→PROMPT.md）に合わせる。
         // 古い保存分はファイル名に役割が無いため、名前だけ見ると「役割なし」と誤表示されてしまう。
-        const namePrefixM = /^(eyecatch_|hero_|section_|product_|diagram_|compare_p\d_|ngsummary_)/i.exec(f.name || '');
+        const namePrefixM = /^(eyecatch_|hero_|section_|product_|diagram_|comparetable_|compare_p\d_|ngsummary_)/i.exec(f.name || '');
         const namePrefix = namePrefixM ? namePrefixM[1].toLowerCase() : '';
         let curPrefix = namePrefix;
         if (!curPrefix && role) {
@@ -5365,16 +5362,22 @@ ${COMMON_GUARDS}`,
         }
         // PROMPT.md上は役割があるのにファイル名に未反映 → 記事生成に効かないので修復ボタンを出す
         const needsHeal = !!curPrefix && namePrefix !== curPrefix;
-        // 用途セレクタは一時保存画像と同じ「つくるもの（16テンプレ）」ピッカーに統一（語彙を合わせる）
-        // ボタン表示：この画像に覚えてある細テンプレ（同じ役割グループのものだけ）があればそれを見せる。
-        // 例）役割は「セクション画像」でも、選んだのが「⭐ イチオシポイント」ならそう表示する。
+        // 用途セレクタは一時保存画像と同じ「つくるもの（16テンプレ）」ピッカーに統一（語彙を合わせる）。
+        // この画像に覚えてある細テンプレ（同じ役割グループのものだけ）があればそれを"正"の表示名にする。
+        // 例）役割は「セクション画像」でも、選んだのが「⭐ イチオシポイント」なら全表示をそれで統一する。
         const _tplSel = document.getElementById('ai-template-select');
         const _p2rKey = { 'eyecatch_': 'eyecatch', 'hero_': 'hero', 'section_': 'section', 'product_': 'product', 'diagram_': 'diagram', 'comparetable_': 'comparetable', 'ngsummary_': 'ngsummary' };
         const curRoleKey = /^compare_p\d+_/i.test(curPrefix) ? 'compare' : (_p2rKey[curPrefix] || (role ? role.def.key : 'none'));
         const savedTpl = efTplGet(f.id);
-        const savedTplOk = savedTpl && (TEMPLATE_TO_ROLE[savedTpl] || 'none') === curRoleKey && curRoleKey !== 'compare';
+        const savedTplOk = savedTpl && (TEMPLATE_TO_ROLE[savedTpl] || 'none') === curRoleKey
+          && curRoleKey !== 'compare' && curRoleKey !== 'none';
         const savedTplText = savedTplOk && _tplSel ? (Array.from(_tplSel.options).find(o => o.value === savedTpl) || {}).text : '';
-        const curRoleLabel = savedTplText || roleLabel || '☆ 役割なし';
+        // 🎯 バッジとボタンで同じ表示名を使う（乖離をなくす）。細テンプレがあればそれ、無ければ役割名。
+        const displayLabel = savedTplText || roleLabel;
+        const roleBadgeHtml = (role || savedTplText)
+          ? `<div class="ef-role-badge" style="background:${role ? role.def.color : '#64748b'}" title="この画像の用途">${escHtml(displayLabel)}</div>`
+          : '';
+        const curRoleLabel = displayLabel || '☆ 役割なし';
         const roleSelHtml =
           '<button class="ef-role-btn" title="この画像の用途（つくるもの）を変更（Drive上のファイル名が変わります）">🏷 ' + escHtml(curRoleLabel) + '</button>' +
           (needsHeal
