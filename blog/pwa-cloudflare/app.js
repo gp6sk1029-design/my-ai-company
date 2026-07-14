@@ -5227,6 +5227,62 @@ ${COMMON_GUARDS}`,
     if (tpl) m[fileId] = tpl; else delete m[fileId];
     try { localStorage.setItem(LS_EF_TPL_KEY, JSON.stringify(m)); } catch (_) {}
   }
+  // テンプレkey → 「つくるもの」ドロップダウンの表示名（役割メモの用途ヒスト用）
+  function efTplLabel(tpl) {
+    const s = document.getElementById('ai-template-select');
+    if (!s || !tpl) return '';
+    const o = Array.from(s.options).find(x => x.value === tpl);
+    return o ? o.text : '';
+  }
+  // 役割メモ（例「セクション画像: xxx.jpg (fileId: …)」）に「｜用途: ⭐イチオシポイント」を
+  // 反映/差し替え/除去する。役割ラベルとファイル名・fileId は保持するので記事生成には無害。
+  // 同じ役割内で用途（テンプレ）だけ変えたとき、メモ側にも選択が反映されるようにするための関数。
+  // 区切りは「｜」（画像リンク記法と同じ・テンプレ名には現れない）。テンプレ名に全角括弧
+  //（例「同梱物の紹介（付属品一覧）」）が含まれても壊れないよう、半角"("とも衝突させない。
+  const MEMO_ROLE_HINT_RE = /\s*｜用途:[^｜(]*/g;
+  function applyRoleNoteHint(fileId, tplLabel) {
+    if (!fileId) return false;
+    let changed = false;
+    memos = memos.map(m => {
+      if (!ROLE_NOTE_RE.test(m) || !m.includes(fileId)) return m;
+      let out = m.replace(MEMO_ROLE_HINT_RE, ''); // 既存の用途ヒントを除去
+      if (tplLabel) {
+        const hint = '｜用途: ' + tplLabel;
+        out = /\(fileId:/.test(out)
+          ? out.replace(/\s*\(fileId:/, ' ' + hint + ' (fileId:') // ファイル名の後・(fileId:の前へ
+          : (out.trim() + ' ' + hint);                            // fileId表記が無ければ末尾へ
+      }
+      out = out.replace(/\s{2,}/g, ' ').replace(/(\S)\(fileId:/, '$1 (fileId:').trim();
+      if (out !== m) changed = true;
+      return out;
+    });
+    if (changed) { persistMemoState(); renderMemos(); }
+    return changed;
+  }
+  // 役割メモに書かれた「｜用途: <ラベル>」を読み取る（Drive同期されるので端末跨ぎでも残る）
+  function roleNoteHintLabel(fileId) {
+    if (!fileId) return '';
+    for (const m of memos) {
+      if (!ROLE_NOTE_RE.test(m) || !m.includes(fileId)) continue;
+      const mm = /｜用途:\s*([^｜(]*)/.exec(m);
+      if (mm) return mm[1].trim();
+    }
+    return '';
+  }
+  // 「つくるもの」ドロップダウンの表示名 → テンプレkey（メモヒントから記憶を復元する逆引き）
+  function tplKeyFromLabel(label) {
+    const s = document.getElementById('ai-template-select');
+    if (!s || !label) return '';
+    const o = Array.from(s.options).find(x => (x.text || '').trim() === label.trim());
+    return o ? o.value : '';
+  }
+  // 端末跨ぎ整合：localStorageに記憶が無くても、Drive同期されたメモの用途ヒントがあれば復元する。
+  // これでバッジ/ボタンとメモの表示が乖離しない（メモ側を"正"とする）。
+  function reconcileEfTplFromMemo(fileId) {
+    if (!fileId || efTplGet(fileId)) return;
+    const key = tplKeyFromLabel(roleNoteHintLabel(fileId));
+    if (key) efTplSet(fileId, key);
+  }
 
   const EF_ROLE_OPTIONS = [
     { v: '',            t: '☆ 役割なし' },
@@ -5312,7 +5368,13 @@ ${COMMON_GUARDS}`,
         memos = [`比較/Before-After 製品${mP[1]}${nm}: ${newName} (fileId: ${f.id})`, ...memos];
       } else {
         const def = ROLE_DEFS.find(d => d.prefix === newPrefix);
-        if (def) memos = [`${def.label}: ${newName} (fileId: ${f.id})`, ...memos];
+        if (def) {
+          // 同じ役割内で選んだ細テンプレ（イチオシ/同梱物等）があれば用途ヒントを併記
+          const tpl = efTplGet(f.id);
+          const lbl = (tpl && (TEMPLATE_TO_ROLE[tpl] || 'none') === def.key && def.key !== 'compare') ? efTplLabel(tpl) : '';
+          const hint = lbl ? '｜用途: ' + lbl + ' ' : '';
+          memos = [`${def.label}: ${newName} ${hint}(fileId: ${f.id})`, ...memos];
+        }
       }
     }
     persistMemoState();
@@ -5368,6 +5430,7 @@ ${COMMON_GUARDS}`,
         const _tplSel = document.getElementById('ai-template-select');
         const _p2rKey = { 'eyecatch_': 'eyecatch', 'hero_': 'hero', 'section_': 'section', 'product_': 'product', 'diagram_': 'diagram', 'comparetable_': 'comparetable', 'ngsummary_': 'ngsummary' };
         const curRoleKey = /^compare_p\d+_/i.test(curPrefix) ? 'compare' : (_p2rKey[curPrefix] || (role ? role.def.key : 'none'));
+        reconcileEfTplFromMemo(f.id); // 端末跨ぎ：メモの用途ヒントから記憶を復元（乖離防止）
         const savedTpl = efTplGet(f.id);
         const savedTplOk = savedTpl && (TEMPLATE_TO_ROLE[savedTpl] || 'none') === curRoleKey
           && curRoleKey !== 'compare' && curRoleKey !== 'none';
@@ -5417,21 +5480,28 @@ ${COMMON_GUARDS}`,
           if (serverBusy) { showToast('いまサーバ通信中です。終わるまでお待ちください', 'warn'); return; }
           const picked = await openRolePickerForExistingFile(curPrefix, f.id);
           if (picked === null) return; // キャンセル
-          const tplChanged = (picked.tpl || '') !== (efTplGet(f.id) || '');
+          const prevTpl = efTplGet(f.id);
+          const tplChanged = (picked.tpl || '') !== (prevTpl || '');
+          const pickedLabel = picked.tpl ? efTplLabel(picked.tpl) : '';
           if (picked.prefix === curPrefix) {
             // ファイル名の役割（section_等）は同じ。同じ役割内で細テンプレだけ変えた場合は
-            // Driveリネーム不要 → 記憶だけ更新して再描画（これが「何を選んでもスペック表に戻る」の修正）
+            // Driveリネーム不要 → 記憶を更新し、役割メモにも用途ヒントを反映（サーバ保存も）してから再描画。
             if (tplChanged) {
               efTplSet(f.id, picked.tpl);
-              await loadExistingFiles(folderId);
-              const t = _tplSel && (Array.from(_tplSel.options).find(o => o.value === picked.tpl) || {}).text;
-              showToast('🏷 用途を「' + (t || '役割なし') + '」に更新しました', 'success');
+              const memoChanged = applyRoleNoteHint(f.id, pickedLabel);
+              await withServerLock('用途を反映中…', async () => {
+                if (memoChanged) { try { await savePromptToDrive(getSelectedArticleTitle(), folderId); } catch (_) {} }
+                await loadExistingFiles(folderId);
+              });
+              showToast('🏷 用途を「' + (pickedLabel || '役割なし') + '」に更新しました', 'success');
             }
             return;
           }
           const ok = await withServerLock('用途を更新中…', async () => {
+            efTplSet(f.id, picked.tpl);                          // 先に記憶（役割メモの用途ヒント生成に使う）
             const r = await changeExistingFileRole(f, picked.prefix, folderId);
-            if (r) { efTplSet(f.id, picked.tpl); await loadExistingFiles(folderId); } // 一覧を更新（バッジ・名前を反映）
+            if (r) await loadExistingFiles(folderId);            // 一覧を更新（バッジ・名前を反映）
+            else efTplSet(f.id, prevTpl);                        // リネーム失敗時は記憶を元に戻す
             return r;
           });
           if (ok) showToast(picked.prefix ? '🏷 用途を変更しました' : '🏷 用途を解除しました', 'success');
