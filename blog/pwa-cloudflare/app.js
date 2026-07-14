@@ -1630,7 +1630,7 @@
   // 既存Driveファイル用：一時保存画像と同じ「つくるもの（16テンプレ）」ピッカーを開き、
   // 選んだテンプレをファイル名prefixへ変換して返す（役割名の語彙を全画面で統一するため）。
   // 戻り値：{prefix} / null(キャンセル)。prefix='' は役割なし。
-  async function openRolePickerForExistingFile(curPrefix) {
+  async function openRolePickerForExistingFile(curPrefix, fileId) {
     const tplSrc = document.getElementById('ai-template-select');
     // 現在のprefix → role → templateKey を逆引き
     const mCmp = /^compare_p(\d+)_/i.exec(curPrefix || '');
@@ -1639,7 +1639,12 @@
       'diagram_': 'diagram', 'compare_': 'compare', 'comparetable_': 'comparetable', 'ngsummary_': 'ngsummary',
     };
     const curRole = mCmp ? 'compare' : (prefixToRole[(curPrefix || '').toLowerCase()] || 'none');
-    const curTpl = ROLE_TO_TEMPLATE[curRole] || '';
+    // 初期選択：この画像に覚えてある細テンプレ（同じ役割グループのものだけ採用）を優先。
+    // 無ければ役割の代表テンプレ（従来通り）。これで「何を選んでもスペック表に戻る」を解消。
+    const savedTpl = efTplGet(fileId);
+    const curTpl = (savedTpl && (TEMPLATE_TO_ROLE[savedTpl] || 'none') === curRole)
+      ? savedTpl
+      : (ROLE_TO_TEMPLATE[curRole] || '');
     const cmpVal = mCmp ? mCmp[1] : '';
     const cmpOptsHtml = ['', '1', '2', '3', '4'].map(v =>
       '<option value="' + v + '"' + (cmpVal === v ? ' selected' : '') + '>' + (v ? '製品' + v : '未割当') + '</option>'
@@ -1668,9 +1673,10 @@
     });
     if (res === null) return null;
     const role = res.tpl ? (TEMPLATE_TO_ROLE[res.tpl] || 'none') : 'none';
-    if (role === 'none') return { prefix: '' };
-    if (role === 'compare') return { prefix: res.cmp ? ('compare_p' + res.cmp + '_') : 'compare_' };
-    return { prefix: getRoleDef(role).prefix || '' };
+    const tpl = res.tpl || '';
+    if (role === 'none') return { prefix: '', tpl: '' };
+    if (role === 'compare') return { prefix: res.cmp ? ('compare_p' + res.cmp + '_') : 'compare_', tpl };
+    return { prefix: getRoleDef(role).prefix || '', tpl };
   }
 
   // ─── 役割を与える選択（16テンプレ一覧のポップアップ）─────────────
@@ -5202,6 +5208,26 @@ ${COMMON_GUARDS}`,
   const ROLE_PREFIX_STRIP_RE = /^(eyecatch_|hero_|section_|product_|diagram_|comparetable_|compare_p\d+_|compare_|ngsummary_)+/i;
   function stripRolePrefix(name) { return (name || '').replace(ROLE_PREFIX_STRIP_RE, ''); }
   // 役割変更セレクタの選択肢（value = 新しいプレフィックス）
+  // 🏷 既存ファイル用「つくるもの（16テンプレ）」の記憶（fileId → templateKey）。
+  // Driveファイル名は役割(section_等)しか持てず、同じ役割内の複数テンプレ
+  // （イチオシ/スペック表/同梱物…）を区別できない。そこで細かいテンプレ選択は
+  // fileId 別に localStorage へ覚えておき、ボタン表示と再オープン時の初期選択に使う。
+  // ※Driveのリネームは fileId 不変なので、キーとして安定して使える。
+  const LS_EF_TPL_KEY = 'kiji-meshi:ef-template';
+  function efTplMap() {
+    try { return JSON.parse(localStorage.getItem(LS_EF_TPL_KEY) || '{}') || {}; } catch (_) { return {}; }
+  }
+  function efTplGet(fileId) {
+    if (!fileId) return '';
+    return efTplMap()[fileId] || '';
+  }
+  function efTplSet(fileId, tpl) {
+    if (!fileId) return;
+    const m = efTplMap();
+    if (tpl) m[fileId] = tpl; else delete m[fileId];
+    try { localStorage.setItem(LS_EF_TPL_KEY, JSON.stringify(m)); } catch (_) {}
+  }
+
   const EF_ROLE_OPTIONS = [
     { v: '',            t: '☆ 役割なし' },
     { v: 'eyecatch_',   t: '⭐ アイキャッチ' },
@@ -5340,7 +5366,15 @@ ${COMMON_GUARDS}`,
         // PROMPT.md上は役割があるのにファイル名に未反映 → 記事生成に効かないので修復ボタンを出す
         const needsHeal = !!curPrefix && namePrefix !== curPrefix;
         // 用途セレクタは一時保存画像と同じ「つくるもの（16テンプレ）」ピッカーに統一（語彙を合わせる）
-        const curRoleLabel = roleLabel || '☆ 役割なし';
+        // ボタン表示：この画像に覚えてある細テンプレ（同じ役割グループのものだけ）があればそれを見せる。
+        // 例）役割は「セクション画像」でも、選んだのが「⭐ イチオシポイント」ならそう表示する。
+        const _tplSel = document.getElementById('ai-template-select');
+        const _p2rKey = { 'eyecatch_': 'eyecatch', 'hero_': 'hero', 'section_': 'section', 'product_': 'product', 'diagram_': 'diagram', 'comparetable_': 'comparetable', 'ngsummary_': 'ngsummary' };
+        const curRoleKey = /^compare_p\d+_/i.test(curPrefix) ? 'compare' : (_p2rKey[curPrefix] || (role ? role.def.key : 'none'));
+        const savedTpl = efTplGet(f.id);
+        const savedTplOk = savedTpl && (TEMPLATE_TO_ROLE[savedTpl] || 'none') === curRoleKey && curRoleKey !== 'compare';
+        const savedTplText = savedTplOk && _tplSel ? (Array.from(_tplSel.options).find(o => o.value === savedTpl) || {}).text : '';
+        const curRoleLabel = savedTplText || roleLabel || '☆ 役割なし';
         const roleSelHtml =
           '<button class="ef-role-btn" title="この画像の用途（つくるもの）を変更（Drive上のファイル名が変わります）">🏷 ' + escHtml(curRoleLabel) + '</button>' +
           (needsHeal
@@ -5378,12 +5412,23 @@ ${COMMON_GUARDS}`,
         const roleBtn = card.querySelector('.ef-role-btn');
         roleBtn.addEventListener('click', async () => {
           if (serverBusy) { showToast('いまサーバ通信中です。終わるまでお待ちください', 'warn'); return; }
-          const picked = await openRolePickerForExistingFile(curPrefix);
+          const picked = await openRolePickerForExistingFile(curPrefix, f.id);
           if (picked === null) return; // キャンセル
-          if (picked.prefix === curPrefix) return; // 変更なし
+          const tplChanged = (picked.tpl || '') !== (efTplGet(f.id) || '');
+          if (picked.prefix === curPrefix) {
+            // ファイル名の役割（section_等）は同じ。同じ役割内で細テンプレだけ変えた場合は
+            // Driveリネーム不要 → 記憶だけ更新して再描画（これが「何を選んでもスペック表に戻る」の修正）
+            if (tplChanged) {
+              efTplSet(f.id, picked.tpl);
+              await loadExistingFiles(folderId);
+              const t = _tplSel && (Array.from(_tplSel.options).find(o => o.value === picked.tpl) || {}).text;
+              showToast('🏷 用途を「' + (t || '役割なし') + '」に更新しました', 'success');
+            }
+            return;
+          }
           const ok = await withServerLock('用途を更新中…', async () => {
             const r = await changeExistingFileRole(f, picked.prefix, folderId);
-            if (r) await loadExistingFiles(folderId); // 一覧を更新（バッジ・名前を反映）
+            if (r) { efTplSet(f.id, picked.tpl); await loadExistingFiles(folderId); } // 一覧を更新（バッジ・名前を反映）
             return r;
           });
           if (ok) showToast(picked.prefix ? '🏷 用途を変更しました' : '🏷 用途を解除しました', 'success');
