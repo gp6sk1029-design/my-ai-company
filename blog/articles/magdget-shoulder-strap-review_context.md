@@ -60,21 +60,28 @@
 
 **画像総数**: 33 枚
 
+**ローカルDL先**: `blog/articles/magdget-shoulder-strap-review_images/`
+> Claude は下記のローカルパスを `Read` ツールで読み込んで画像内容を確認すること。
+
 ### ⭐ アイキャッチ  （1枚）
 > 用途: featured_media に紐付け。記事のメインビジュアル
 - `eyecatch_20260711_065558.jpg`  fileId: `11-D4pv5DjDMWnmXvVpo1SYUeYx9prGcQ`  (1988KB · 2026-07-10)
+  - **ローカル**: `blog/articles/magdget-shoulder-strap-review_images/eyecatch_20260711_065558.jpg`  ← Claude はこのパスを `Read` ツールで開いて内容確認
   - サムネ: <https://drive.google.com/thumbnail?id=11-D4pv5DjDMWnmXvVpo1SYUeYx9prGcQ&sz=w400>
 
 ### 📑 セクション画像  （2枚）
 > 用途: 各 H2 の冒頭に配置可
 - `section_20260708_040028_08.jpg`  fileId: `1ToEunRay_PogTNNON3g-rGizWCPSWQu-`  (1311KB · 2026-07-14)
+  - **ローカル**: `blog/articles/magdget-shoulder-strap-review_images/section_20260708_040028_08.jpg`  ← Claude はこのパスを `Read` ツールで開いて内容確認
   - サムネ: <https://drive.google.com/thumbnail?id=1ToEunRay_PogTNNON3g-rGizWCPSWQu-&sz=w400>
 - `section_20260711_065603.jpg`  fileId: `1_Stxq-l_K3C5BlhZwz1Mc0PdCkriufYx`  (1381KB · 2026-07-14)
+  - **ローカル**: `blog/articles/magdget-shoulder-strap-review_images/section_20260711_065603.jpg`  ← Claude はこのパスを `Read` ツールで開いて内容確認
   - サムネ: <https://drive.google.com/thumbnail?id=1_Stxq-l_K3C5BlhZwz1Mc0PdCkriufYx&sz=w400>
 
 ### 📸 商品/実機写真  （1枚）
 > 用途: 「とは」セクション・スペック表近辺
 - `product_20260708_040028_04.jpg`  fileId: `104ZexYHu1IAMq3q59ZaEWP3v-NSbX0JK`  (2688KB · 2026-07-10)
+  - **ローカル**: `blog/articles/magdget-shoulder-strap-review_images/product_20260708_040028_04.jpg`  ← Claude はこのパスを `Read` ツールで開いて内容確認
   - サムネ: <https://drive.google.com/thumbnail?id=104ZexYHu1IAMq3q59ZaEWP3v-NSbX0JK&sz=w400>
 
 ### 未分類画像 (29枚)
