@@ -5259,6 +5259,21 @@ ${COMMON_GUARDS}`,
     if (changed) { persistMemoState(); renderMemos(); }
     return changed;
   }
+  // 同じ画像(fileId)の役割メモが複数あれば先頭1件だけ残す（重複はClaude Codeの記事生成を混乱させる）。
+  // fileIdを持たない役割メモやユーザーメモは触らない（誤削除防止）。戻り値=削除件数。
+  function dedupeRoleNoteMemos() {
+    const seen = new Set();
+    let removed = 0;
+    memos = memos.filter(m => {
+      if (!ROLE_NOTE_RE.test(m)) return true;
+      const fid = (/fileId:\s*([A-Za-z0-9_\-]+)/.exec(m) || [])[1];
+      if (!fid) return true;
+      if (seen.has(fid)) { removed++; return false; }
+      seen.add(fid);
+      return true;
+    });
+    return removed;
+  }
   // 役割メモに書かれた「｜用途: <ラベル>」を読み取る（Drive同期されるので端末跨ぎでも残る）
   function roleNoteHintLabel(fileId) {
     if (!fileId) return '';
@@ -5531,6 +5546,103 @@ ${COMMON_GUARDS}`,
     return { role: 'none', compareIndex: null, templateKey: '' };
   }
 
+  // ─── 📋 画像プラン（記事構成にそのまま使える形式）─────────────
+  // この記事のDrive既存画像を「記事の流れ順」に並べ、各画像の推奨配置＋キャプション案を付ける。
+  // Claude Code に貼れば、記事構成＋どこにどの画像を置くかがそのまま分かる。
+  // rank=記事の流れ順（小さいほど前）。用途（細テンプレ）別に配置/キャプションを最適化。
+  const TEMPLATE_PLAN = {
+    eyecatch:     { rank: 10, section: '記事冒頭（H1タイトル直下）', caption: '記事のメインビジュアル' },
+    big_number:   { rank: 20, section: '導入部（つかみ）',          caption: '一番の訴求数値を大きく見せる' },
+    specs_card:   { rank: 40, section: '製品紹介（スペック）',      caption: '主要スペックのまとめ表' },
+    unboxing:     { rank: 41, section: '製品紹介（開封）',          caption: '同梱物・付属品の一覧' },
+    icon_grid:    { rank: 42, section: '機能紹介',                  caption: '主な機能のまとめ' },
+    oshi:         { rank: 43, section: 'イチオシ／推し所',          caption: '一番の推し所を強調' },
+    pros_cons:    { rank: 50, section: 'レビュー中盤',              caption: 'メリット・デメリット' },
+    concept:      { rank: 60, section: '解説・図解',                caption: '仕組みの概念図' },
+    flow:         { rank: 61, section: '手順・使い方',              caption: '手順のフロー図' },
+    roi:          { rank: 62, section: 'ROI・費用対効果',           caption: '元が取れる計算の図' },
+    decision_tree:{ rank: 63, section: '選び方',                    caption: 'あなたに合う選び方フロー' },
+    compare:      { rank: 70, section: '比較セクション',            caption: '競合との比較（製品ごと）' },
+    ranking:      { rank: 80, section: 'まとめ・比較',              caption: 'おすすめランキング' },
+    target_buyer: { rank: 81, section: 'まとめ',                    caption: 'こんな人におすすめ／不要' },
+    ngsummary:    { rank: 82, section: '注意点・まとめ',            caption: 'やってはいけない設定' },
+    bgremove:     { rank: 46, section: '本文（実機写真）',          caption: '実機の様子（背景処理済み）' },
+    bgreplace:    { rank: 46, section: '本文（実機写真）',          caption: '実機の様子（背景差し替え）' },
+    combine:      { rank: 46, section: '本文（実機写真）',          caption: '2製品を並べた写真' },
+    colorfix:     { rank: 46, section: '本文（実機写真）',          caption: '実機の様子' },
+  };
+  const ROLE_PLAN = {
+    eyecatch:     { rank: 10, section: '記事冒頭（H1タイトル直下）', caption: 'メインビジュアル' },
+    hero:         { rank: 20, section: '導入部',                    caption: '訴求バナー' },
+    section:      { rank: 45, section: '本文セクション',            caption: '（内容に合わせて配置）' },
+    product:      { rank: 46, section: '本文（実機写真）',          caption: '実機の様子' },
+    diagram:      { rank: 60, section: '解説・図解',                caption: '図解' },
+    compare:      { rank: 70, section: '比較セクション',            caption: '比較（製品ごと）' },
+    comparetable: { rank: 71, section: '比較セクション',            caption: '比較まとめ表' },
+    ngsummary:    { rank: 82, section: '注意点・まとめ',            caption: 'NG集サマリ' },
+    none:         { rank: 99, section: '（役割未設定）',            caption: '—' },
+  };
+  function buildImagePlan() {
+    const folderId = getSelectedArticleFolderId();
+    const title = (typeof getCurrentArticleName === 'function' ? getCurrentArticleName() : '')
+      || getSelectedArticleTitle() || '(記事名未設定)';
+    const files = (folderId ? (lastExistingFiles || []) : []).filter(f =>
+      /image/i.test(f.mimeType || '') || /\.(png|jpe?g|webp|gif)$/i.test(f.name || ''));
+    const assigned = [], unassigned = [];
+    for (const f of files) {
+      const r = parseRoleFromName(f.name);
+      let roleKey = r.role;
+      // ファイル名に役割が無い旧ファイルは PROMPT.md 側から拾う
+      if (roleKey === 'none') { const rr = resolveExistingFileRole(f); if (rr) roleKey = rr.def.key; }
+      if (roleKey === 'none') { unassigned.push(f.name); continue; }
+      // 用途（細テンプレ）：ユーザーが実際に選んだものだけ採用（localStorage記憶 → メモの用途ヒント）。
+      // ※ROLE_TO_TEMPLATE由来の「役割の代表テンプレ」は"選択"ではないので使わない（誤表示防止）。
+      const tpl = efTplGet(f.id) || tplKeyFromLabel(roleNoteHintLabel(f.id)) || '';
+      const tplOk = tpl && (TEMPLATE_TO_ROLE[tpl] || 'none') === roleKey;
+      const plan = (tplOk && TEMPLATE_PLAN[tpl]) ? TEMPLATE_PLAN[tpl] : (ROLE_PLAN[roleKey] || ROLE_PLAN.none);
+      const def = getRoleDef(roleKey);
+      const roleLabel = roleKey === 'compare'
+        ? `${def.emoji} 比較 製品${r.compareIndex || '?'}`
+        : (tplOk ? efTplLabel(tpl) : `${def.emoji} ${def.label}`);
+      assigned.push({ rank: plan.rank, roleLabel, section: plan.section, caption: plan.caption, name: f.name, id: f.id });
+    }
+    assigned.sort((a, b) => a.rank - b.rank || a.name.localeCompare(b.name));
+    let out = `## 🖼 画像プラン（記事構成用・上から記事の流れ順）\n記事：${title}\n各画像を「配置」の位置に置いてください。キャプションは案です（自由に調整可）。\n\n`;
+    if (!assigned.length) {
+      out += '（役割を割り当てた画像がありません。各画像の🏷ボタンで用途を設定すると、ここに計画が並びます）\n';
+    } else {
+      assigned.forEach((it, i) => {
+        out += `${i + 1}. 【${it.roleLabel}】${it.name}\n`;
+        out += `   - 配置：${it.section}\n`;
+        out += `   - キャプション案：${it.caption}\n`;
+        out += `   - Drive fileId：${it.id}\n`;
+      });
+    }
+    if (unassigned.length) {
+      out += `\n（役割未設定の画像：${unassigned.join(', ')} ← 各画像の🏷で用途を設定すると計画に載ります）\n`;
+    }
+    return out;
+  }
+  async function copyImagePlan() {
+    const folderId = getSelectedArticleFolderId();
+    if (!folderId) { showToast('記事を選択してください（既存ファイルのある記事）', 'warn'); return; }
+    if (!lastExistingFiles || !lastExistingFiles.length) { showToast('先に「↻ 再読込」で既存ファイルを読み込んでください', 'warn'); return; }
+    const plan = buildImagePlan();
+    let copied = false;
+    try { await navigator.clipboard.writeText(plan); copied = true; } catch (e) { copied = false; }
+    showToast(copied
+      ? '📋 画像プランをコピーしました。Claude Codeに貼れば記事構成に使えます'
+      : '📋 画像プランを表示しました（下の枠を選択してコピーしてください）', copied ? 'success' : 'warn');
+    openModal({
+      title: '📋 画像プラン' + (copied ? '（コピー済み）' : ''),
+      bodyHTML: '<div style="font-size:12.5px;color:#666;margin-bottom:8px;">' +
+        (copied ? 'クリップボードにコピー済みです。' : 'この枠を選択してコピーしてください。') +
+        ' Claude Code（ブログ執筆セッション）に貼って使ってください。</div>' +
+        '<pre style="white-space:pre-wrap;font-size:12.5px;line-height:1.6;max-height:56vh;overflow:auto;background:#f8fafc;padding:12px;border-radius:8px;border:1px solid #e5e7eb;user-select:all;">' + escHtml(plan) + '</pre>',
+      buttons: [{ label: '閉じる', value: null, primary: true }],
+    });
+  }
+
   // 既存ファイルの再編集：一時保存に取り込み → 一時保存セクションへ移動 → 一時保存と同じ編集フロー(confirmThenEdit)
   async function editExistingFile(driveFile, engine) {
     if (serverBusy) { showToast('いまサーバ通信中です。終わるまでお待ちください', 'warn'); return; }
@@ -5594,6 +5706,8 @@ ${COMMON_GUARDS}`,
       await loadExistingFiles(folderId);
     });
   });
+  const btnImagePlan = $('btn-image-plan');
+  btnImagePlan && btnImagePlan.addEventListener('click', copyImagePlan);
 
   const btnMemoReload = $('btn-memo-reload');
   btnMemoReload && btnMemoReload.addEventListener('click', async () => {
@@ -5804,6 +5918,7 @@ ${COMMON_GUARDS}`,
       const driveMemos = Array.isArray(res.memos) ? res.memos.slice() : [];
       const localDrafts = getValidMemos().filter(m => !driveMemos.includes(m));
       memos = [...driveMemos, ...localDrafts];
+      dedupeRoleNoteMemos(); // 🛡 同じ画像(fileId)の役割メモが重複していたら1件に集約（生成時の混乱防止）
       memoFolderId = folderId; // 🛡 メモの持ち主をこの記事に確定
       persistMemoState();
       memoDirty = localDrafts.length > 0; // Driveと同内容なら「保存済み」扱い
