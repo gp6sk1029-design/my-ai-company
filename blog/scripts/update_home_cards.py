@@ -1,68 +1,134 @@
 # -*- coding: utf-8 -*-
+"""
+update_home_cards.py ── ホーム（固定ページ756）の「注目の記事」「最新の記事」を
+WordPressの最新公開記事から自動生成して差し替える。
+
+ホームは手組みHTMLの静的カードで、新記事を投稿しても自動では出ないため、
+公開のたびにこのスクリプトで最新状態へ同期する（publish_article.py から自動呼出）。
+
+使い方:
+  python3 blog/scripts/update_home_cards.py            # 実更新
+  python3 blog/scripts/update_home_cards.py --dry-run  # 差し替え内容の確認のみ
+  # モジュールとして:  from update_home_cards import update_home; update_home()
+
+カード内容は「最新の公開記事」から取得（タイトル/URL/公開日/アイキャッチ/カテゴリ）。
+注目=先頭3件・最新=先頭5件（件数は引数で変更可）。カテゴリ→タグ名/色は下表で対応。
+"""
+import argparse
+import html
 import sys
-sys.path.insert(0, '/Users/shoheikoda/Documents/my-ai-company/blog/scripts')
-from wp_api import WPClient
+from pathlib import Path
 
-c = WPClient.from_config()
-p = c._request('GET', '/pages/756', params={'context': 'edit'})
-raw = p['content']['raw']
+ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / "blog" / "scripts"))
+from wp_api import WPClient  # noqa: E402
 
-BASE = 'https://www.ootanisatan.com'
-KEYCHRON_URL = BASE + '/keychron-k1-max-%e8%a8%ad%e5%ae%9a%e7%b7%a8%ef%bd%9c1%e5%8f%b0%e3%81%a74%e9%85%8d%e5%88%97%e3%82%92%e5%88%87%e6%9b%bf%e3%81%99%e3%82%8b%e5%ae%8c%e5%85%a8%e3%82%ac%e3%82%a4%e3%83%89%ef%bd%9c%e5%b9%b421/'
-GARMIN_URL = BASE + '/garmin-venu-2s-%e3%82%924%e5%b9%b4%e5%8d%8a%e4%bd%bf%e3%81%a3%e3%81%9f%e3%83%aa%e3%82%a2%e3%83%ab%e3%83%ac%e3%83%93%e3%83%a5%e3%83%bc%ef%bd%9c27%e5%86%86-%e6%97%a5%e3%81%a7%e5%81%a5%e5%ba%b7%e7%ae%a1/'
+PAGE_ID = 756
 
-# 記事データ (url, thumb, tag, color, title, date)
-brown9   = (BASE+'/braun-clean-renew-compatible-review/', BASE+'/wp-content/uploads/2026/06/braun-clean-renew-01_eyecatch.jpg', '暮らしハック', '#ea580c', 'ブラウン シェーバー洗浄液 互換品コスパ検証｜純正の約半額「シェーバークリーンNEW X」を実機レビュー', '2026.06.21')
-switchbot = (BASE+'/switchbot-lock-lite-review/', BASE+'/wp-content/uploads/2026/05/switchbot-eyecatch-from-drive.jpg', 'ガジェットレビュー', '#2563eb', 'SwitchBot ロックLite レビュー｜賃貸OK、鍵を持ち歩かない生活へ', '2026.05.30')
-mxergo   = (BASE+'/mx-ergo-s-settings-guide/', BASE+'/wp-content/uploads/2026/05/mx-ergo-eyecatch-2026-05-17.jpg', 'ガジェットレビュー', '#2563eb', 'MX ERGO S 設定編｜Logi Options+ で年6万円の時短を生むカスタマイズ術', '2026.05.17')
-keychron = (KEYCHRON_URL, BASE+'/wp-content/uploads/2026/05/keychron-k1max-jis-setup-eyecatch.jpg', 'ガジェットレビュー', '#2563eb', 'Keychron K1 Max 設定編｜1台で4配列を切替する完全ガイド｜年21万円の時短', '2026.05.11')
-garmin   = (GARMIN_URL, BASE+'/wp-content/uploads/2026/04/garmin-venu2s-eyecatch-v3.jpg', 'ガジェットレビュー', '#2563eb', 'Garmin Venu 2S を4年半使ったリアルレビュー｜27円/日で健康管理できる最強スマートウォッチ', '2026.04.04')
+# カテゴリID → (ホームカードのタグ表示名, 色)。ページの既存デザインに合わせる。
+CATEGORY_TAG = {
+    1: ("ガジェットレビュー", "#2563eb"),  # ガジェット研究室
+    6: ("時短ツール", "#7c3aed"),          # 時短ツール研究室
+    4: ("生産技術", "#059669"),            # 生産技術研究室
+    5: ("暮らしハック", "#ea580c"),        # 暮らしハック研究室
+}
+# 複数カテゴリのときタグに使う優先順位（ガジェット＞時短＞生産技術＞暮らし）
+CATEGORY_PRIORITY = [1, 6, 4, 5]
+
+
+def _tag_for(cats):
+    for cid in CATEGORY_PRIORITY:
+        if cid in cats:
+            return CATEGORY_TAG[cid]
+    return ("レビュー", "#2563eb")
+
+
+def _card_data(post):
+    """WP投稿(JSON,_embed付き)→カード用データdict。"""
+    title = html.unescape(post["title"]["rendered"]).strip()
+    url = post["link"]
+    date = post["date"][:10].replace("-", ".")
+    tag, color = _tag_for(post.get("categories", []))
+    thumb = ""
+    media = post.get("_embedded", {}).get("wp:featuredmedia", [])
+    if media and isinstance(media, list) and isinstance(media[0], dict):
+        thumb = media[0].get("source_url", "") or ""
+    return dict(url=url, thumb=thumb, tag=tag, color=color, title=title, date=date)
+
+
+def fetch_recent(client, n):
+    posts = client._request("GET", "/posts",
+                            params={"per_page": n, "status": "publish", "_embed": 1})
+    return [_card_data(p) for p in posts]
+
 
 def feat(d):
-    url, thumb, tag, color, title, date = d
-    return (f'<a href="{url}" class="ot-featured-card">\n'
-            f'  <div class="ot-featured-thumb" style="background-image:url(\'{thumb}\');">\n'
-            f'    <span class="ot-featured-tag" style="background:{color}">{tag}</span>\n'
+    return (f'<a href="{d["url"]}" class="ot-featured-card">\n'
+            f'  <div class="ot-featured-thumb" style="background-image:url(\'{d["thumb"]}\');">\n'
+            f'    <span class="ot-featured-tag" style="background:{d["color"]}">{d["tag"]}</span>\n'
             f'  </div>\n'
             f'  <div class="ot-featured-body">\n'
-            f'    <div class="ot-featured-title">{title}</div>\n'
-            f'    <div class="ot-featured-date">🕐 {date}</div>\n'
+            f'    <div class="ot-featured-title">{d["title"]}</div>\n'
+            f'    <div class="ot-featured-date">🕐 {d["date"]}</div>\n'
             f'  </div>\n'
             f'</a>')
 
+
 def latest(d):
-    url, thumb, tag, color, title, date = d
-    return (f'<a href="{url}" class="ot-latest-item">\n'
-            f'  <div class="ot-latest-thumb" style="background-image:url(\'{thumb}\');"></div>\n'
-            f'  <div class="ot-latest-title">{title}</div>\n'
-            f'  <span class="ot-latest-tag" style="background:{color}">{tag}</span>\n'
-            f'  <span class="ot-latest-date">{date}</span>\n'
+    return (f'<a href="{d["url"]}" class="ot-latest-item">\n'
+            f'  <div class="ot-latest-thumb" style="background-image:url(\'{d["thumb"]}\');"></div>\n'
+            f'  <div class="ot-latest-title">{d["title"]}</div>\n'
+            f'  <span class="ot-latest-tag" style="background:{d["color"]}">{d["tag"]}</span>\n'
+            f'  <span class="ot-latest-date">{d["date"]}</span>\n'
             f'</a>')
 
-featured_cards = '\n          '.join(feat(d) for d in [brown9, switchbot, garmin])
-latest_cards   = '\n          '.join(latest(d) for d in [brown9, switchbot, mxergo, keychron, garmin])
 
-# --- 注目の記事 (ot-featured-grid) 差し替え ---
-g = raw.index('<div class="ot-featured-grid">')
-g_end = g + len('<div class="ot-featured-grid">')
-nxt = raw.index('最新の記事', g)
-last_a = raw.rindex('</a>', g_end, nxt) + len('</a>')
-raw = raw[:g_end] + '\n          ' + featured_cards + '\n        ' + raw[last_a:]
+def _splice(raw, open_marker, end_text, cards_html):
+    """open_marker直後〜(end_textの手前の最後の</a>)までを cards_html で置換。"""
+    g = raw.index(open_marker)
+    g_end = g + len(open_marker)
+    nxt = raw.index(end_text, g_end)
+    last_a = raw.rindex("</a>", g_end, nxt) + len("</a>")
+    return raw[:g_end] + "\n          " + cards_html + "\n        " + raw[last_a:]
 
-# --- 最新の記事 (ot-latest-list) 差し替え ---
-l = raw.index('<div class="ot-latest-list">')
-l_end = l + len('<div class="ot-latest-list">')
-nxt2 = raw.index('記事一覧をみる', l)
-last_a2 = raw.rindex('</a>', l_end, nxt2) + len('</a>')
-raw = raw[:l_end] + '\n          ' + latest_cards + '\n        ' + raw[last_a2:]
 
-# 検証
-assert raw.count('ot-featured-card') == 3, raw.count('ot-featured-card')
-assert raw.count('ot-latest-item') == 5, raw.count('ot-latest-item')
-assert 'braun-clean-renew-compatible-review' in raw
-assert 'switchbot-lock-lite-review' in raw
+def update_home(client=None, featured_n=3, latest_n=5, dry_run=False):
+    """ホームの注目/最新カードを最新公開記事で差し替える。戻り値=(recentリスト, 新raw)。"""
+    client = client or WPClient.from_config()
+    recent = fetch_recent(client, max(featured_n, latest_n))
+    if not recent:
+        raise RuntimeError("公開記事が取得できませんでした")
+    featured_cards = "\n          ".join(feat(d) for d in recent[:featured_n])
+    latest_cards = "\n          ".join(latest(d) for d in recent[:latest_n])
 
-c._request('POST', '/pages/756', data={'content': raw})
-print('更新OK')
-print('注目カード数:', raw.count('ot-featured-card'), '/ 最新カード数:', raw.count('ot-latest-item'))
-print('Brown9含む:', 'braun-clean-renew-compatible-review' in raw, '/ SwitchBot含む:', 'switchbot-lock-lite-review' in raw)
+    p = client._request("GET", f"/pages/{PAGE_ID}", params={"context": "edit"})
+    raw = p["content"]["raw"]
+    raw = _splice(raw, '<div class="ot-featured-grid">', "最新の記事", featured_cards)
+    raw = _splice(raw, '<div class="ot-latest-list">', "記事一覧をみる", latest_cards)
+
+    exp_feat = len(recent[:featured_n])
+    exp_latest = len(recent[:latest_n])
+    assert raw.count("ot-featured-card") == exp_feat, f"注目カード数不一致: {raw.count('ot-featured-card')}"
+    assert raw.count("ot-latest-item") == exp_latest, f"最新カード数不一致: {raw.count('ot-latest-item')}"
+
+    if not dry_run:
+        client._request("POST", f"/pages/{PAGE_ID}", data={"content": raw})
+    return recent, raw
+
+
+def main():
+    ap = argparse.ArgumentParser(description="ホームの注目/最新カードを最新記事で同期")
+    ap.add_argument("--dry-run", action="store_true", help="更新せず内容確認のみ")
+    ap.add_argument("--featured", type=int, default=3)
+    ap.add_argument("--latest", type=int, default=5)
+    args = ap.parse_args()
+    recent, _ = update_home(featured_n=args.featured, latest_n=args.latest, dry_run=args.dry_run)
+    head = "[DRY-RUN] " if args.dry_run else "✅ "
+    print(f"{head}ホーム更新: 注目{args.featured}件 / 最新{args.latest}件")
+    for i, d in enumerate(recent[:max(args.featured, args.latest)], 1):
+        mark = "★注目" if i <= args.featured else "  最新"
+        print(f"  {mark} {i}. {d['date']} [{d['tag']}] {d['title'][:38]}")
+
+
+if __name__ == "__main__":
+    main()

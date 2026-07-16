@@ -172,6 +172,7 @@ def main():
     ap.add_argument("--update", type=int, default=None, help="既存投稿IDを更新（新規作成しない）")
     ap.add_argument("--publish", action="store_true", help="実際に投稿する（付けないとドライラン）")
     ap.add_argument("--rewrite-md", action="store_true", help="公開後、mdの画像URLをWP URLへ書換")
+    ap.add_argument("--skip-home", action="store_true", help="公開後のホーム（注目/最新カード）自動更新をしない")
     args = ap.parse_args()
 
     md_path = ROOT / "blog" / "articles" / f"{args.slug}.md"
@@ -254,6 +255,18 @@ def main():
     res = wp_post(base, u, p, payload, post_id=args.update)
     print(f"\n✅ {'更新' if args.update else '投稿'}完了: post_id={res['id']}  status={res.get('status')}")
     print(f"   URL: {res.get('link')}")
+
+    # 公開記事ならホーム（注目/最新カード）を最新状態へ自動同期
+    if res.get("status") == "publish" and not args.skip_home:
+        try:
+            from update_home_cards import update_home
+            recent, _ = update_home()
+            print("   🏠 ホーム更新: 注目/最新カードを最新記事で同期しました")
+            for i, d in enumerate(recent[:5], 1):
+                print(f"      {i}. {d['date']} [{d['tag']}] {d['title'][:32]}")
+        except Exception as e:  # noqa: BLE001
+            print(f"   ⚠ ホーム更新に失敗（記事公開は成功済み）: {e}")
+            print("     手動更新: python3 blog/scripts/update_home_cards.py")
 
     # md の画像URLをWP URLへ書換（任意）
     if args.rewrite_md and args.publish:

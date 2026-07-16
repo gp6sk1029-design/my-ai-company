@@ -193,6 +193,7 @@ Application Password の生成：WP管理画面 → ユーザー → プロフ�
 - `blog/scripts/article_from_meshi.py` — 記事めしDriveフォルダ→執筆コンテキスト(context.md)＋役割画像DL
 - `blog/scripts/article_status.py` — 記事曖昧検索（ローカル + WP統合）
 - `blog/scripts/preview_server.py` — ローカルプレビュー（本番JIN:R風・自動リロード / 画像は `/assets/` 配信）
+- `blog/scripts/update_home_cards.py` — **ホーム（固定ページ756）の「注目の記事」「最新の記事」カードを最新公開記事から自動生成して同期**。ホームは手組み静的HTMLで新記事が自動では出ないため、公開のたびに更新が必要。`publish_article.py` が公開成功時に自動で呼ぶ（`--skip-home` で抑止）。単体実行 `python3 blog/scripts/update_home_cards.py`（`--dry-run` で確認のみ）。注目=先頭3件・最新=先頭5件、カテゴリ→タグ名/色は同スクリプトの `CATEGORY_TAG` で対応
 
 ### publish_article.py の使い方（新規記事公開の標準）
 ```bash
