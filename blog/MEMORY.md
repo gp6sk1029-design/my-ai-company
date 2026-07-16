@@ -565,3 +565,17 @@ curl -s https://blog-capture.pages.dev/?t=$RANDOM | grep -c "新機能のキー�
   - ③ localStorage記憶とDriveメモ用途が**端末跨ぎで乖離** → `reconcileEfTplFromMemo`でメモ側を"正"としてlocalStorageを自動復元。
 - **検証の教訓**：Cloudflare Pagesは**エッジ伝播に数十秒**かかり、デプロイ直後は古いapp.jsが配られ「まだ直ってない」と誤認する→`fetch('/app.js',{cache:'no-store'})`でマーカー確認してからリロードして実機E2E。実データでのテスト痕跡（役割メモ・localStorage記憶）は必ず掃除して元の状態へ戻す。
 - 汎用化候補：app-dev-playbookの A-5(二層保存)/E(往復で壊れない)/D-2(本番URL確認) の実例。
+
+---
+
+## 💰 全公開記事へアフィリンク一括追加（2026-07-17・ブログ分析→最優先施策の実行）
+- **背景**：分析で「アフィリあり2/10・内部リンク2/10」が最大の弱点と判明→収益導線を全記事に敷設。
+- **追加内容（7記事・9リンク・全てtag=gp6sk1029-22＋PR表記＋rel="noopener nofollow sponsored"）**：
+  - 945 MaGdget：本体 **B0GHMZMM7Q**（¥3,960・公式と同価格。前回未発見→今回Amazon検索で発見）
+  - 873/526 MX ERGO S：本体 **B0DC5X912P**（MXTB2通常版¥17,800。Amazon限定版MXTB2dと区別）
+  - 836/450 K1 Max：JIS版 **B0FHWX7X7K**（¥19,360。現在JISはレトロカラーのみ→リンク文言に注記）
+  - 605 Venu 2S：本体 **B094VTDH46**（¥42,990・現役販売中）
+  - 552 持ち運び：WERJIA **B0DHCPVHQX**（¥1,799）＋UGREEN **B074PQPLDQ**（¥760）＋MX ERGO S本体
+- **ASIN特定の手順（成功パターン）**：Claude in ChromeでAmazon実検索→`[data-asin]`をJSで抽出→**スポンサー枠除外**・型番/配列/カラーまで題名で照合。**変換アダプタ類は記事本文の使い方から「挿す向き」を確定してから選ぶ**（UGREENは A メス→C オス のOTGが正解。逆向き商品が検索上位に多い）。
+- 挿入書式はSwitchBot記事の関連リンクブロックを踏襲（separator→H2→quote(PR)→list）。更新前rawはscratchpadにバックアップ。
+- 残り：[12]2023年エッセイのみアフィリなし（商品なしのため対象外＝全対象記事カバー完了）。
