@@ -186,11 +186,27 @@ Application Password の生成：WP管理画面 → ユーザー → プロフ�
 
 ## §17. 使用スクリプト
 
-- `blog/scripts/run_pipeline.py` — パイプライン実行
-- `blog/scripts/wp_api.py` — WordPress REST API
-- `blog/scripts/wp_block_builder.py` — WordPress ブロックビルダー
-- `blog/scripts/image_resizer.py` — 画像リサイズ（公開前必須）
+- `blog/scripts/publish_article.py` — **新規記事の公開ツール（正式）**。画像アップ→wp:image化→`markdown_to_blocks`→`validate_blocks`→POST を一括。デフォルトはドライラン、実投稿は `--publish`。（`run_pipeline.py` は中身が空のため使わない）
+- `blog/scripts/wp_api.py` — WordPress REST API（一覧/取得/検索・更新は `_request("POST", "/posts/<id>", …)`）
+- `blog/scripts/wp_block_builder.py` — WordPress ブロックビルダー（`markdown_to_blocks` / `validate_blocks` / 吹き出し）
+- `blog/scripts/image_resizer.py` — 画像リサイズ（公開前必須・長辺1800px以下）
+- `blog/scripts/article_from_meshi.py` — 記事めしDriveフォルダ→執筆コンテキスト(context.md)＋役割画像DL
 - `blog/scripts/article_status.py` — 記事曖昧検索（ローカル + WP統合）
+- `blog/scripts/preview_server.py` — ローカルプレビュー（本番JIN:R風・自動リロード / 画像は `/assets/` 配信）
+
+### publish_article.py の使い方（新規記事公開の標準）
+```bash
+# ① ドライラン（検証のみ・投稿しない）— 公開前必須
+python3 blog/scripts/publish_article.py --slug <slug> --categories 1,5
+# ② 実際に公開（アイキャッチは images-dir の eyecatch* を自動でfeatured化＆本文から除去）
+python3 blog/scripts/publish_article.py --slug <slug> --categories 1,5 \
+    --excerpt "メタ説明…" --publish --status publish --rewrite-md
+# 既存記事の本文更新（新規作成でなく上書き）
+python3 blog/scripts/publish_article.py --slug <slug> --update <post_id> --publish
+```
+- 記事の書式前提：1行目 `# タイトル`（H1→投稿タイトル・本文からは除去）／本文画像は `![alt](…/ファイル名.jpg)`（**ファイル名**が `blog/articles/<slug>_images/` の実ファイルと一致すればアップ対象）／アイキャッチは `eyecatch*` 命名 or `--eyecatch`。
+- カテゴリID：ガジェット研究室=1／時短ツール研究室=6／暮らしハック研究室=5／生産技術研究室=4。
+- `--rewrite-md`：公開後、記事mdの画像URLをWPのURLに書き換え（md＝本番と一致させる）。
 
 ---
 
