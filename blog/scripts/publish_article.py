@@ -168,7 +168,8 @@ def main():
     ap.add_argument("--categories", default="", help="カテゴリID カンマ区切り（例 1,5）")
     ap.add_argument("--excerpt", default="", help="メタ説明（抜粋）")
     ap.add_argument("--eyecatch", default=None, help="アイキャッチのファイル名（既定 eyecatch* を自動検出）")
-    ap.add_argument("--status", default="draft", choices=["publish", "draft"])
+    ap.add_argument("--status", default=None, choices=["publish", "draft"],
+                    help="新規作成時の既定はdraft。--update時に未指定なら現在の公開状態を維持（下書きに戻さない）")
     ap.add_argument("--update", type=int, default=None, help="既存投稿IDを更新（新規作成しない）")
     ap.add_argument("--publish", action="store_true", help="実際に投稿する（付けないとドライラン）")
     ap.add_argument("--rewrite-md", action="store_true", help="公開後、mdの画像URLをWP URLへ書換")
@@ -242,7 +243,13 @@ def main():
     if issues or extra:
         sys.exit("\n❌ 検証エラーがあるため投稿中止。")
 
-    payload = {"title": title, "content": content, "status": args.status}
+    # 🛡 status事故防止（2026-07-18）：--update で未指定なら status を送らない＝現在の公開状態を維持。
+    # （旧実装は既定"draft"を常に送っており、公開記事の更新で下書きに戻る事故が起きた）
+    payload = {"title": title, "content": content}
+    if args.status:
+        payload["status"] = args.status
+    elif not args.update:
+        payload["status"] = "draft"  # 新規作成の既定は安全側（下書き）
     if not args.update:
         payload["slug"] = args.slug
     if cats:

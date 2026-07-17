@@ -13,6 +13,12 @@ import re
 # HTMLヘルパー
 # ============================================================
 
+def _strip_backticks(text: str) -> str:
+    """`x` インラインコード記法はJIN:R表示で装飾されず「`」が露出するため、記号だけ剥がす。
+    （2026-07-18制定：ROI表の計算式セルで露出事故が4記事分発生した恒久対策）"""
+    return re.sub(r'`([^`]*)`', r'\1', text)
+
+
 def md_to_html_inline(text: str) -> str:
     """
     インラインmarkdown → HTML変換（strongタグの閉じ忘れを防ぐ）
@@ -30,6 +36,9 @@ def md_to_html_inline(text: str) -> str:
             'text-decoration-color:#56CCF2;text-decoration-thickness:3px;">'
             + inner + '</span></strong>'
         )
+
+    # ⓪-a `x` インラインコードの「`」露出防止（記号を剥がす）
+    text = _strip_backticks(text)
 
     # ⓪ [文字](URL) → リンク（画像 ![]() は除外するため ! の直後はマッチさせない）
     text = re.sub(
