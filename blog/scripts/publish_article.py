@@ -168,6 +168,8 @@ def main():
     ap.add_argument("--categories", default="", help="カテゴリID カンマ区切り（例 1,5）")
     ap.add_argument("--excerpt", default="", help="メタ説明（抜粋）")
     ap.add_argument("--eyecatch", default=None, help="アイキャッチのファイル名（既定 eyecatch* を自動検出）")
+    ap.add_argument("--featured-id", type=int, default=None,
+                    help="既存WPメディアIDをアイキャッチに指定（画像再利用記事用。ホーム自動同期の前に設定されるので、カード画像欠けを防げる）")
     ap.add_argument("--status", default=None, choices=["publish", "draft"],
                     help="新規作成時の既定はdraft。--update時に未指定なら現在の公開状態を維持（下書きに戻さない）")
     ap.add_argument("--update", type=int, default=None, help="既存投稿IDを更新（新規作成しない）")
@@ -233,6 +235,8 @@ def main():
           f"見出し: {content.count('wp:heading')//2}  本文長: {len(content)}字")
 
     eyecatch_id = media.get(eyecatch, (0, None))[0] if eyecatch else 0
+    if not eyecatch_id and args.featured_id:
+        eyecatch_id = args.featured_id  # 既存メディアの再利用（公開と同時に設定→ホームカードに画像が載る）
 
     if not args.publish:
         out = md_path.parent / f"{args.slug}_blocks_preview.html"
