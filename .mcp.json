@@ -2,7 +2,7 @@
   "mcpServers": {
     "codex": {
       "type": "stdio",
-      "command": "/Applications/Codex.app/Contents/Resources/codex",
+      "command": "/Users/shoheikoda/.codex/bin/codex",
       "args": [
         "mcp-server"
       ],

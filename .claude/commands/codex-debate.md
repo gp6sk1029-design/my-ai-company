@@ -1,6 +1,6 @@
 ---
 description: お題についてClaudeとCodexが指定回数だけ往復して壁打ち議論し、結論をまとめる
-allowed-tools: Bash(/Applications/Codex.app/Contents/Resources/codex exec*)
+allowed-tools: Bash(/Users/shoheikoda/.codex/bin/codex exec*)
 ---
 
 あなた（Claude）は司令塔として、専門家Codex（gpt-5.5）と**往復の壁打ち議論**を行い、最後に結論をまとめます。
@@ -17,7 +17,7 @@ allowed-tools: Bash(/Applications/Codex.app/Contents/Resources/codex exec*)
 ### 1. 往復ループ（決めた回数くりかえす）
 各ラウンドで順に：
 1. **Codexに投げる**：Codexは1回ごとに記憶がリセットされるので、**毎回「お題＋ここまでの議論の要点＋あなたの最新の主張/問い」を1つのプロンプトにまとめて**渡す。
-   `/Applications/Codex.app/Contents/Resources/codex exec -c model_reasoning_effort="low" "お題: <お題> / ここまでの要点: <箇条書き> / 私(Claude)の主張: <主張や反論>。専門家として賛否・根拠・私の見落としを簡潔に述べよ（コードは書かず助言のみ）"`
+   `/Users/shoheikoda/.codex/bin/codex exec -c model_reasoning_effort="low" "お題: <お題> / ここまでの要点: <箇条書き> / 私(Claude)の主張: <主張や反論>。専門家として賛否・根拠・私の見落としを簡潔に述べよ（コードは書かず助言のみ）"`
 2. **Codexの返答を提示**（見出し「🟠 Codex（第Nラウンド）」、要点を歪めず提示）。
 3. **あなた（Claude）が反論・深掘りを書く**（見出し「🔵 Claude（第Nラウンド）」）。同意できない点は明確に切り、新しい論点を1つ足す。
 

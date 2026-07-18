@@ -1,6 +1,6 @@
 ---
 description: 設計・難所をCodexに質問してセカンドオピニオンをもらう（壁打ち・調査）
-allowed-tools: Bash(/Applications/Codex.app/Contents/Resources/codex exec*)
+allowed-tools: Bash(/Users/shoheikoda/.codex/bin/codex exec*)
 ---
 
 あなたは司令塔です。専門家Codex（gpt-5.5）に壁打ち・調査として質問を投げ、別視点の意見を得ます。
@@ -8,7 +8,7 @@ allowed-tools: Bash(/Applications/Codex.app/Contents/Resources/codex exec*)
 質問内容: $ARGUMENTS
 
 ## Codexの回答
-!`/Applications/Codex.app/Contents/Resources/codex exec -c model_reasoning_effort="low" "あなたはセカンドオピニオンを求められた専門家です。次の問いに、根拠とともに簡潔に答えてください（コードは書かず助言のみ）: $ARGUMENTS"`
+!`/Users/shoheikoda/.codex/bin/codex exec -c model_reasoning_effort="low" "あなたはセカンドオピニオンを求められた専門家です。次の問いに、根拠とともに簡潔に答えてください（コードは書かず助言のみ）: $ARGUMENTS"`
 
 <!-- コスト最小化：推論low既定（モデルはgpt-5.5のまま）。難しい設計課題で深く考えさせたい時はClaudeが `-c model_reasoning_effort="high"` に上げてよい。 -->
 

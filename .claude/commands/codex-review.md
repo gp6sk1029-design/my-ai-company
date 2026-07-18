@@ -1,12 +1,12 @@
 ---
 description: 今の変更（未コミット差分）をCodexにセカンドレビューさせる
-allowed-tools: Bash(/Applications/Codex.app/Contents/Resources/codex review*)
+allowed-tools: Bash(/Users/shoheikoda/.codex/bin/codex review*)
 ---
 
 あなたは司令塔です。現在の未コミット変更を、専門家Codex（gpt-5.5）にセカンドオピニオンとしてレビューさせます。
 
 ## Codexのレビュー結果
-!`/Applications/Codex.app/Contents/Resources/codex review -c model_reasoning_effort="low" --uncommitted $ARGUMENTS`
+!`/Users/shoheikoda/.codex/bin/codex review -c model_reasoning_effort="low" --uncommitted $ARGUMENTS`
 
 <!-- コスト最小化：推論low既定（モデルはgpt-5.5のまま）。重要・複雑な変更を厳しく見たい時はClaudeが `-c model_reasoning_effort="high"` に上げてよい。 -->
 
