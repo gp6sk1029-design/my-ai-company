@@ -1,0 +1,16 @@
+{
+  "ok": true,
+  "spriteVersionNumber": 2,
+  "run_dir": "/Users/shoheikoda/Documents/my-ai-company/tmp/hatch-pet-otani",
+  "spritesheet": "/Users/shoheikoda/Documents/my-ai-company/tmp/hatch-pet-otani/final/spritesheet-extended.webp",
+  "validation": "/Users/shoheikoda/Documents/my-ai-company/tmp/hatch-pet-otani/final/validation-extended.json",
+  "chroma_despill": "/Users/shoheikoda/Documents/my-ai-company/tmp/hatch-pet-otani/qa/chroma-despill-extended.json",
+  "contact_sheet": "/Users/shoheikoda/Documents/my-ai-company/tmp/hatch-pet-otani/qa/contact-sheet-extended.png",
+  "direction_sheet": "/Users/shoheikoda/Documents/my-ai-company/tmp/hatch-pet-otani/qa/look-directions.png",
+  "direction_semantics": "/Users/shoheikoda/Documents/my-ai-company/tmp/hatch-pet-otani/qa/direction-semantics.json",
+  "blind_direction_validation": "/Users/shoheikoda/Documents/my-ai-company/tmp/hatch-pet-otani/qa/direction-blind-validation.json",
+  "blind_review_resolution": "/Users/shoheikoda/Documents/my-ai-company/tmp/hatch-pet-otani/qa/blind-review-resolution.json",
+  "continuity": "/Users/shoheikoda/Documents/my-ai-company/tmp/hatch-pet-otani/qa/look-continuity.json",
+  "review": "/Users/shoheikoda/Documents/my-ai-company/tmp/hatch-pet-otani/qa/review.json",
+  "package": "/Users/shoheikoda/.codex/pets/otani-director"
+}

@@ -1,0 +1,973 @@
+{
+  "ok": true,
+  "frames_root": "/Users/shoheikoda/Documents/my-ai-company/tmp/hatch-pet-otani/frames",
+  "states": [
+    "idle",
+    "running-right",
+    "running-left",
+    "waving",
+    "jumping",
+    "failed",
+    "waiting",
+    "running",
+    "review"
+  ],
+  "errors": [],
+  "warnings": [],
+  "rows": [
+    {
+      "state": "idle",
+      "expected_frames": 6,
+      "actual_frames": 6,
+      "extraction_method": "components",
+      "ok": true,
+      "errors": [],
+      "warnings": [],
+      "frames": [
+        {
+          "index": 0,
+          "file": "/Users/shoheikoda/Documents/my-ai-company/tmp/hatch-pet-otani/frames/idle/00.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 8908,
+          "bbox": [
+            63,
+            5,
+            128,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 15
+        },
+        {
+          "index": 1,
+          "file": "/Users/shoheikoda/Documents/my-ai-company/tmp/hatch-pet-otani/frames/idle/01.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 8884,
+          "bbox": [
+            63,
+            5,
+            128,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 16
+        },
+        {
+          "index": 2,
+          "file": "/Users/shoheikoda/Documents/my-ai-company/tmp/hatch-pet-otani/frames/idle/02.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 8884,
+          "bbox": [
+            63,
+            5,
+            128,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 17
+        },
+        {
+          "index": 3,
+          "file": "/Users/shoheikoda/Documents/my-ai-company/tmp/hatch-pet-otani/frames/idle/03.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 8759,
+          "bbox": [
+            64,
+            5,
+            128,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 17
+        },
+        {
+          "index": 4,
+          "file": "/Users/shoheikoda/Documents/my-ai-company/tmp/hatch-pet-otani/frames/idle/04.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 8748,
+          "bbox": [
+            64,
+            5,
+            128,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 18
+        },
+        {
+          "index": 5,
+          "file": "/Users/shoheikoda/Documents/my-ai-company/tmp/hatch-pet-otani/frames/idle/05.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 8893,
+          "bbox": [
+            63,
+            5,
+            128,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 9
+        }
+      ]
+    },
+    {
+      "state": "running-right",
+      "expected_frames": 8,
+      "actual_frames": 8,
+      "extraction_method": "components",
+      "ok": true,
+      "errors": [],
+      "warnings": [],
+      "frames": [
+        {
+          "index": 0,
+          "file": "/Users/shoheikoda/Documents/my-ai-company/tmp/hatch-pet-otani/frames/running-right/00.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 10988,
+          "bbox": [
+            33,
+            5,
+            159,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 94
+        },
+        {
+          "index": 1,
+          "file": "/Users/shoheikoda/Documents/my-ai-company/tmp/hatch-pet-otani/frames/running-right/01.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 9428,
+          "bbox": [
+            52,
+            5,
+            140,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 51
+        },
+        {
+          "index": 2,
+          "file": "/Users/shoheikoda/Documents/my-ai-company/tmp/hatch-pet-otani/frames/running-right/02.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 11584,
+          "bbox": [
+            34,
+            5,
+            157,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 119
+        },
+        {
+          "index": 3,
+          "file": "/Users/shoheikoda/Documents/my-ai-company/tmp/hatch-pet-otani/frames/running-right/03.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 11405,
+          "bbox": [
+            30,
+            5,
+            162,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 101
+        },
+        {
+          "index": 4,
+          "file": "/Users/shoheikoda/Documents/my-ai-company/tmp/hatch-pet-otani/frames/running-right/04.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 9845,
+          "bbox": [
+            48,
+            5,
+            144,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 78
+        },
+        {
+          "index": 5,
+          "file": "/Users/shoheikoda/Documents/my-ai-company/tmp/hatch-pet-otani/frames/running-right/05.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 10332,
+          "bbox": [
+            42,
+            5,
+            150,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 63
+        },
+        {
+          "index": 6,
+          "file": "/Users/shoheikoda/Documents/my-ai-company/tmp/hatch-pet-otani/frames/running-right/06.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 10604,
+          "bbox": [
+            39,
+            5,
+            152,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 107
+        },
+        {
+          "index": 7,
+          "file": "/Users/shoheikoda/Documents/my-ai-company/tmp/hatch-pet-otani/frames/running-right/07.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 9868,
+          "bbox": [
+            41,
+            5,
+            150,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 55
+        }
+      ]
+    },
+    {
+      "state": "running-left",
+      "expected_frames": 8,
+      "actual_frames": 8,
+      "extraction_method": "components",
+      "ok": true,
+      "errors": [],
+      "warnings": [],
+      "frames": [
+        {
+          "index": 0,
+          "file": "/Users/shoheikoda/Documents/my-ai-company/tmp/hatch-pet-otani/frames/running-left/00.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 10796,
+          "bbox": [
+            36,
+            5,
+            156,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 105
+        },
+        {
+          "index": 1,
+          "file": "/Users/shoheikoda/Documents/my-ai-company/tmp/hatch-pet-otani/frames/running-left/01.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 9428,
+          "bbox": [
+            52,
+            5,
+            140,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 51
+        },
+        {
+          "index": 2,
+          "file": "/Users/shoheikoda/Documents/my-ai-company/tmp/hatch-pet-otani/frames/running-left/02.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 11743,
+          "bbox": [
+            29,
+            5,
+            163,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 123
+        },
+        {
+          "index": 3,
+          "file": "/Users/shoheikoda/Documents/my-ai-company/tmp/hatch-pet-otani/frames/running-left/03.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 11405,
+          "bbox": [
+            30,
+            5,
+            162,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 101
+        },
+        {
+          "index": 4,
+          "file": "/Users/shoheikoda/Documents/my-ai-company/tmp/hatch-pet-otani/frames/running-left/04.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 9845,
+          "bbox": [
+            48,
+            5,
+            144,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 78
+        },
+        {
+          "index": 5,
+          "file": "/Users/shoheikoda/Documents/my-ai-company/tmp/hatch-pet-otani/frames/running-left/05.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 10332,
+          "bbox": [
+            42,
+            5,
+            150,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 63
+        },
+        {
+          "index": 6,
+          "file": "/Users/shoheikoda/Documents/my-ai-company/tmp/hatch-pet-otani/frames/running-left/06.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 10604,
+          "bbox": [
+            39,
+            5,
+            152,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 107
+        },
+        {
+          "index": 7,
+          "file": "/Users/shoheikoda/Documents/my-ai-company/tmp/hatch-pet-otani/frames/running-left/07.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 9868,
+          "bbox": [
+            41,
+            5,
+            150,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 55
+        }
+      ]
+    },
+    {
+      "state": "waving",
+      "expected_frames": 4,
+      "actual_frames": 4,
+      "extraction_method": "components",
+      "ok": true,
+      "errors": [],
+      "warnings": [],
+      "frames": [
+        {
+          "index": 0,
+          "file": "/Users/shoheikoda/Documents/my-ai-company/tmp/hatch-pet-otani/frames/waving/00.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 9554,
+          "bbox": [
+            61,
+            5,
+            130,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 15
+        },
+        {
+          "index": 1,
+          "file": "/Users/shoheikoda/Documents/my-ai-company/tmp/hatch-pet-otani/frames/waving/01.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 9836,
+          "bbox": [
+            55,
+            5,
+            136,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 20
+        },
+        {
+          "index": 2,
+          "file": "/Users/shoheikoda/Documents/my-ai-company/tmp/hatch-pet-otani/frames/waving/02.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 9825,
+          "bbox": [
+            59,
+            5,
+            133,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 10
+        },
+        {
+          "index": 3,
+          "file": "/Users/shoheikoda/Documents/my-ai-company/tmp/hatch-pet-otani/frames/waving/03.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 9526,
+          "bbox": [
+            61,
+            5,
+            130,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 14
+        }
+      ]
+    },
+    {
+      "state": "jumping",
+      "expected_frames": 5,
+      "actual_frames": 5,
+      "extraction_method": "components",
+      "ok": true,
+      "errors": [],
+      "warnings": [],
+      "frames": [
+        {
+          "index": 0,
+          "file": "/Users/shoheikoda/Documents/my-ai-company/tmp/hatch-pet-otani/frames/jumping/00.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 12377,
+          "bbox": [
+            41,
+            5,
+            151,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 65
+        },
+        {
+          "index": 1,
+          "file": "/Users/shoheikoda/Documents/my-ai-company/tmp/hatch-pet-otani/frames/jumping/01.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 11905,
+          "bbox": [
+            29,
+            5,
+            162,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 48
+        },
+        {
+          "index": 2,
+          "file": "/Users/shoheikoda/Documents/my-ai-company/tmp/hatch-pet-otani/frames/jumping/02.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 13368,
+          "bbox": [
+            32,
+            5,
+            159,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 47
+        },
+        {
+          "index": 3,
+          "file": "/Users/shoheikoda/Documents/my-ai-company/tmp/hatch-pet-otani/frames/jumping/03.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 10235,
+          "bbox": [
+            40,
+            5,
+            151,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 32
+        },
+        {
+          "index": 4,
+          "file": "/Users/shoheikoda/Documents/my-ai-company/tmp/hatch-pet-otani/frames/jumping/04.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 12224,
+          "bbox": [
+            43,
+            5,
+            148,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 67
+        }
+      ]
+    },
+    {
+      "state": "failed",
+      "expected_frames": 8,
+      "actual_frames": 8,
+      "extraction_method": "components",
+      "ok": true,
+      "errors": [],
+      "warnings": [],
+      "frames": [
+        {
+          "index": 0,
+          "file": "/Users/shoheikoda/Documents/my-ai-company/tmp/hatch-pet-otani/frames/failed/00.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 8604,
+          "bbox": [
+            65,
+            5,
+            126,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 16
+        },
+        {
+          "index": 1,
+          "file": "/Users/shoheikoda/Documents/my-ai-company/tmp/hatch-pet-otani/frames/failed/01.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 8672,
+          "bbox": [
+            66,
+            5,
+            125,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 5
+        },
+        {
+          "index": 2,
+          "file": "/Users/shoheikoda/Documents/my-ai-company/tmp/hatch-pet-otani/frames/failed/02.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 9056,
+          "bbox": [
+            65,
+            5,
+            126,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 10
+        },
+        {
+          "index": 3,
+          "file": "/Users/shoheikoda/Documents/my-ai-company/tmp/hatch-pet-otani/frames/failed/03.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 9558,
+          "bbox": [
+            64,
+            5,
+            127,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 36
+        },
+        {
+          "index": 4,
+          "file": "/Users/shoheikoda/Documents/my-ai-company/tmp/hatch-pet-otani/frames/failed/04.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 8763,
+          "bbox": [
+            65,
+            5,
+            126,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 25
+        },
+        {
+          "index": 5,
+          "file": "/Users/shoheikoda/Documents/my-ai-company/tmp/hatch-pet-otani/frames/failed/05.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 8681,
+          "bbox": [
+            65,
+            5,
+            127,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 25
+        },
+        {
+          "index": 6,
+          "file": "/Users/shoheikoda/Documents/my-ai-company/tmp/hatch-pet-otani/frames/failed/06.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 8739,
+          "bbox": [
+            65,
+            5,
+            127,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 12
+        },
+        {
+          "index": 7,
+          "file": "/Users/shoheikoda/Documents/my-ai-company/tmp/hatch-pet-otani/frames/failed/07.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 8800,
+          "bbox": [
+            64,
+            5,
+            127,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 11
+        }
+      ]
+    },
+    {
+      "state": "waiting",
+      "expected_frames": 6,
+      "actual_frames": 6,
+      "extraction_method": "components",
+      "ok": true,
+      "errors": [],
+      "warnings": [],
+      "frames": [
+        {
+          "index": 0,
+          "file": "/Users/shoheikoda/Documents/my-ai-company/tmp/hatch-pet-otani/frames/waiting/00.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 8462,
+          "bbox": [
+            66,
+            5,
+            126,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 9
+        },
+        {
+          "index": 1,
+          "file": "/Users/shoheikoda/Documents/my-ai-company/tmp/hatch-pet-otani/frames/waiting/01.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 9079,
+          "bbox": [
+            53,
+            5,
+            139,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 14
+        },
+        {
+          "index": 2,
+          "file": "/Users/shoheikoda/Documents/my-ai-company/tmp/hatch-pet-otani/frames/waiting/02.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 8592,
+          "bbox": [
+            59,
+            5,
+            133,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 13
+        },
+        {
+          "index": 3,
+          "file": "/Users/shoheikoda/Documents/my-ai-company/tmp/hatch-pet-otani/frames/waiting/03.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 8577,
+          "bbox": [
+            65,
+            5,
+            127,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 11
+        },
+        {
+          "index": 4,
+          "file": "/Users/shoheikoda/Documents/my-ai-company/tmp/hatch-pet-otani/frames/waiting/04.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 8088,
+          "bbox": [
+            67,
+            5,
+            124,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 17
+        },
+        {
+          "index": 5,
+          "file": "/Users/shoheikoda/Documents/my-ai-company/tmp/hatch-pet-otani/frames/waiting/05.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 9076,
+          "bbox": [
+            52,
+            5,
+            140,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 17
+        }
+      ]
+    },
+    {
+      "state": "running",
+      "expected_frames": 6,
+      "actual_frames": 6,
+      "extraction_method": "components",
+      "ok": true,
+      "errors": [],
+      "warnings": [],
+      "frames": [
+        {
+          "index": 0,
+          "file": "/Users/shoheikoda/Documents/my-ai-company/tmp/hatch-pet-otani/frames/running/00.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 9585,
+          "bbox": [
+            56,
+            5,
+            135,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 31
+        },
+        {
+          "index": 1,
+          "file": "/Users/shoheikoda/Documents/my-ai-company/tmp/hatch-pet-otani/frames/running/01.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 9083,
+          "bbox": [
+            61,
+            5,
+            131,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 18
+        },
+        {
+          "index": 2,
+          "file": "/Users/shoheikoda/Documents/my-ai-company/tmp/hatch-pet-otani/frames/running/02.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 8687,
+          "bbox": [
+            63,
+            5,
+            128,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 16
+        },
+        {
+          "index": 3,
+          "file": "/Users/shoheikoda/Documents/my-ai-company/tmp/hatch-pet-otani/frames/running/03.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 9686,
+          "bbox": [
+            57,
+            5,
+            135,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 21
+        },
+        {
+          "index": 4,
+          "file": "/Users/shoheikoda/Documents/my-ai-company/tmp/hatch-pet-otani/frames/running/04.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 9104,
+          "bbox": [
+            61,
+            5,
+            131,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 20
+        },
+        {
+          "index": 5,
+          "file": "/Users/shoheikoda/Documents/my-ai-company/tmp/hatch-pet-otani/frames/running/05.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 9106,
+          "bbox": [
+            63,
+            5,
+            129,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 18
+        }
+      ]
+    },
+    {
+      "state": "review",
+      "expected_frames": 6,
+      "actual_frames": 6,
+      "extraction_method": "components",
+      "ok": true,
+      "errors": [],
+      "warnings": [],
+      "frames": [
+        {
+          "index": 0,
+          "file": "/Users/shoheikoda/Documents/my-ai-company/tmp/hatch-pet-otani/frames/review/00.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 8318,
+          "bbox": [
+            65,
+            5,
+            127,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 17
+        },
+        {
+          "index": 1,
+          "file": "/Users/shoheikoda/Documents/my-ai-company/tmp/hatch-pet-otani/frames/review/01.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 7995,
+          "bbox": [
+            66,
+            5,
+            126,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 9
+        },
+        {
+          "index": 2,
+          "file": "/Users/shoheikoda/Documents/my-ai-company/tmp/hatch-pet-otani/frames/review/02.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 8204,
+          "bbox": [
+            66,
+            5,
+            126,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 12
+        },
+        {
+          "index": 3,
+          "file": "/Users/shoheikoda/Documents/my-ai-company/tmp/hatch-pet-otani/frames/review/03.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 8935,
+          "bbox": [
+            60,
+            5,
+            132,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 20
+        },
+        {
+          "index": 4,
+          "file": "/Users/shoheikoda/Documents/my-ai-company/tmp/hatch-pet-otani/frames/review/04.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 9711,
+          "bbox": [
+            55,
+            5,
+            137,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 36
+        },
+        {
+          "index": 5,
+          "file": "/Users/shoheikoda/Documents/my-ai-company/tmp/hatch-pet-otani/frames/review/05.png",
+          "width": 192,
+          "height": 208,
+          "nontransparent_pixels": 8694,
+          "bbox": [
+            59,
+            5,
+            132,
+            203
+          ],
+          "edge_pixels": 0,
+          "chroma_adjacent_pixels": 15
+        }
+      ]
+    }
+  ]
+}

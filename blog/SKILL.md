@@ -43,8 +43,8 @@ mdを直してブラウザ自動リロード（WP往復なし）。装飾修正�
 | ⓪-b | 伝えたいこと＝記事の骨子・流れ（PROMPT.md） | PWAで「記事タイプ」＋「読者に伝えたいポイント（＝記事でポイントになること・話の流れ／優先度順）」を入力 → Driveの画像フォルダに `PROMPT.md` が自動生成される。これが**記事の骨子（伝えたいこと・流れ）の土台**になる |
 | ⓪-c | context.md化（執筆セッション） | `python3 blog/scripts/article_from_meshi.py --folder-id <Driveフォルダid> --slug <slug>` → PROMPT.md取得＋画像を役割タグ(eyecatch/hero/section/product/diagram/compare/ngsummary)で分類し `articles/{slug}_context.md` を生成。**Claudeはこの context.md を最初に読む** |
 | ① | 執筆 | context.md を基にmdを `blog/articles/` に作成。**記事めしメモは「種」、本文は深掘り**（MEMORY「記事めしメモは種」原則：各ポイントを仕組み/数値/理論/反論先回り/実体験で800〜1500字に展開）。前回記事スタイル踏襲・ROI table/キャラ対話/金額換算は必須 |
-| ② | プレビュー起動 | `python3 blog/scripts/preview_server.py` → Chrome MCPで `http://localhost:8794/preview/<slug>` を開く（Claudeも同画面を見る） |
-| ③ | 推敲ループ | ユーザーが画面を見て指示 → Claudeがmd修正 → 1.5秒で自動リロード。気が済むまで往復 |
+| ② | プレビュー起動 | `python3 blog/scripts/preview_server.py` → **Codexアプリ内ブラウザを表示して** `http://localhost:8794/preview/<slug>` を開く。ユーザーはCodexの横で本番風の見た目を確認する |
+| ③ | 推敲ループ | ユーザーが横に表示した画面を見て指示 → 原稿を修正 → 自動リロード。気が済むまで往復 |
 | ④ | 事実確認 | スペック・価格・設定範囲・対応規格は**公式 or 実機アプリで裏取り**。シリーズ品はモデルごと確認（例：ロックLiteはセンサー非搭載・タイマー式）。実機所有ユーザーの入力は正とする |
 | ⑤ | 修正ログ | 修正のたびに `edit_logger.py --slug --reason --learning --tag`。同タグ2回で MEMORY/`feedback_blog.md` へ昇格 |
 | ⑥ | アフィリリンク | ASINを商品ページで特定→URLに `?tag=gp6sk1029-22`（アソシエイトID）→**PR表記（広告を含む旨）必須**。WP公開版は `rel="sponsored nofollow"` 自動付与。純正がAmazonに無い消耗品は信頼ブランドで代替（ユーザー選択） |
@@ -70,6 +70,7 @@ mdを直してブラウザ自動リロード（WP往復なし）。装飾修正�
 7. **JIN:R装飾ルール**：最重要強調は `***xxx***`（水色アンダーライン自動付与）。`**xxx**` に数値・日付・単位を含むと自動で水色アンダーライン
 8. **前回記事のスタイル踏襲**：執筆前に直前記事のHTMLを取得し、装飾パターン・文体・画像配置を確認（MEMORY.md「前回記事スタイル踏襲チェック」参照）
 9. **画像フォルダの `PROMPT.md` を最優先で読む**（記事めしPWAから生成される記事方針メモ）
+10. **レビューはアプリ内ブラウザを横に表示して行う**（2026-07-18制定）。ローカルプレビューを開いたら、画面を隠さずユーザーと同じ見た目を確認する
 
 ---
 

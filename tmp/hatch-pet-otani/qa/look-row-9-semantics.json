@@ -1,0 +1,14 @@
+{
+  "ok": true,
+  "reviewed_by": "parent",
+  "directions": [
+    {"degree":"000","expected":"up","verdict":"pass","reason":"瞳とあごが明確に上を向く"},
+    {"degree":"022.5","expected":"up-right","verdict":"pass","reason":"上向きから画面右への自然な初期移動"},
+    {"degree":"045","expected":"up-right","verdict":"pass","reason":"目線と鼻先が右上に連続して向く"},
+    {"degree":"067.5","expected":"up-right","verdict":"pass","reason":"右向き基準へ均等に近づく"},
+    {"degree":"090","expected":"right","verdict":"pass","reason":"鼻先と視線が画面右を明確に向く"},
+    {"degree":"112.5","expected":"down-right","verdict":"pass","reason":"右向きから下向きへ連続して移る"},
+    {"degree":"135","expected":"down-right","verdict":"pass","reason":"顔と視線が右下を読む"},
+    {"degree":"157.5","expected":"down-right","verdict":"pass","reason":"下向き基準の一歩前として連続する"}
+  ]
+}
