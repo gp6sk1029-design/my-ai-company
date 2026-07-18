@@ -36,20 +36,24 @@ description: 画像編集スキル。ChatGPT/Geminiで生成した画像をす�
 ### Step 2: ブラウザを左右2分割で開く（osascript）
 既存のCanvaウィンドウ/AIウィンドウがあれば再利用し、ウィンドウを増やさない：
 
+> 🚨 AppleScriptは**大文字小文字を区別しない**。画面幅を `W`、ループ変数を `w` にすると衝突して
+> 「item 3 of every window をrectangleに変換できません」エラーになる（2026-07-19実測）。
+> 必ず `scrW/scrH/win` のような非衝突名を使うこと。
+
 ```bash
 osascript <<'EOF'
 tell application "Google Chrome"
   tell application "Finder" to set db to bounds of window of desktop
-  set W to item 3 of db
-  set H to item 4 of db
-  set halfW to W div 2
+  set scrW to item 3 of db
+  set scrH to item 4 of db
+  set halfW to scrW div 2
   -- 右：Canva（既存canvaウィンドウを再利用、なければ新規）
   set foundC to false
-  repeat with w in windows
+  repeat with win in windows
     try
-      if URL of active tab of w contains "canva.com" then
-        set URL of active tab of w to "<CANVA_EDIT_URL>"
-        set bounds of w to {halfW, 0, W, H}
+      if URL of active tab of win contains "canva.com" then
+        set URL of active tab of win to "<CANVA_EDIT_URL>"
+        set bounds of win to {halfW, 0, scrW, scrH}
         set foundC to true
         exit repeat
       end if
@@ -58,15 +62,15 @@ tell application "Google Chrome"
   if not foundC then
     make new window
     set URL of active tab of front window to "<CANVA_EDIT_URL>"
-    set bounds of front window to {halfW, 0, W, H}
+    set bounds of front window to {halfW, 0, scrW, scrH}
   end if
   -- 左：AI画像生成（既存chatgpt/geminiウィンドウを再利用、なければ新規）
   set foundA to false
-  repeat with w in windows
+  repeat with win in windows
     try
-      if (URL of active tab of w contains "chatgpt.com") or (URL of active tab of w contains "gemini.google.com") then
-        set URL of active tab of w to "<AI_URL>"
-        set bounds of w to {0, 0, halfW, H}
+      if (URL of active tab of win contains "chatgpt.com") or (URL of active tab of win contains "gemini.google.com") then
+        set URL of active tab of win to "<AI_URL>"
+        set bounds of win to {0, 0, halfW, scrH}
         set foundA to true
         exit repeat
       end if
@@ -75,7 +79,7 @@ tell application "Google Chrome"
   if not foundA then
     make new window
     set URL of active tab of front window to "<AI_URL>"
-    set bounds of front window to {0, 0, halfW, H}
+    set bounds of front window to {0, 0, halfW, scrH}
   end if
   activate
 end tell
