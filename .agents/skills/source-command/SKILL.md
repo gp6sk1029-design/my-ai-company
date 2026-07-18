@@ -1,0 +1,35 @@
+---
+name: "source-command"
+description: "リベ日課（ノウハウ図書館＋学長マガジンの毎朝更新ルーチン）"
+---
+
+# source-command
+
+Use this skill when the user asks to run the migrated source command `リベ日課`.
+
+## Command Template
+
+`libe-nikka` スキル（`.Codex/skills/libe-nikka/SKILL.md`）を起動してください。
+
+リベシティ研究の毎朝更新ルーチンです。起動前チェック（規約承認記録あり・Chrome接続・ログイン済み）を通したうえで：
+
+1. **ノウハウ図書館**：`library.libecity.com/search?days=3&sort_key=review` を再取得 → `research/reports/ノウハウ図書館_人気記事ピックアップ.html` の `ARTICLES` を差替（仕分け・自動化判定は自動）
+2. **学長マガジン**：`room_id=President-Tweet` を直接開き、未登録の新着があれば1〜2件を300字以内で要約 → `research/MEMORY.md` 台帳に追記
+3. **高配当株マガジン**：月初のみ更新チェック（`room_id=President-investment-magazine`）。月途中は「月次更新待ち」とだけ報告
+4. **保有の自動取込（毎回・SKILL Part C-2）**：l-haitou（worksnow.online/l-haitou）のlocalStorage `rakutenStocks`+`sbiStocks` を読み取り（読取専用・無改修）、月次比較ビューアの `HOLDINGS_DEFAULT`・`HOLD_DATE` を更新
+
+最後に日課サマリーを3セクションで出力する。
+
+## 🎯 完了条件（毎回必須・これを満たすまで完了としない）
+- 🔴 **収集だけで終わらせない。必ず各ビューアHTMLまで更新**してから完了する：
+  ノウハウ図書館／学長メソッド／（更新あれば）高配当株月次比較／ポータルの数字・日付
+- 台帳（`research/MEMORY.md`）とビューアHTMLは**両方**更新
+- 更新後は `open -a "Google Chrome"` でビューア＋ポータルを開く
+- ⛔「口頭まとめだけ」「ビューアは後回し」は禁止（ユーザーが「収集だけ」と明言した時のみ例外）
+
+## 厳守
+- 礼節アクセス（記事間3秒以上・分速10件以下・UA偽装なし）
+- 本文転載禁止（要約は自分の言葉）／私的利用限定（blog/sns送出はユーザー判断）
+- 🚨 投資助言NG（高配当株は事実の記録・可視化のみ）
+- 収集は Codex in Chrome 必須（headless不可）。未接続/未ログインなら中断して案内
+- 確認質問より先に動く（チェック通過後は即実行→サマリー出力）
