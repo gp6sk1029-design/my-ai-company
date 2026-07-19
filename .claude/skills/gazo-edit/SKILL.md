@@ -33,7 +33,59 @@ description: 画像編集スキル。ChatGPT/Geminiで生成した画像をす�
 3. **名前変更（必須）**：複製は枠と同名になり紛らわしいため、編集トランザクションで `update_title`「画像仕上げ YYYY-MM-DD HHMM（テーマ名）」に変更して commit（今作った複製のみが対象なので確認不要）
 4. ⚠️ Canva MCPが未接続/認証切れの場合：中断せず「右＝ https://www.canva.com/ 」のフォールバックで開き、その旨をユーザーに伝える
 
-### Step 2: ブラウザを左右2分割で開く（osascript）
+### Step 2【最優先】: Chromeの分割ビューを再利用し、中身のURLだけ差し替える（2026-07-20確立）
+🥇 **これが第一選択。** Chromeのタブ分割ビュー（1ウィンドウ内で左右2分割）は、macOSのSpaces操作が一切不要で、
+ウィンドウが別スペースに行方不明になる事故も構造的に起きない。
+🚨 **分割ビューを「作る」操作は自動化できない**（Chrome 150のAppleScript辞書に split/tile 機能なし＝2026-07-19実測）。
+そこで **ユーザーが一度作った分割ビューのウィンドウを使い回し、中身のURLだけ入れ替える**。
+
+```bash
+osascript <<'EOF'
+tell application "Google Chrome"
+  set targetWin to missing value
+  repeat with win in windows
+    set hasCanva to false
+    set hasAI to false
+    repeat with t in tabs of win
+      if (URL of t) contains "canva.com/design" then set hasCanva to true
+      if ((URL of t) contains "chatgpt.com") or ((URL of t) contains "gemini.google.com") then set hasAI to true
+    end repeat
+    if hasCanva and hasAI then
+      set targetWin to win
+      exit repeat
+    end if
+  end repeat
+  if targetWin is missing value then return "NO_SPLIT_WINDOW"
+  repeat with t in tabs of targetWin
+    if (URL of t) contains "canva.com/design" then set URL of t to "<CANVA_EDIT_URL>"
+    if (URL of t) contains "chatgpt.com" then set URL of t to "<AI_URL>"
+  end repeat
+  activate
+  return "OK"
+end tell
+EOF
+```
+- `NO_SPLIT_WINDOW` が返った時だけ下の Step 2-fallback へ。
+- 🛡 **ユーザーがChatGPTに入力中のテキストがあるとページ遷移で消える**。差し替え前に一言確認するか、AI側タブは触らず Canva 側だけ差し替える。
+
+### Step 2-fallback: 分割ビューが無い場合（1ウィンドウ2タブを用意して手動で分割してもらう）
+1ウィンドウに ChatGPT と Canva の2タブを作って前面に出し、ユーザーに
+**「どちらかのタブを右クリック →『新しい分割ビューにタブを追加』」** を案内する（右クリック1回だけ）。
+```bash
+osascript <<'EOF'
+tell application "Google Chrome"
+  make new window
+  set w to front window
+  set URL of active tab of w to "<AI_URL>"
+  make new tab at end of tabs of w with properties {URL:"<CANVA_EDIT_URL>"}
+  set bounds of w to {0, 0, 2560, 1440}
+  activate
+end tell
+EOF
+```
+
+### Step 2-old（非推奨）: 2つのウィンドウを左右に並べる（osascript）
+> ⚠️ 旧方式。ウィンドウが別スペースへ飛んで見失う事故が実際に多発した（2026-07-19）。分割ビューが使えるなら使わない。
 既存のCanvaウィンドウ/AIウィンドウがあれば再利用し、ウィンドウを増やさない：
 
 > 🚨 AppleScriptは**大文字小文字を区別しない**。画面幅を `W`、ループ変数を `w` にすると衝突して
@@ -115,12 +167,11 @@ python3 blog/scripts/canva_to_meshi.py \
 - **同じ画像を再取り込みすると「重複スキップ」**（GASがハッシュ判定）。仕上げを変えたら再書き出しするか `--name` で別名指定
 - 取り込み後は記事めし/`article_from_meshi.py` から通常の記事画像として使える
 
-### 専用デスクトップ（Split View）にしたい場合
-2分割を「専用スペース」に隔離したいときは macOS の **Split View** を使う（全画面分割は自動で専用スペースになる）。
-🚨 **これはClaudeが自動化できない**：macOSにSpaces操作のスクリプトAPIがなく、かつ画面操作ツールはブラウザ(Chrome)に対してクリック/キー入力が一切できない（tier=read）。teachモードも本セッションでは不可だった（2026-07-19実測）。→ **ユーザーに手順を案内し、実行後にスクショで確認する**のが唯一のルート。
-- 手順A（緑ボタン）：ChatGPTウィンドウ左上の緑○にホバー →「ウィンドウを画面左側にタイル」→ 右半分でCanvaを選ぶ
-- 手順B（Mission Control・最速）：F3でMission Control → 一方の全画面スペースをもう一方の全画面スペースにドラッグ＝Split Viewペアになる
-- 実行後 `mcp__computer-use__screenshot`（Chrome/Finderをrequest_access）で2分割になったか目視確認できる（見るのは可・触るのは不可）
+### 専用デスクトップにしたい場合
+**Chromeの分割ビュー（Step 2）を使っていれば、対象は1ウィンドウだけ**なので話は簡単：
+そのウィンドウの**緑（○）ボタンをクリックして全画面にするだけ**で、macOSが自動的に専用スペースを割り当てる。
+🚨 このクリックもClaudeは代行できない（ブラウザはtier=read＝閲覧のみ／macOSにSpaces操作APIなし／teachモードも本セッションでは利用不可・2026-07-19実測）。**ユーザーに1クリックを依頼し、`mcp__computer-use__screenshot` で結果を目視確認する**（見るのは可・触るのは不可）。
+> 旧メモ：ウィンドウ2枚をmacOS Split Viewで合体させる方法は手数が多く事故りやすい。分割ビュー方式に統一したので使わない。
 
 ## トラブルシューティング
 - **osascriptが突然 `-1743`（Apple Events権限なし）で全滅**：Claude Codeがセッション中に自動アップデートされ旧バイナリが消えた可能性大（実行中バージョンのフォルダが `ls` で存在しないなら確定）。→ **Claudeアプリを再起動**（会話は履歴から再開可）。設定いじり・`tccutil reset` では直らない（2026-07-19実測）
