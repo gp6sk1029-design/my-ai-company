@@ -27,6 +27,18 @@ description: 画像編集スキル。ChatGPT/Geminiで生成した画像をす�
 
 ## 実行手順（Claudeが行うこと）
 
+### Step 0【記事めし連携】: いま作業中の記事を引き継ぐ（2026-07-20確立）
+記事めしでChatGPT/Geminiの画像生成をした直後に「画像編集」と言われたら、**その記事の文脈を自動で引き継ぐ**。
+1. **現在の記事を特定**：Drive MCP `search_files` で役割prefix付き画像を新しい順に1件取得し、その `parentId` を記事フォルダIDとする
+   ```
+   query: (title contains 'eyecatch_' or title contains 'section_' or title contains 'product_' or title contains 'compare_') and mimeType contains 'image/'
+   ```
+   ※ `listArticles` には更新日時が無いので、この「最後に追加された画像」方式で判定する
+2. **記事の文脈を取得**：`python3 blog/scripts/meshi_context.py --folder-id <ID>`
+   → 記事タイトル・登録済み画像・各画像の**用途（つくるものテンプレ名）**が出る
+3. 取得した記事タイトルを Canvaキャンバス名（Step 1）と、取り込み先フォルダ（Step 5）に使う
+4. 判定に自信が無い/複数記事を触っていそうなら、`--list` で一覧を出してユーザーに確認する
+
 ### Step 1: Canvaの作業キャンバスを用意（API）
 1. Canva MCPツールがdeferredなら ToolSearch で一括ロード：`copy-design`（＋名前変更する場合は `start-editing-transaction`,`perform-editing-operations`,`commit-editing-transaction`）
 2. `copy-design`（design_id=枠ID）→ レスポンスの `edit_url` を得る
