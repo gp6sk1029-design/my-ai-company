@@ -99,6 +99,22 @@ EOF
 ### Step 4（オプション）: 書き出し代行
 ユーザーが「書き出して」と言ったら：`get-export-formats` → `export-design`（png・1200×630）→ ダウンロードURLを提示。
 
+### Step 5: 記事めしへ取り込む（「記事めしに入れて」「取り込んで」）
+Canvaで仕上げた画像を、記事めしの記事フォルダへ**役割つきファイル名**で保存する。
+1. `get-export-formats` → `export-design`（type=png / width=1200 / height=630）でダウンロードURLを得る
+2. そのURLを `canva_to_meshi.py` に渡す（**画像バイナリは会話に通さない**＝コンテキスト肥大を防ぐ）:
+```bash
+python3 blog/scripts/canva_to_meshi.py \
+  --url "<export-designで得たURL>" \
+  --folder-id "<記事めしの記事フォルダID>" \
+  --role eyecatch    # eyecatch/hero/section/product/diagram/compare/comparetable/ngsummary
+```
+3. 記事フォルダIDが不明なら Drive MCP の `search_files`（`title contains '【記事】<記事名>'`）で特定する
+- 仕組み：記事めしGASの `uploadSmall`（20MB上限・`articleFolderId`指定可）へPOST。ファイル名prefixがそのまま役割になる
+- 疎通確認だけしたい時：`python3 blog/scripts/canva_to_meshi.py --ping`
+- **同じ画像を再取り込みすると「重複スキップ」**（GASがハッシュ判定）。仕上げを変えたら再書き出しするか `--name` で別名指定
+- 取り込み後は記事めし/`article_from_meshi.py` から通常の記事画像として使える
+
 ### 専用デスクトップ（Split View）にしたい場合
 2分割を「専用スペース」に隔離したいときは macOS の **Split View** を使う（全画面分割は自動で専用スペースになる）。
 🚨 **これはClaudeが自動化できない**：macOSにSpaces操作のスクリプトAPIがなく、かつ画面操作ツールはブラウザ(Chrome)に対してクリック/キー入力が一切できない（tier=read）。teachモードも本セッションでは不可だった（2026-07-19実測）。→ **ユーザーに手順を案内し、実行後にスクショで確認する**のが唯一のルート。

@@ -281,6 +281,8 @@
 
 - 2026/07/19：**画像編集スキル（gazo-edit）新設＝「左AI生成×右Canva」2分割ワークフロー**。起動語「画像編集」。ユーザーの不満「記事めしのCanvaボタンはただURLを開くだけ」への回答。仕組み：①Canva Connect APIで**枠デザイン（DAHPxq8x0v8・1200×630・空・『削除しない』命名）を複製**→編集URL取得 ②osascriptでChromeを左右2分割（左＝chatgpt.com/?q=プロンプト自動入力・右＝複製キャンバスの編集URL・既存ウィンドウ再利用）③ユーザーは左で生成→画像コピー→右で⌘V→手動編集。書き出しは「書き出して」でAPI代行（export-design png）。**実測での重要知見**：(a) Canvaの `?create&width=...` URLパラメータは**効かずホームへ飛ぶ**→「URLを開くだけ」問題の根本原因。API複製方式が唯一の「直接キャンバスに着地」ルート (b) Canva APIは白紙デザイン新規作成不可・画像単体のimport-designも`invalid_file`→**既存デザインをcopy→resize(custom)→全要素delete**で空枠を作るのが正解 (c) `copy-design`の複製は**枠と同名になる**ため毎回リネーム必須 (d) Canva Connect APIは**無料**（従量課金なし）・非公開Drive画像は取り込めない（公開URL限定）。枠再作成手順はSKILL.mdに記載。ファイル：`.claude/skills/gazo-edit/SKILL.md`＋`.claude/commands/画像編集.md`/`gazo-edit.md`。⚠️Git同期に乗るのでこのスキルは2台目PCでも使える（Canva MCP接続が前提）。掃除メモ：検証で生じた中間デザイン「【枠】…のコピー元サイズ版」(DAHPxgWX5O8)とCanvaアップロードのテスト画像「記事めしCanvaテスト_heroPNG」は不要（ユーザーがCanva上で削除可）。デモ複製(DAHPxuyhuLE)は最初の作業キャンバスとして利用可。
 
+- 2026/07/19：**Canva⇄記事めしの往復が完成（`blog/scripts/canva_to_meshi.py` 新設）**。「Canvaで仕上げた画像を記事めしに戻す」経路。仕組み＝Canva `export-design`(png/1200×630)のダウンロードURL → スクリプトがDL → base64 → **記事めしGASの `uploadSmall` へPOST**（20MB上限・`articleFolderId`でフォルダ直指定・`token`はconfig.jsから読む）。ファイル名を `eyecatch_YYYYMMDD_HHMMSS.png` 等にするとGASの `normalizeFilename` がprefixを保持するので**そのまま役割つき画像として記事めしに載る**。🔴 **設計上の肝：画像バイナリをAIの会話コンテキストに通さない**（Drive MCPの`create_file`はbase64を引数で渡す必要があり、1〜2MBの画像で数十万トークンを消費して破綻する。curl→curlでプロセス内完結させるのが正解）。疎通確認は `--ping`（`{"ok":true}`が返る）。同一画像の再取り込みはGASのハッシュ判定で「重複スキップ」→仕上げを変えて再書き出しするか `--name` で別名。**学び：外部SaaS(Canva)と自前基盤(記事めしGAS)を繋ぐときは、既存のアップロードAPIを再利用すればGAS改修ゼロで済む。バイナリの受け渡しは「AIを経由させない」設計にする**。
+
 ### 使用ツール
 - WordPress REST API: wp_api.py
 - ブロックビルダー: wp_block_builder.py
