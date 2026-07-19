@@ -106,6 +106,9 @@ EOF
 - 手順B（Mission Control・最速）：F3でMission Control → 一方の全画面スペースをもう一方の全画面スペースにドラッグ＝Split Viewペアになる
 - 実行後 `mcp__computer-use__screenshot`（Chrome/Finderをrequest_access）で2分割になったか目視確認できる（見るのは可・触るのは不可）
 
+## トラブルシューティング
+- **osascriptが突然 `-1743`（Apple Events権限なし）で全滅**：Claude Codeがセッション中に自動アップデートされ旧バイナリが消えた可能性大（実行中バージョンのフォルダが `ls` で存在しないなら確定）。→ **Claudeアプリを再起動**（会話は履歴から再開可）。設定いじり・`tccutil reset` では直らない（2026-07-19実測）
+
 ## 禁止・注意
 - 枠デザイン（DAHPxq8x0v8）自体を編集・削除しない（毎回**複製**を使う）
 - Canvaのユーザー既存デザインを勝手に編集しない（このスキルで触ってよいのは自分が複製したキャンバスのみ）
