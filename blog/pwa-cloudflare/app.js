@@ -1989,6 +1989,75 @@
   function escHtml(s) {
     return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   }
+
+  // ── 画像の拡大表示（ライトボックス）2026-07-21追加 ────────────────
+  // サムネが小さく、注釈入り画像の文字が読めないため「差し替えるか」を判断できなかった。
+  // タップで大きく表示し、← → で同じ一覧の画像を送れるようにする。
+  // Driveのサムネは sz=w◯◯◯ で解像度が決まるので、拡大時は大きい値に差し替えて取り直す。
+  let lbItems = [];   // [{src, name, role}] 現在ライトボックスで送れる画像群
+  let lbIndex = 0;
+  let lbEl = null;    // オーバーレイ要素（開いている間だけ存在）
+
+  function lbBigSrc(url) {
+    // 例: https://drive.google.com/thumbnail?id=XXX&sz=w400 → sz=w1600
+    // blob: や data: はそのまま（上書き直後の手元画像）
+    if (!url || /^(blob:|data:)/.test(url)) return url || '';
+    return url.replace(/([?&]sz=)[^&]*/i, '$1w1600');
+  }
+
+  function closeLightbox() {
+    if (!lbEl) return;
+    lbEl.remove();
+    lbEl = null;
+    document.removeEventListener('keydown', lbOnKey);
+  }
+
+  function lbOnKey(e) {
+    if (e.key === 'Escape') closeLightbox();
+    else if (e.key === 'ArrowLeft') lbShow(lbIndex - 1);
+    else if (e.key === 'ArrowRight') lbShow(lbIndex + 1);
+  }
+
+  function lbShow(i) {
+    if (!lbEl || i < 0 || i >= lbItems.length) return;
+    lbIndex = i;
+    const it = lbItems[i];
+    const img = lbEl.querySelector('.lb-img');
+    // 高解像度版が取れなければ、一覧と同じサムネにフォールバック（真っ白にしない）
+    img.onerror = () => { img.onerror = null; img.src = it.src || ''; };
+    img.src = lbBigSrc(it.src);
+    lbEl.querySelector('.lb-caption').innerHTML =
+      (it.role ? '<span class="lb-role">' + escHtml(it.role) + '</span><br>' : '') +
+      escHtml(it.name || '');
+    lbEl.querySelector('.lb-counter').textContent = (i + 1) + ' / ' + lbItems.length;
+    lbEl.querySelector('.lb-prev').disabled = (i === 0);
+    lbEl.querySelector('.lb-next').disabled = (i === lbItems.length - 1);
+  }
+
+  // items: [{src, name, role}] / startIndex: 最初に表示する位置
+  function openLightbox(items, startIndex) {
+    if (!items || !items.length) return;
+    closeLightbox();
+    lbItems = items;
+    lbEl = document.createElement('div');
+    lbEl.className = 'lb-overlay';
+    lbEl.innerHTML =
+      '<button class="lb-close" title="閉じる（Esc）" aria-label="閉じる">✕</button>' +
+      '<button class="lb-nav lb-prev" title="前の画像（←）" aria-label="前の画像">‹</button>' +
+      '<button class="lb-nav lb-next" title="次の画像（→）" aria-label="次の画像">›</button>' +
+      // referrerpolicy はDriveサムネの読み込みに必須（一覧側のimgと揃える。無いと403で壊れる）
+      '<img class="lb-img" alt="拡大表示" referrerpolicy="no-referrer">' +
+      '<div class="lb-caption"></div>' +
+      '<div class="lb-counter"></div>';
+    // 背景（画像以外）をタップしたら閉じる
+    lbEl.addEventListener('click', (e) => { if (e.target === lbEl) closeLightbox(); });
+    lbEl.querySelector('.lb-close').onclick = closeLightbox;
+    lbEl.querySelector('.lb-prev').onclick = () => lbShow(lbIndex - 1);
+    lbEl.querySelector('.lb-next').onclick = () => lbShow(lbIndex + 1);
+    document.body.appendChild(lbEl);
+    document.addEventListener('keydown', lbOnKey);
+    lbShow(Math.max(0, Math.min(startIndex || 0, items.length - 1)));
+  }
   let bannerThumbUrl = null;
   let bannerThumbKey = '';
   let bannerCmpUrls = []; // 比較ギャラリー用 ObjectURL（再描画/閉じる時に解放）
@@ -5544,6 +5613,17 @@ ${COMMON_GUARDS}`,
             '<button class="ai-edit-btn ai-edit-canva" data-action="ef-canva" title="Canvaで仕上げ">🎨</button>' +
             '<button class="ai-edit-btn" data-action="ef-transfer" title="別の記事へコピー/移動" style="background:linear-gradient(135deg,#64748b,#475569);color:#fff;">📦</button>' +
           '</div>';
+        // 🔍 サムネをタップで拡大表示（一覧の全画像を ← → で送れる）
+        const efImg = card.querySelector('img');
+        if (efImg) efImg.addEventListener('click', () => {
+          const items = files.map((x) => ({
+            src: recentReplacedThumbs[x.id] || x.thumbnailUrl,
+            name: x.name,
+            // 表示名はカードのバッジと同じ2段逆引き（保存済みテンプレ → ファイル名の役割）
+            role: (efTplLabel(efTplGet(x.id)) || ((resolveExistingFileRole(x) || {}).def || {}).label || ''),
+          }));
+          openLightbox(items, files.indexOf(f));
+        });
         card.querySelector('[data-action="ef-gpt"]').onclick = () => editExistingFile(f, 'chatgpt');
         card.querySelector('[data-action="ef-gem"]').onclick = () => editExistingFile(f, 'gemini');
         card.querySelector('[data-action="ef-canva"]').onclick = () => editExistingFile(f, 'canva');
