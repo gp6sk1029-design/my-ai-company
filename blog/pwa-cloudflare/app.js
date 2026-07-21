@@ -2665,16 +2665,37 @@
       }
 
       if (choice === 'keep') {
-        // ➕ 元を残す：replace指定を外し、別名で新規アップロード（元ファイルは一切触らない）
+        // ➕ 元を残す：replace指定を外し、別名で新規アップロード（元ファイルの中身は触らない）
+        // 🏷 降格に使う元Drive情報は、下の delete / リネームで消える前にここで退避しておく
+        const srcId = orig.replaceDriveFileId || '';
+        const srcName = orig.originalName || '';
         delete orig.replaceDriveFileId;
         const base = (orig.originalName || ('edited_' + orig.id)).replace(/\.[^.]+$/, '');
         orig.originalName = base + '_edit' + String(orig.id).slice(-4) + '.' + ext;
         await queuePut(orig);
+        let demotedName = '';
         const savedNew = await withServerLock('元を残して新規保存中…', async () => {
           const r = await uploadSmall(orig, getSelectedArticleTitle(), folderId);
           if (r && r.ok && r.result === 'success') {
             if (r.fileId) { try { recentReplacedThumbs[r.fileId] = URL.createObjectURL(orig.blob); } catch (_) {} }
             await queueDelete(orig.id);
+            // 🏷 元画像を「役割なし」へ降格する（2026-07-21追加）
+            //   役割は編集後の新画像が引き継ぐ。元にも役割prefixが残ったままだと、
+            //   記事生成時にどちらが本番か判別できず、編集前の画像が記事に載る事故になる。
+            //   ファイル自体は消さないので、見比べも差し戻しもできる。
+            if (srcId && srcName && stripRolePrefix(srcName) !== srcName) {
+              const dem = await gasRenameFile(srcId, stripRolePrefix(srcName), folderId);
+              if (dem) {
+                demotedName = dem.fileName || stripRolePrefix(srcName);
+                // PROMPT.mdの役割行と、バッジ表示元のローカル用途メモも一緒に消す
+                // （片方だけ残すとバッジと実ファイル名が食い違う）
+                try { updateRoleLineForFile({ id: srcId, name: srcName }, demotedName, ''); } catch (e) { console.warn('demote line cleanup failed:', e); }
+                try { efTplSet(srcId, ''); } catch (e) { console.warn('demote tpl cleanup failed:', e); }
+                try { await savePromptToDrive(getSelectedArticleTitle(), folderId); } catch (e) { console.warn('降格後のPROMPT.md保存に失敗:', e); }
+              } else {
+                console.warn('元画像の降格に失敗（役割が重複したまま残ります）:', srcName);
+              }
+            }
             if (folderId) { try { await loadExistingFiles(folderId); } catch (_) {} }
             return true;
           }
@@ -2682,7 +2703,9 @@
           return false;
         });
         await renderQueue();
-        if (savedNew) showToast('✅ 元画像はそのまま残し、編集後の画像を新規保存しました（元＋編集後の2枚）', 'success');
+        if (savedNew) showToast(demotedName
+          ? '✅ 編集後の画像を新規保存しました。元画像は「役割なし」で残しています（記事には編集後が使われます）'
+          : '✅ 元画像はそのまま残し、編集後の画像を新規保存しました（元＋編集後の2枚）', 'success');
         navigator.vibrate && navigator.vibrate([20, 30, 30]);
         return true;
       }
@@ -4863,6 +4886,7 @@ ${COMMON_GUARDS}`,
 
     // 🔑 ユニーク役割（アイキャッチ/ヒーロー/NG集サマリ）の重複検出 → ユーザーに「上書き or コピー」を選ばせる
     let existingIdSet = null; // 🛡 現在の記事フォルダに実在するfileIdの集合（上書き先の検証に使う）
+    let demotedOriginals = 0; // 「新規コピー」を選んだとき、元画像を役割なしに降格した件数（一覧再読込の判定に使う）
     if (articleFolderId) {
       try {
         const url = GAS_URL + '?' + new URLSearchParams({
@@ -4896,8 +4920,9 @@ ${COMMON_GUARDS}`,
                 `    既存:   ${c.existing.name}`
               ).join('\n\n') +
               `\n\n──────────────\n` +
-              `[OK]    既存ファイルを「上書き保存」\n` +
-              `[キャンセル]  「新規コピー」として追加（既存も残る）`;
+              `[OK]    既存ファイルを「上書き保存」（元画像は残りません）\n` +
+              `[キャンセル]  「新規コピー」として追加\n` +
+              `        → 役割は新画像が引き継ぎ、元画像は「役割なし」で残します`;
             const wantOverwrite = window.confirm(msg);
             for (const c of conflicts) {
               if (wantOverwrite) {
@@ -4905,12 +4930,32 @@ ${COMMON_GUARDS}`,
                 await queuePut(c.item);
                 console.log(`[overwrite] ${c.def.label}: ${c.existing.name} ← ${c.item.originalName}`);
               } else {
-                console.log(`[new copy] ${c.def.label}: ${c.item.originalName} (既存 ${c.existing.name} は残置)`);
+                // ➕ 新規コピー：役割は新画像が引き継ぐので、元画像は「役割なし」へ降格して残す。
+                //   （両方に役割prefixが付いたままだと、記事生成時にどちらが本番か判別できず取り違える。
+                //    ファイル自体は消さないので、あとで見比べたり戻したりできる）
+                const demoted = await gasRenameFile(c.existing.id, stripRolePrefix(c.existing.name), articleFolderId);
+                if (demoted) {
+                  demotedOriginals++;
+                  // PROMPT.mdの役割行と、ローカルの用途メモ（バッジ表示元）も一緒に消す。
+                  // 片方だけ残すとバッジと実ファイル名が食い違う（過去に起きた事故）
+                  try { updateRoleLineForFile(c.existing, demoted.fileName, ''); } catch (e) { console.warn('demote line cleanup failed:', e); }
+                  try { efTplSet(c.existing.id, ''); } catch (e) { console.warn('demote tpl cleanup failed:', e); }
+                  console.log(`[new copy] ${c.def.label}: ${c.item.originalName} ／元画像 ${c.existing.name} を役割なしへ降格 → ${demoted.fileName}`);
+                } else {
+                  console.warn(`[new copy] 元画像の降格に失敗（役割が重複したまま残ります）: ${c.existing.name}`);
+                }
+              }
+            }
+            // 降格した元画像の役割行はローカルmemosから消しただけなので、Drive上のPROMPT.mdへ即反映する。
+            //   （後段のPROMPT.md保存は「新役割を記録するとき」しか走らない条件付きのため、ここで確定させる）
+            if (demotedOriginals > 0) {
+              try { await savePromptToDrive(getSelectedArticleTitle(), articleFolderId); } catch (e) {
+                console.warn('降格後のPROMPT.md保存に失敗:', e);
               }
             }
             setStatus(wantOverwrite
               ? `🔄 ${conflicts.length}件を上書き保存で転送中...`
-              : `➕ ${conflicts.length}件を新規コピーで転送中...`);
+              : `➕ ${conflicts.length}件を新規コピーで転送中（元画像は役割なしへ）...`);
             await renderQueue(); // バッジを反映（上書きモードの↻バッジ表示）
           }
         }
@@ -5087,9 +5132,10 @@ ${COMMON_GUARDS}`,
     showToast(msg, failed > 0 ? 'error' : 'success');
     navigator.vibrate && navigator.vibrate([50, 30, 50]);
 
-    // 🔄 上書き保存が起きたら、既存ファイル一覧を再読込して更新後の画像を表示する
-    //   （Driveのサムネは古いfileIdを指したままなので、再取得しないと「更新されない」ように見える）
-    if (didReplace && articleFolderId) {
+    // 🔄 上書き保存 or 元画像の役割降格が起きたら、既存ファイル一覧を再読込して現状を表示する
+    //   （Driveのサムネは古いfileIdを指したままなので、再取得しないと「更新されない」ように見える。
+    //    降格した元画像も、再読込しないとバッジが付いたままに見えて紛らわしい）
+    if ((didReplace || demotedOriginals > 0) && articleFolderId) {
       try { await loadExistingFiles(articleFolderId); } catch (_) {}
     }
 
