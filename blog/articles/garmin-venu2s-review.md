@@ -237,6 +237,19 @@ Garmin Venu 2S は、**短期的には高く見えるが、長期的には圧倒
 
 ---
 
+## 関連リンク
+
+> ※本記事のリンクには広告（Amazonアソシエイト・楽天アフィリエイト）が含まれます。リンク経由でご購入いただくと、サイト運営者に紹介料が入る場合があります（価格は変わりません）。価格・在庫は変動するため、最新の表示をご確認ください。
+
+:::product
+name: Garmin Venu 2S スマートウォッチ（GPS・健康管理）
+image: https://m.media-amazon.com/images/I/51oAGQmUTgL._AC_SL1000_.jpg
+amazon: https://www.amazon.co.jp/dp/B094VVQR6C?tag=gp6sk1029-22
+rakuten: https://a.r10.to/hPx5BI
+:::
+
+---
+
 *本記事は実際の使用経験に基づいた個人的なレビューです。購入は各自の判断でお願いします。*
 
 <!-- タグ: Garmin, Venu2S, スマートウォッチ, ガジェット, 長期レビュー, ROI, 健康管理 -->

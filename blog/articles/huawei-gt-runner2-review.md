@@ -224,6 +224,19 @@ GT Runner 2 には **給水・エネルギー補給リマインダー**（ラン
 
 ---
 
+## 関連リンク
+
+> ※本記事のリンクには広告（Amazonアソシエイト・楽天アフィリエイト）が含まれます。リンク経由でご購入いただくと、サイト運営者に紹介料が入る場合があります（価格は変わりません）。価格・在庫は変動するため、最新の表示をご確認ください。
+
+:::product
+name: HUAWEI WATCH GT Runner 2 スマートウォッチ（マラソン特化）
+image: https://m.media-amazon.com/images/I/71FVBQ3hS+L._AC_SL1000_.jpg
+amazon: https://www.amazon.co.jp/dp/B0GR2GM467?tag=gp6sk1029-22
+rakuten: https://a.r10.to/h5kzLz
+:::
+
+---
+
 **情報源：**
 - [HUAWEI 公式サイト](https://consumer.huawei.com/jp/wearables/watch-gt-runner-2/)
 - [プレスリリース（PR TIMES）](https://prtimes.jp/main/html/rd/p/000000614.000024671.html)

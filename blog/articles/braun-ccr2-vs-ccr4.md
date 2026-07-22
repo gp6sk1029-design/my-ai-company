@@ -159,7 +159,14 @@ Amazonの純正カートリッジは複数の出品者が販売しており、**
 
 ## 関連リンク
 
-> ※本記事のリンクには広告（Amazonアソシエイト）が含まれます。リンク経由でご購入いただくと、サイト運営者に紹介料が入る場合があります（価格は変わりません）。価格・在庫は変動するため、最新の表示をご確認ください。
+> ※本記事のリンクには広告（Amazonアソシエイト・楽天アフィリエイト）が含まれます。リンク経由でご購入いただくと、サイト運営者に紹介料が入る場合があります（価格は変わりません）。価格・在庫は変動するため、最新の表示をご確認ください。
+
+:::product
+name: ブラウン クリーン&リニュー 洗浄液 CCR4（4個入・迷ったらコレ）
+image: https://m.media-amazon.com/images/I/41xppRtaMDL._AC_SL1000_.jpg
+amazon: https://www.amazon.co.jp/dp/B0GWLTTPD6?tag=gp6sk1029-22
+rakuten: https://a.r10.to/hP6YmI
+:::
 
 - 🛒 [Amazonで見る：ブラウン CCR4（4個入・約500円/個）](https://www.amazon.co.jp/dp/B0GWLTTPD6/?tag=gp6sk1029-22)
 - 🛒 [Amazonで見る：ブラウン CCR10（10個入・約449円/個・毎日使う人向け）](https://www.amazon.co.jp/dp/B0DYJVB1XZ/?tag=gp6sk1029-22)

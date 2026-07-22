@@ -242,7 +242,14 @@ CR123A リチウム電池 ×2本駆動で、**約半年で交換**が必要（1�
 
 ## 関連リンク
 
-> ※本記事のリンクには広告（Amazonアソシエイト）が含まれます。リンク経由でご購入いただくと、サイト運営者に紹介料が入る場合があります（価格は変わりません）。
+> ※本記事のリンクには広告（Amazonアソシエイト・楽天アフィリエイト）が含まれます。リンク経由でご購入いただくと、サイト運営者に紹介料が入る場合があります（価格は変わりません）。
+
+:::product
+name: SwitchBot ロックLite 指紋認証パッドセット
+image: https://m.media-amazon.com/images/I/71discsv4tL._AC_SL1500_.jpg
+amazon: https://www.amazon.co.jp/dp/B0D3QT5RP2?tag=gp6sk1029-22
+rakuten: https://a.r10.to/hPkAEz
+:::
 
 - 🛒 [Amazonで見る：SwitchBot ロックLite 指紋認証パッドセット](https://www.amazon.co.jp/dp/B0D3QT5RP2/?tag=gp6sk1029-22)
 - [SwitchBot 公式：ロックLite はじめてのスマートロック決定版](https://www.switchbot.jp/products/switchbot-lock-lite)

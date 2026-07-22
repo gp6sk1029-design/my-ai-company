@@ -199,7 +199,14 @@
 
 ## 関連リンク
 
-> ※本記事のリンクには広告（Amazonアソシエイト）が含まれます。リンク経由でご購入いただくと、サイト運営者に紹介料が入る場合があります（価格は変わりません）。価格・在庫は変動するため、最新の表示をご確認ください。
+> ※本記事のリンクには広告（Amazonアソシエイト・楽天アフィリエイト）が含まれます。リンク経由でご購入いただくと、サイト運営者に紹介料が入る場合があります（価格は変わりません）。価格・在庫は変動するため、最新の表示をご確認ください。
+
+:::product
+name: シェーバークリーンNEW X（ブラウン互換洗浄液・1.02L／カートリッジ約6個分）
+image: https://m.media-amazon.com/images/I/51gZYDoVLiL._AC_SL1000_.jpg
+amazon: https://www.amazon.co.jp/dp/B0CW1PYL1G?tag=gp6sk1029-22
+rakuten: https://a.r10.to/hH7t4T
+:::
 
 - 🛒 [Amazonで見る：シェーバークリーンNEW（互換洗浄液・1.02L／純正カートリッジ約6個分）](https://amzn.to/4w1RgM3)
 - 🛒 [Amazonで見る：クリンニュ（互換洗浄液・1L／カートリッジ約6個分）](https://www.amazon.co.jp/dp/B01KZEYAI8/?tag=gp6sk1029-22)
