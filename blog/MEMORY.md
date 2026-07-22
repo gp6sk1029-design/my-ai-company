@@ -62,8 +62,8 @@
 
 | # | ファイル | タイトル | WP投稿ID | 公開URL | 公開日 | 状態 |
 |---|---|---|---|---|---|---|
-| 1 | garmin-venu2s-review.md | Garmin Venu 2S を4年半使ったリアルレビュー | - | - | 2026/03/29 | ローカルのみ |
-| 2 | huawei-gt-runner2-review.md | 【10km実走データ】HUAWEI GT Runner 2 | 703 | - | 2026/04/21 | 下書き |
+| 1 | garmin-venu2s-review.md | Garmin Venu 2S を4年半使ったリアルレビュー | **605** | https://www.ootanisatan.com/?p=605 | 2026/03/29 | **公開**（🔴mdは画像ゼロ＝本番と非同期。2026/07/23に**非破壊追記**でアフィリカード設置：Amazon B094VVQR6C＋楽天 a.r10.to/hPx5BI＋PR表記。本番の画像・装飾は保持） |
+| 2 | huawei-gt-runner2-review.md | 【10km実走データ】HUAWEI GT Runner 2 | 703 | https://www.ootanisatan.com/?p=703 | 2026/04/21（公開 2026/07/23） | **公開**（2026/07/23に下書き→公開。🔴mdは画像ゼロ＝本番と非同期→**非破壊追記**でアフィリカード：Amazon B0GR2GM467＋楽天 a.r10.to/h5kzLz＋PR表記） |
 | 3 | keychron-k1max-jis-setup-guide.md | Keychron K1 Max 設定編｜1台で4配列を切替する完全ガイド｜年21万円の時短 | 836 | https://www.ootanisatan.com/?p=836 | 2026/05/11 | **公開**（カテゴリ：ガジェット研究室+時短ツール研究室／アイキャッチmedia_id=837） |
 | 4 | mx-ergo-s-settings-guide.md | MX ERGO S 設定編｜Logi Options+ で年6万円の時短を生むカスタマイズ術 | 873 | https://www.ootanisatan.com/mx-ergo-s-settings-guide/ | 2026/05/17 | **公開**（カテゴリ：ガジェット研究室+時短ツール研究室／アイキャッチmedia_id=877 ChatGPT生成版／実機スクショ7枚埋込／時給950円基準ROI） |
 | 5 | switchbot-lock-lite-review.md | SwitchBot ロックLite レビュー｜賃貸OK、鍵を持ち歩かない生活へ | **908** | https://www.ootanisatan.com/switchbot-lock-lite-review/ | 2026/05/26（最終更新 2026/06/02） | **公開**（カテゴリ：ガジェット研究室+時短ツール研究室／2026/06/02にローカルプレビュー見ながら大幅推敲：タイトル刷新（「魔法」等の煽り削除）・オートロックをタイマー式に事実修正・ROI数値統一（時給950円で約8.5ヶ月回収・5年約+8万円）・専門用語平易化・章重複解消／**Amazonアフィリリンク2本追加**（本体B0D3QT5RP2・電池PanasonicB08RC7DF53、tag=gp6sk1029-22）＋PR表記／タナカ吹き出しを低画質ドヤ顔→高画質ニヤ顔に差替／Markdown残骸0件） |
@@ -72,7 +72,12 @@
 
 | 8 | braun-ccr2-vs-ccr4.md | ブラウン洗浄液 CCR2とCCR4はどっちがお得？｜1個あたり209円差・全パック単価を徹底比較 | **963** | https://www.ootanisatan.com/braun-ccr2-vs-ccr4/ | 2026/07/18 | **公開**（カテゴリ：暮らしハック id=5／GSC分析で発見した「1位クエリ braun ccr2 vs ccr4・クリック0」を刈り取る戦略記事。中身同一・単価勝負の構図で CCR2=709円/個 vs CCR4=500円/個(B0GWLTTPD6 ¥1,998) を軸に CCR6/10/12 全パック比較（CCR10=449円/個が最安・B0DYJVB1XZ）／ROI：毎日派はCCR2→CCR4で年約2,500円・5年12,500円差／アイキャッチ・本文画像は927のWP media(923/924)を再利用＝撮影ゼロ／**アフィリ4本**(CCR4/CCR10/CCR12/CCR2・tag=gp6sk1029-22)＋PR表記／927と相互リンク（ハブ&スポーク）／publish_article.pyで公開→ホームカード自動同期の初実戦・正常動作） |
 
-| 9 | doribiru-coin-case-review.md | DORIBIRU 小銭入れ レビュー｜レジで小銭を探すムダが消えるL字ファスナー薄型財布 | - | - | - | **公開前原稿・本文完成（16,635字／H2×10／キャラ対話×4）**。2026/07/20にAmazon（ASIN B0FH7FW9K6）で価格1,580円・★4.2/98件・在庫あり・サイズ約9.2×12×1.2cm・約20gを**一次情報で再確認**（7/18確認値から変動なし）。同ページで競合実売（NEXARY 1,380円／LiberFlyer 2,588円／KABANTiFY 1,680円）も取得し、不足していた**競合比較セクションを追加**。※重量はDORIBIRU以外に公称値が無く「記載なし」と明記（推測値を書かない）。**残作業：画像の本文配置（イチオシポイント画像をCanvaで仕上げ中）→ WP投稿** |
+| 9 | doribiru-coin-case-review.md | DORIBIRU 小銭入れ レビュー｜レジで小銭を探すムダが消えるL字ファスナー薄型財布 | **992** | https://www.ootanisatan.com/doribiru-coin-case-review/ | 2026/07/23 | **公開**（カテゴリ：暮らしハック id=5／画像9枚upload=media983-991・アイキャッチmedia_id自動／Amazon B0FH7FW9K6 価格1,580円・★4.2/98件を一次情報で再確認・競合比較セクションあり／**:::productカード2枚**＝DORIBIRU本体(Amazon B0FH7FW9K6＋楽天hb.afl フルURL・画像Amazon公式81dhz7g6juL)＋イチオシ内MaGdget(Amazon B0GHMZMM7Q＋楽天a.r10.to/hY9L5o・画像518UOvIc)／公開と同時にホームカード#1同期） |
+
+> **📌 2026-07-23 アフィリエイト掲載を全レビュー記事に標準化（SKILL新標準`:::product`カードの一斉適用）**
+> SKILL.mdに「💰アフィリエイト掲載の標準」を新設（Amazon＋楽天2ボタン＋**ASIN一致のAmazon公式画像**＋PR表記）。既存レビュー全7記事に楽天リンク＋公式画像カードを設置し本番反映。
+> **生成済み楽天アフィリ短縮リンク（再生成しないこと）**：CCR4→`a.r10.to/hP6YmI`／シェーバークリーンNEW X(互換)→`a.r10.to/hH7t4T`／SwitchBotロックLite→`a.r10.to/hPkAEz`／HUAWEI GT Runner 2→`a.r10.to/h5kzLz`／Garmin Venu 2S→`a.r10.to/hPx5BI`／MaGdget→`a.r10.to/hY9L5o`／DORIBIRU本体→hb.afl フルURL。
+> **公開方式の教訓**：mdが本番と同期している記事（963/908/945）は`publish_article.py --update`で安全再公開。**mdが本番と非同期（画像がDriveサムネや空）の記事（927/605/703）は再公開すると本番の画像・装飾が消えるため、`content.raw`を取得しカードだけ末尾追記する非破壊方式**（scratchpad/append_product_card.py）を使う。楽天画像は別商品(ブランド共通)の罠あり→[[feedback_affiliate_card_image]]。設定ガイド2本(keychron836/mx-ergo873)は今回対象外。
 
 > **台帳メンテナンスルール**
 > - 新規公開時に1行追加（必須）
