@@ -179,7 +179,7 @@ MaGdgetは、スマホとケースの間にフォンテザー（薄いタブ）�
 
 :::product
 name: MaGdget スマホショルダーストラップ（3,960円・★4.6／28件・2026年7月時点）
-image: https://www.ootanisatan.com/wp-content/uploads/2026/07/section_20260711_065603.jpg
+image: https://m.media-amazon.com/images/I/518UOvIc+OL._AC_SL1200_.jpg
 amazon: https://www.amazon.co.jp/dp/B0GHMZMM7Q?tag=gp6sk1029-22
 rakuten: https://a.r10.to/hY9L5o
 :::

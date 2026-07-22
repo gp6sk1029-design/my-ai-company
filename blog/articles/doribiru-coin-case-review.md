@@ -53,7 +53,7 @@ DORIBIRUのSW-015は、L字ファスナーで開く薄型のミニ財布だ。�
 
 :::product
 name: MaGdget スマホショルダーストラップ（★4.6／28件）
-image: /assets/doribiru/section_20260720_102753.png
+image: https://m.media-amazon.com/images/I/518UOvIc+OL._AC_SL1200_.jpg
 amazon: https://www.amazon.co.jp/dp/B0GHMZMM7Q?tag=gp6sk1029-22
 rakuten: https://a.r10.to/hY9L5o
 :::
