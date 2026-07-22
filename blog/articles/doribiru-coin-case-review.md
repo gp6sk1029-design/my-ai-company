@@ -208,10 +208,11 @@ DORIBIRUの小銭入れは、収納量で勝負する財布ではない。約20g
 
 ---
 
-> ※本記事には広告（Amazonアソシエイト）を含みます。リンク経由で購入いただくと、サイト運営者に紹介料が入る場合があります。価格は変わりません。
+> ※本記事には広告（Amazonアソシエイト・楽天アフィリエイト）を含みます。リンク経由で購入いただくと、サイト運営者に紹介料が入る場合があります。価格は変わりません。
 
 :::product
 name: DORIBIRU 小銭入れ L字ファスナー財布 SW-015（ブラック）
 image: /assets/doribiru/section_20260719_063151.png
 amazon: https://www.amazon.co.jp/dp/B0FH7FW9K6?tag=gp6sk1029-22
+rakuten: https://hb.afl.rakuten.co.jp/ichiba/55fd8835.2e764dec.55fd8836.2fb31b96/?pc=https%3A%2F%2Fitem.rakuten.co.jp%2Fbousai-outdoor%2Fb0fh7fw9k6%2F&link_type=hybrid_url&ut=eyJwYWdlIjoiaXRlbSIsInR5cGUiOiJoeWJyaWRfdXJsIiwic2l6ZSI6IjI0MHgyNDAiLCJuYW0iOjEsIm5hbXAiOiJyaWdodCIsImNvbSI6MSwiY29tcCI6ImRvd24iLCJwcmljZSI6MSwiYm9yIjoxLCJjb2wiOjEsImJidG4iOjEsInByb2QiOjAsImFtcCI6ZmFsc2V9
 :::
