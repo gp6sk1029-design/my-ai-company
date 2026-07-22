@@ -148,6 +148,57 @@ def block_image(wp_id: int, url: str, alt: str = '') -> str:
     )
 
 
+def block_product_box(name: str, image: str = '', amazon: str = '',
+                      rakuten: str = '', yahoo: str = '') -> str:
+    """商品リンクボックス（Amazon/楽天/Yahooのアフィリボタン付きカード）。
+    テーマに依存しないよう全てインラインCSSで自己完結させる（JIN:R以外でも崩れない）。
+    ボタンは URL が指定されたものだけ表示する（Amazonのみでも成立）。
+    2026-07-21新設。
+    """
+    name_h = md_to_html_inline(name)
+    # 画像（任意）。無ければ左カラムごと省いてボタンを広く使う
+    img_html = (
+        f'<div style="flex:0 0 96px;display:flex;align-items:center;justify-content:center;">'
+        f'<img src="{image}" alt="{name}" '
+        f'style="max-width:96px;max-height:96px;width:auto;height:auto;object-fit:contain;border-radius:6px;"/>'
+        f'</div>'
+    ) if image else ''
+
+    def btn(url, label, bg):
+        # rel は sponsored（アフィリンク）＋ nofollow。target=_blank で別タブ
+        return (
+            f'<a href="{url}" target="_blank" rel="sponsored nofollow noopener" '
+            f'style="display:block;flex:1 1 160px;text-align:center;text-decoration:none;'
+            f'background:{bg};color:#fff;font-weight:700;font-size:15px;line-height:1.4;'
+            f'padding:12px 16px;border-radius:8px;box-shadow:0 2px 4px rgba(0,0,0,.12);">'
+            f'{label}</a>'
+        )
+    btns = []
+    if amazon:
+        btns.append(btn(amazon, 'Amazonで購入', 'linear-gradient(180deg,#ff9b45,#f97316)'))
+    if rakuten:
+        btns.append(btn(rakuten, '楽天市場で購入', 'linear-gradient(180deg,#e2467a,#bf0043)'))
+    if yahoo:
+        btns.append(btn(yahoo, 'Yahoo!で購入', 'linear-gradient(180deg,#5b8def,#2f5fd0)'))
+    btns_html = (
+        '<div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:4px;">'
+        + ''.join(btns) + '</div>'
+    )
+    inner = (
+        '<div class="ptgl-product-box" '
+        'style="border:1px solid #e5e7eb;border-radius:12px;padding:16px 18px;margin:20px 0;'
+        'background:#ffffff;box-shadow:0 1px 3px rgba(0,0,0,.06);">'
+        '<div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;">'
+        + img_html +
+        '<div style="flex:1 1 220px;min-width:200px;">'
+        f'<div style="font-weight:700;font-size:16px;color:#111827;margin-bottom:10px;'
+        f'line-height:1.5;">{name_h}</div>'
+        + btns_html +
+        '</div></div></div>'
+    )
+    return f'<!-- wp:html -->\n{inner}\n<!-- /wp:html -->'
+
+
 def block_table(headers: list, rows: list) -> str:
     """テーブルブロック"""
     thead = '<tr>' + ''.join(f'<th>{md_to_html_inline(h)}</th>' for h in headers) + '</tr>'
@@ -368,6 +419,26 @@ def markdown_to_blocks(md_text: str) -> str:
                 items.append(item)
                 i += 1
             blocks.append(block_list(items))
+            continue
+
+        # --- 商品リンクボックス（:::product ... ::: ） ---
+        if line.strip() == ':::product':
+            i += 1
+            fields = {}
+            while i < len(lines) and lines[i].strip() != ':::':
+                mkv = re.match(r'^\s*(name|image|amazon|rakuten|yahoo)\s*:\s*(.+?)\s*$', lines[i])
+                if mkv:
+                    fields[mkv.group(1)] = mkv.group(2)
+                i += 1
+            if i < len(lines):
+                i += 1  # 閉じ ::: を消費
+            blocks.append(block_product_box(
+                name=fields.get('name', '商品'),
+                image=fields.get('image', ''),
+                amazon=fields.get('amazon', ''),
+                rakuten=fields.get('rakuten', ''),
+                yahoo=fields.get('yahoo', ''),
+            ))
             continue
 
         # --- 既存のGutenbergブロックをパススルー（wp:image など） ---

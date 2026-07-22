@@ -51,7 +51,11 @@ DORIBIRUのSW-015は、L字ファスナーで開く薄型のミニ財布だ。�
 
 私が組み合わせているのは、以前レビューした[MaGdget スマホショルダーストラップ](https://www.ootanisatan.com/magdget-shoulder-strap-review/)（**3,960円**）だ。マグネットでワンタッチ着脱でき、スマホとこの財布を一本のストラップにまとめられる。***財布・スマホ・鍵が1セットになるので、「どれか1つを忘れる」が構造的に起きなくなる***。
 
-- [MaGdget スマホショルダーストラップをAmazonで見る](https://www.amazon.co.jp/dp/B0GHMZMM7Q?tag=gp6sk1029-22)（★4.6／28件・2026年7月時点）
+:::product
+name: MaGdget スマホショルダーストラップ（★4.6／28件）
+image: /assets/doribiru/section_20260720_102753.png
+amazon: https://www.amazon.co.jp/dp/B0GHMZMM7Q?tag=gp6sk1029-22
+:::
 
 この2つに共通しているのは、***機能を足すのではなく、動作を減らしている***ということだ。生産技術の現場でも、工程を1つ増やす改善より、工程を1つ消す改善のほうが効果が大きい。財布も同じで、「できることが多い」より「毎回やらずに済むことが多い」ほうが、日々の満足度に直結する。
 
@@ -206,4 +210,8 @@ DORIBIRUの小銭入れは、収納量で勝負する財布ではない。約20g
 
 > ※本記事には広告（Amazonアソシエイト）を含みます。リンク経由で購入いただくと、サイト運営者に紹介料が入る場合があります。価格は変わりません。
 
-- [DORIBIRU 小銭入れ L字ファスナー財布 SW-015（ブラック）をAmazonで見る](https://www.amazon.co.jp/dp/B0FH7FW9K6?tag=gp6sk1029-22)
+:::product
+name: DORIBIRU 小銭入れ L字ファスナー財布 SW-015（ブラック）
+image: /assets/doribiru/section_20260719_063151.png
+amazon: https://www.amazon.co.jp/dp/B0FH7FW9K6?tag=gp6sk1029-22
+:::

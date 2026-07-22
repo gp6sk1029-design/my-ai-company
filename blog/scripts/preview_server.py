@@ -158,6 +158,47 @@ def render_body(md: str) -> tuple[str, str]:
             h1_title = stripped[2:].strip()
             i += 1; continue
 
+        # --- 商品リンクボックス（:::product ... ::: ）本番と同じ見た目で描画 ---
+        if stripped == ':::product':
+            flush_list(); flush_check()
+            i += 1
+            fields = {}
+            while i < len(lines) and lines[i].strip() != ':::':
+                mkv = re.match(r'^\s*(name|image|amazon|rakuten|yahoo)\s*:\s*(.+?)\s*$', lines[i])
+                if mkv:
+                    fields[mkv.group(1)] = mkv.group(2)
+                i += 1
+            if i < len(lines):
+                i += 1  # 閉じ :::
+            img = fields.get('image', '')
+            img_html = (
+                f'<div style="flex:0 0 96px;display:flex;align-items:center;justify-content:center;">'
+                f'<img src="{img}" alt="" style="max-width:96px;max-height:96px;object-fit:contain;border-radius:6px;"></div>'
+            ) if img else ''
+            btn_specs = [
+                ('amazon', 'Amazonで購入', 'linear-gradient(180deg,#ff9b45,#f97316)'),
+                ('rakuten', '楽天市場で購入', 'linear-gradient(180deg,#e2467a,#bf0043)'),
+                ('yahoo', 'Yahoo!で購入', 'linear-gradient(180deg,#5b8def,#2f5fd0)'),
+            ]
+            btns = ''.join(
+                f'<a href="{fields[k]}" target="_blank" rel="sponsored nofollow noopener" '
+                f'style="display:block;flex:1 1 160px;text-align:center;text-decoration:none;'
+                f'background:{bg};color:#fff;font-weight:700;font-size:15px;padding:12px 16px;'
+                f'border-radius:8px;box-shadow:0 2px 4px rgba(0,0,0,.12);">{lbl}</a>'
+                for k, lbl, bg in btn_specs if fields.get(k)
+            )
+            out.append(
+                '<div class="ptgl-product-box" style="border:1px solid #e5e7eb;border-radius:12px;'
+                'padding:16px 18px;margin:20px 0;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.06);">'
+                '<div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;">' + img_html +
+                '<div style="flex:1 1 220px;min-width:200px;">'
+                f'<div style="font-weight:700;font-size:16px;color:#111827;margin-bottom:10px;">'
+                f'{md_inline(fields.get("name", "商品"))}</div>'
+                '<div style="display:flex;flex-wrap:wrap;gap:10px;">' + btns + '</div>'
+                '</div></div></div>'
+            )
+            continue
+
         # --- 既存 Gutenberg ブロック（wp:image など）→ src抽出して<img> ---
         mblk = re.match(r'^<!--\s*wp:(\w+)', stripped)
         if mblk:
