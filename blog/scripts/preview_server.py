@@ -460,7 +460,31 @@ class PreviewHandler(BaseHTTPRequestHandler):
                 self._send(404, f"<h1>404</h1><p>{slug}.md が見つかりません</p><p><a href='/'>一覧へ</a></p>".encode("utf-8"))
                 return
             title, body = render_body(md.read_text(encoding="utf-8"))
+            # 記事画像フォルダ（<slug>_images/）の相対パス画像を配信ルートへ差し替える。
+            # 例: src="gtr2-metrics-10km.jpg" → src="/article-img/<slug>/gtr2-metrics-10km.jpg"
+            # （http/https・/始まり・data: はそのまま）
+            body = re.sub(
+                r'src="(?!https?:|/|data:)([^"]+)"',
+                lambda m: f'src="/article-img/{slug}/{Path(m.group(1)).name}"',
+                body,
+            )
             self._send(200, page_html(title or slug, body).encode("utf-8"))
+            return
+
+        # 記事画像（blog/articles/<slug>_images/ を配信）
+        if path.startswith("/article-img/"):
+            rel = path[len("/article-img/"):].split("/", 1)
+            if len(rel) == 2:
+                slug, fname = rel[0], Path(rel[1]).name
+                f = ARTICLES_DIR / f"{slug}_images" / fname
+                if f.exists() and f.is_file():
+                    ctype = {
+                        ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
+                        ".webp": "image/webp", ".gif": "image/gif",
+                    }.get(f.suffix.lower(), "application/octet-stream")
+                    self._send(200, f.read_bytes(), ctype)
+                    return
+            self._send(404, b"article image not found")
             return
 
         # キャラ画像
