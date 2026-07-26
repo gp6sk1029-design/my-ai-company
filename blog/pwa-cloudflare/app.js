@@ -3118,21 +3118,100 @@
 
     let piItems = []; // {label, value, checked}
 
+    // 🔗 入力されたURLを解析して「正規URL・ASIN/商品コード・短縮リンクか」を判定する（2026-07-26）
+    //   背景：URLは元から受け付けていたが、AIに生URLを渡すだけだった。
+    //   ・短縮リンク（link.amazon / amzn.to / a.co / amzn.asia / a.r10.to 等）はリダイレクト先が
+    //     分からないとAIが商品を特定できず「不明」だらけ or 別商品を答える事故になる
+    //   ・ASINを抜けていないと、取り込んだ情報からアフィリカードが作れない
+    //   ブラウザからは CORS でリダイレクトを追えないため、「AIに展開を指示」＋「UIで警告」の二段構え。
+    const PI_SHORT_HOSTS = /^(link\.amazon(\.[a-z.]+)?|amzn\.to|amzn\.asia|a\.co|a\.r10\.to|r10\.to|bit\.ly|t\.co|x\.gd)$/i;
+    function analyzeProductUrl(input) {
+      const raw = String(input || '').trim();
+      const res = { isUrl: false, raw, canonical: '', asin: '', itemCode: '', site: '', isShort: false };
+      if (!/^https?:\/\//i.test(raw)) return res;
+      res.isUrl = true;
+      let u;
+      try { u = new URL(raw); } catch (e) { return res; }
+      const host = u.hostname.replace(/^www\./i, '');
+      res.isShort = PI_SHORT_HOSTS.test(host);
+
+      // Amazon：/dp/ASIN・/gp/product/ASIN・?ASIN= からASIN（10桁英数）を拾う
+      if (/(^|\.)amazon\./i.test(host)) {
+        res.site = 'Amazon';
+        const m = raw.match(/\/(?:dp|gp\/product|gp\/aw\/d|product)\/([A-Z0-9]{10})(?![A-Z0-9])/i)
+               || raw.match(/[?&]asin=([A-Z0-9]{10})(?![A-Z0-9])/i);
+        if (m) {
+          res.asin = m[1].toUpperCase();
+          // トラッキングパラメータ（ref/th/psc/tag等）を落とした正規URLにする
+          res.canonical = 'https://' + u.hostname.replace(/^www\./i, 'www.') + '/dp/' + res.asin;
+        }
+      // 楽天：item.rakuten.co.jp/<ショップ>/<商品コード>/
+      } else if (/rakuten\.co\.jp$/i.test(host)) {
+        res.site = '楽天市場';
+        const m = u.pathname.match(/^\/([^/]+)\/([^/]+)\/?$/);
+        if (m) { res.itemCode = m[1] + '/' + m[2]; res.canonical = 'https://item.rakuten.co.jp/' + res.itemCode + '/'; }
+      } else if (/yahoo\.co\.jp$/i.test(host)) {
+        res.site = 'Yahoo!ショッピング';
+      }
+      if (!res.canonical && !res.isShort) res.canonical = u.origin + u.pathname; // クエリだけ落とす
+      return res;
+    }
+
+    // 入力欄の下に「何を読み取ったか」を出す（短縮リンクはここで警告する）
+    function piRenderUrlHint() {
+      const box = document.getElementById('pi-url-hint');
+      if (!box) return;
+      const info = analyzeProductUrl(q.value);
+      if (!info.isUrl) { box.hidden = true; box.textContent = ''; return; }
+      box.hidden = false;
+      if (info.isShort) {
+        box.className = 'pi-url-hint warn';
+        box.innerHTML = '⚠️ <b>短縮リンクです。</b>展開先が分からないとAIが別商品を答えることがあります。'
+          + 'AIには「展開してから調べて」と指示しますが、<b>確実にするならリンクをブラウザで開き直して '
+          + '<code>/dp/</code> を含む長いURLを貼ってください</b>。';
+      } else if (info.asin) {
+        box.className = 'pi-url-hint ok';
+        box.innerHTML = '✅ Amazon商品を認識：<b>ASIN ' + escHtml(info.asin) + '</b>（アフィリリンク作成にそのまま使えます）';
+      } else if (info.itemCode) {
+        box.className = 'pi-url-hint ok';
+        box.innerHTML = '✅ 楽天商品を認識：<b>' + escHtml(info.itemCode) + '</b>';
+      } else {
+        box.className = 'pi-url-hint';
+        box.innerHTML = 'ℹ️ ' + escHtml(info.site || 'このページ') + 'のURLとして調べます。'
+          + (/(^|\.)amazon\./i.test(info.raw) ? '（ASINが読み取れませんでした）' : '');
+      }
+    }
+    q.addEventListener('input', piRenderUrlHint);
+
     // リサーチ用プロンプト（記事めし＝ガジェットレビュー記事向けに最適化・2026-07-12）
     // EC(Amazon等)の商品説明/AIレビュー要約・"参考になった"が多い口コミ・他ブログの実機
     // レビューを横断して集めさせる。AIが解析しやすい【ラベル】1行形式で返させる。
     function buildProductResearchPrompt(query) {
-      const isUrl = /^https?:\/\//i.test(query.trim());
-      const subject = isUrl
-        ? '次の商品ページの製品を調べてください：\n' + query.trim()
-        : '「' + query.trim() + '」というガジェット製品を調べてください。';
+      const info = analyzeProductUrl(query);
+      const head = [];
+      if (!info.isUrl) {
+        head.push('「' + String(query).trim() + '」というガジェット製品を調べてください。');
+      } else if (info.isShort) {
+        // 短縮リンクはAIに「まず展開しろ」と明示（ブラウジング可能なAIならリダイレクトを追える）
+        head.push('次の短縮URLの商品を調べてください：');
+        head.push(info.raw);
+        head.push('※これは短縮リンクです。まずアクセスして展開し、実際の商品ページ（Amazonなら /dp/ASIN 形式）を特定してから調べてください。');
+        head.push('※展開できず商品を特定できない場合は、推測せず【商品名】に「特定できず」とだけ返してください。');
+      } else {
+        head.push('次の商品ページの製品を調べてください：');
+        head.push(info.canonical || info.raw);
+        if (info.asin) head.push('（ASIN: ' + info.asin + '）');
+        if (info.itemCode) head.push('（楽天商品コード: ' + info.itemCode + '）');
+      }
       return [
-        subject,
+        head.join('\n'),
         '',
         '目的＝レビュー記事の下調べ。Amazon等ECの商品説明・AIレビュー要約・「参考になった」が多い口コミ、価格比較、他ブログの実機レビューを横断し、事実ベースで簡潔に。',
         '下記【ラベル】形式で各1行（複数は「 / 」区切り）。不明は「不明」、曖昧は末尾に(要確認)。出典番号や[ ]記号・太字は付けない。',
         '',
         '【商品名】正式名称',
+        '【ASIN】Amazonの10桁英数（分かれば。不明なら「不明」）',
+        '【商品ページURL】Amazonなら https://www.amazon.co.jp/dp/ASIN 形式の1本だけ',
         '【メーカー】',
         '【価格】実売 / セール時 / 定価（円）',
         '【カテゴリ】',
@@ -3185,8 +3264,11 @@
       const byLabel = new Map();   // label -> [値の配列]
       const noLabel = [];          // ラベル無し（箇条書き等）
       const addTo = (label, value) => {
-        const parts = cleanValue(value)
-          .split(/\s*[\/／、]\s*/).map(s => cleanValue(s)).filter(s => s && s !== '不明');
+        const cleaned = cleanValue(value);
+        // 🛡 URLは「/」で分割しない（https://… が https: / / … に砕けるため・2026-07-26）
+        const parts = /^https?:\/\//i.test(cleaned)
+          ? [cleaned].filter(s => s && s !== '不明')
+          : cleaned.split(/\s*[\/／、]\s*/).map(s => cleanValue(s)).filter(s => s && s !== '不明');
         if (parts.length === 0) return;
         if (label) {
           if (!byLabel.has(label)) { byLabel.set(label, []); order.push(label); }

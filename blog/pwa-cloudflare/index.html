@@ -100,10 +100,12 @@
         取り込んだ情報は下の「📝 メモ」「🖼 画像にリンク」「📥 プロンプト欄」へ反映できます。
       </p>
       <div class="pi-row">
-        <input type="text" id="pi-query" class="pi-input" placeholder="例：SwitchBot ロックLite　または　Amazonの商品ページURL">
+        <input type="text" id="pi-query" class="pi-input" placeholder="例：SwitchBot ロックLite　または　商品ページURL（Amazon・楽天）">
         <button type="button" id="pi-copy-prompt" class="btn-primary btn-small">🤖 ChatGPTで調べる</button>
       </div>
-      <small class="pi-hint">↑ ChatGPTが開いてプロンプトが自動入力されます（送信するだけ）。クリップボードにもコピー済みなので、Gemini/Claudeを使う場合はそちらに貼り付けてもOK。</small>
+      <div id="pi-url-hint" class="pi-url-hint" hidden></div>
+      <small class="pi-hint">↑ ChatGPTが開いてプロンプトが自動入力されます（送信するだけ）。クリップボードにもコピー済みなので、Gemini/Claudeを使う場合はそちらに貼り付けてもOK。<br>
+        <b>URLを貼る場合</b>：Amazonなら <code>/dp/</code> を含むURLを貼るとASINを自動で読み取ります（アフィリリンク作成にそのまま使えます）。<code>link.amazon</code> や <code>amzn.to</code> などの<b>短縮リンクは商品を特定できないことがある</b>ので、できれば長いURLで。</small>
 
       <label class="pi-paste-label" for="pi-answer">② AIの回答をここに貼り付け（⌘V）</label>
       <textarea id="pi-answer" class="pi-answer" rows="6" placeholder="AIが返した商品情報（商品名・価格・特徴・スペック・注意点など）をそのまま貼り付け"></textarea>
