@@ -429,6 +429,21 @@ class PreviewHandler(BaseHTTPRequestHandler):
         self.send_response(code)
         self.send_header("Content-Type", ctype)
         self.send_header("Content-Length", str(len(body)))
+        # ローカルプレビューの画像を他オリジン（WP管理画面など）から読めるようにする。
+        # 配信しているのは自分の記事素材だけなので開放して問題ない。
+        self.send_header("Access-Control-Allow-Origin", "*")
+        # Chrome の Private Network Access（公開サイト→localhost の遮断）を明示的に許可する
+        self.send_header("Access-Control-Allow-Private-Network", "true")
+        self.end_headers()
+
+    def do_OPTIONS(self):
+        """PNA/CORS のプリフライトに応答する（画像を他オリジンから取得させるため）"""
+        self.send_response(204)
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Private-Network", "true")
+        self.send_header("Access-Control-Allow-Methods", "GET, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "*")
+        self.send_header("Content-Length", "0")
         self.end_headers()
         self.wfile.write(body)
 
