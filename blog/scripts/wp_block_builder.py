@@ -163,7 +163,9 @@ def block_product_box(name: str, image: str = '', amazon: str = '',
     # 画像（任意）。無ければ左カラムごと省いてボタンを広く使う
     img_html = (
         f'<div style="flex:0 0 96px;display:flex;align-items:center;justify-content:center;">'
-        f'<img src="{image}" alt="{name}" width="96" height="96" loading="lazy" decoding="async" '
+        # width/height属性は付けない：商品画像は正方形とは限らず（例 320x193）、
+        # 96x96 を宣言すると読み込み時に枠が縮んでガタつく（レイアウトシフト）
+        f'<img src="{image}" alt="{name}" loading="lazy" decoding="async" '
         f'style="max-width:96px;max-height:96px;width:auto;height:auto;object-fit:contain;border-radius:6px;"/>'
         f'</div>'
     ) if image else ''
