@@ -156,10 +156,14 @@ def block_product_box(name: str, image: str = '', amazon: str = '',
     2026-07-21新設。
     """
     name_h = md_to_html_inline(name)
+    # 🖼 カード画像は96pxでしか表示しないので、Amazon画像は小さい版に差し替える
+    #   （2026-07-27：_AC_SL1500_ の原寸78KBを96px枠で表示していた＝1枚あたり約66KBのムダ。
+    #    _AC_SL320_ なら11KB＝85%減。Retina(2倍)でも192px必要なので320pxで余裕がある）
+    image = re.sub(r'\._AC_S[LXY]\d+_\.', '._AC_SL320_.', image) if image else image
     # 画像（任意）。無ければ左カラムごと省いてボタンを広く使う
     img_html = (
         f'<div style="flex:0 0 96px;display:flex;align-items:center;justify-content:center;">'
-        f'<img src="{image}" alt="{name}" '
+        f'<img src="{image}" alt="{name}" width="96" height="96" loading="lazy" decoding="async" '
         f'style="max-width:96px;max-height:96px;width:auto;height:auto;object-fit:contain;border-radius:6px;"/>'
         f'</div>'
     ) if image else ''
