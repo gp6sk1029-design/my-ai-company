@@ -69,7 +69,10 @@ def feat(d):
             f'  </div>\n'
             f'  <div class="ot-featured-body">\n'
             f'    <div class="ot-featured-title">{d["title"]}</div>\n'
-            f'    <div class="ot-featured-date">🕐 {d["date"]}</div>\n'
+            # 🕐 の絵文字は入れない：WordPressが絵文字を <img class="emoji"> に変換するが、
+            # このカードには .emoji のサイズ指定がなく 110x88px の巨大画像として描画されるため
+            # （2026-07-28修正）。日付はテキストだけで十分伝わる。
+            f'    <div class="ot-featured-date">{d["date"]}</div>\n'
             f'  </div>\n'
             f'</a>')
 
