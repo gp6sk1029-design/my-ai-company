@@ -3,7 +3,7 @@ post_id: 992
 title: "DORIBIRU 小銭入れ レビュー｜レジで小銭を探すムダが消えるL字ファスナー薄型財布"
 url: https://www.ootanisatan.com/doribiru-coin-case-review/
 date: 2026-07-23
-modified: 2026-07-28
+modified: 2026-07-30
 categories: 暮らしハック研究室
 status: publish
 ---
@@ -22,6 +22,12 @@ status: publish
 - 中央の小銭スペースと4つの区画で、硬貨・カード・二つ折り紙幣を分けられる。L字に開くため、**小銭を探す工程が短い**
 
 - Amazon公式ストアでの購入時価格は**1,580円**。1日20秒の会計時短という控えめな仮定でも、約**10か月**で回収できる計算
+
+※本記事には広告（Amazonアソシエイト・楽天アフィリエイト）を含みます。リンク経由でご購入いただくと、サイト運営者に紹介料が入る場合があります（価格は変わりません）。
+
+詳しい理由は本文で書きますが、**先に商品だけ確認したい方はこちらからどうぞ**。
+
+![MaGdget スマホショルダーストラップ（★4.6／28件）](https://m.media-amazon.com/images/I/518UOvIc+OL._AC_SL320_.jpg)MaGdget スマホショルダーストラップ（★4.6／28件）[Amazonで購入](https://www.amazon.co.jp/dp/B0GHMZMM7Q?tag=gp6sk1029-22)[楽天市場で購入](https://a.r10.to/hY9L5o)
 
 ## DORIBIRU 小銭入れとは｜「たくさん入れる」より「すぐ出す」に振り切った薄型財布
 

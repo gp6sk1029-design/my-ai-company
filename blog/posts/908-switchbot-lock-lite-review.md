@@ -3,7 +3,7 @@ post_id: 908
 title: "SwitchBot ロックLite レビュー｜賃貸OK、鍵を持ち歩かない生活へ"
 url: https://www.ootanisatan.com/switchbot-lock-lite-review/
 date: 2026-05-30
-modified: 2026-07-28
+modified: 2026-07-30
 categories: ガジェット研究室、時短ツール研究室、暮らしハック研究室
 status: publish
 ---
@@ -26,6 +26,12 @@ status: publish
 - 指紋・スマホ・Suica が鍵になる →「鍵を持ち歩く」という概念そのものが消える
 
 - **時給950円（最低賃金）で計算しても約8.5ヶ月で元が取れる**、5年で **約+8万円**の純利益
+
+※本記事には広告（Amazonアソシエイト・楽天アフィリエイト）を含みます。リンク経由でご購入いただくと、サイト運営者に紹介料が入る場合があります（価格は変わりません）。
+
+詳しい理由は本文で書きますが、**先に商品だけ確認したい方はこちらからどうぞ**。
+
+![SwitchBot ロックLite 指紋認証パッドセット](https://m.media-amazon.com/images/I/71discsv4tL._AC_SL320_.jpg)SwitchBot ロックLite 指紋認証パッドセット[Amazonで購入](https://www.amazon.co.jp/dp/B0D3QT5RP2?tag=gp6sk1029-22)[楽天市場で購入](https://a.r10.to/hPkAEz)
 
 ---
 

@@ -3,7 +3,7 @@ post_id: 552
 title: "MX ERGO Sの持ち運び問題を完全解決！収納ケース＆変換アダプタの最強セット"
 url: https://www.ootanisatan.com/mx-ergo-s%e3%81%ae%e6%8c%81%e3%81%a1%e9%81%8b%e3%81%b3%e5%95%8f%e9%a1%8c%e3%82%92%e5%ae%8c%e5%85%a8%e8%a7%a3%e6%b1%ba%ef%bc%81%e5%8f%8e%e7%b4%8d%e3%82%b1%e3%83%bc%e3%82%b9%ef%bc%86%e5%a4%89%e6%8f%9b/
 date: 2026-02-25
-modified: 2026-07-29
+modified: 2026-07-30
 categories: ガジェット研究室、時短ツール研究室
 status: publish
 ---
@@ -36,6 +36,12 @@ MX ERGO Sの持ち運びにおける「紛失・破損リスク」は、**『WER
 MX ERGO S（および旧型のMX ERGO）は据え置きでの使用を想定されているためか、持ち運ぼうとすると致命的な弱点が露呈します。
 
 - **USBレシーバーの収納スロットがない**: BluetoothとUSBレシーバーを併用・使い分けしている人にとって、レシーバーの置き場がなく紛失リスクが極めて高い。
+
+※本記事には広告（Amazonアソシエイト・楽天アフィリエイト）を含みます。リンク経由でご購入いただくと、サイト運営者に紹介料が入る場合があります（価格は変わりません）。
+
+詳しい理由は本文で書きますが、**先に商品だけ確認したい方はこちらからどうぞ**。
+
+![WERJIA 収納ケース（MX ERGO S / MX ERGO 対応・ケースのみ／★4.8・6件）](https://m.media-amazon.com/images/I/71-kYw5PIwL._AC_SL320_.jpg)WERJIA 収納ケース（MX ERGO S / MX ERGO 対応・ケースのみ／★4.8・6件）[Amazonで購入](https://www.amazon.co.jp/dp/B0DHCPVHQX?tag=gp6sk1029-22)[楽天市場で購入](https://a.r10.to/h5m2Ha)
 
 ![](https://www.ootanisatan.com/wp-content/uploads/2026/02/8e725ff03d2ade93c185831e22cd41b8.jpg)
 

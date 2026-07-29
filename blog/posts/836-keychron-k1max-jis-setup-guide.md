@@ -3,7 +3,7 @@ post_id: 836
 title: "Keychron K1 Max 設定編｜1台で4配列を切替する完全ガイド｜年21万円の時短"
 url: https://www.ootanisatan.com/keychron-k1-max-%e8%a8%ad%e5%ae%9a%e7%b7%a8%ef%bd%9c1%e5%8f%b0%e3%81%a74%e9%85%8d%e5%88%97%e3%82%92%e5%88%87%e6%9b%bf%e3%81%99%e3%82%8b%e5%ae%8c%e5%85%a8%e3%82%ac%e3%82%a4%e3%83%89%ef%bd%9c%e5%b9%b421/
 date: 2026-05-11
-modified: 2026-07-29
+modified: 2026-07-30
 categories: ガジェット研究室、時短ツール研究室
 status: publish
 ---
@@ -149,6 +149,12 @@ CapsLock の位置は **左小指のホームポジションのすぐ左** に�
 - ✅ 小指の自然な動きで届く（手首の捻りが消える）
 
 - ✅ 使ってないキーが **最重要キー** に化ける
+
+※本記事には広告（Amazonアソシエイト・楽天アフィリエイト）を含みます。リンク経由でご購入いただくと、サイト運営者に紹介料が入る場合があります（価格は変わりません）。
+
+詳しい理由は本文で書きますが、**先に商品だけ確認したい方はこちらからどうぞ**。
+
+![Keychron K1 Max（QMK/VIA・JIS配列・ロープロファイル／★3.8・12件）](https://m.media-amazon.com/images/I/61WxPz0z2IL._AC_SL320_.jpg)Keychron K1 Max（QMK/VIA・JIS配列・ロープロファイル／★3.8・12件）[Amazonで購入](https://www.amazon.co.jp/dp/B0FHWX7X7K?tag=gp6sk1029-22)[楽天市場で購入](https://a.r10.to/hYLZNi)
 
 ### 設定手順（30秒で完了）
 

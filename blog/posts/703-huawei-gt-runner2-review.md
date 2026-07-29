@@ -3,7 +3,7 @@ post_id: 703
 title: "HUAWEI WATCH GT Runner 2 レビュー｜GPS精度と無料の練習プランで、1日42円のランニング投資"
 url: https://www.ootanisatan.com/%e3%80%9010km%e5%ae%9f%e8%b5%b0%e3%83%87%e3%83%bc%e3%82%bf%e3%80%91huawei-gt-runner-2%ef%bd%9c3%e9%80%b1%e9%96%93%e4%bd%bf%e3%81%a3%e3%81%9f%e6%ad%a3%e7%9b%b4%e3%83%ac%e3%83%93%e3%83%a5%e3%83%bc/
 date: 2026-07-23
-modified: 2026-07-29
+modified: 2026-07-30
 categories: ガジェット研究室
 status: publish
 ---
@@ -26,6 +26,12 @@ status: publish
 - **一番の推しはGPS精度**。屋外ウォーキング2.98kmの軌跡が、車道にはみ出さず歩道の線をトレースした
 
 - **次の推しはスマートトレーニングプラン**。「現在1時間3分15秒 → 目標59分50秒」を8週間で埋める練習メニューが、**追加課金なし**で自動生成される
+
+※本記事には広告（Amazonアソシエイト・楽天アフィリエイト）を含みます。リンク経由でご購入いただくと、サイト運営者に紹介料が入る場合があります（価格は変わりません）。
+
+詳しい理由は本文で書きますが、**先に商品だけ確認したい方はこちらからどうぞ**。
+
+![HUAWEI WATCH GT Runner 2 スマートウォッチ（マラソン特化・★4.3／21件）](https://m.media-amazon.com/images/I/71FVBQ3hS+L._AC_SL320_.jpg)HUAWEI WATCH GT Runner 2 スマートウォッチ（マラソン特化・★4.3／21件）[Amazonで購入](https://www.amazon.co.jp/dp/B0GR2GM467?tag=gp6sk1029-22)[楽天市場で購入](https://a.r10.to/h5kzLz)
 
 ---
 
