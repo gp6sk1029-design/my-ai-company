@@ -176,6 +176,9 @@ def main():
     ap.add_argument("--publish", action="store_true", help="実際に投稿する（付けないとドライラン）")
     ap.add_argument("--rewrite-md", action="store_true", help="公開後、mdの画像URLをWP URLへ書換")
     ap.add_argument("--skip-home", action="store_true", help="公開後のホーム（注目/最新カード）自動更新をしない")
+    ap.add_argument("--unowned", action="store_true", help="未所有商品の記事（lintで体験創作ワードも検査）")
+    ap.add_argument("--skip-lint", action="store_true",
+                    help="article_lintのERRORがあっても投稿する（原則使用禁止。使ったら理由をMEMORY.mdに記録）")
     args = ap.parse_args()
 
     md_path = ROOT / "blog" / "articles" / f"{args.slug}.md"
@@ -215,21 +218,19 @@ def main():
 
     title, content = build(md_text, images_dir, eyecatch, media, dry=not args.publish)
 
-    # 検証
+    # 検証（validate_blocks ＋ article_lint 統合ゲート）
+    # 個別チェックの追加は publish_article ではなく article_lint.py 側に書くこと
+    # （公開済み記事の一括点検 --all でも同じ基準が効くようにするため）
+    from article_lint import lint_content, print_findings
     issues = validate_blocks(content)
-    extra = []
-    if "![" in content:
-        extra.append("未変換のmarkdown画像 ![ が残存")
-    if FACE_RE.search(content):
-        extra.append("表情記法 [xx] が本文に露出")
-    if re.search(r"\*\*\*[^*]+\*\*\*", content):
-        extra.append("*** が未変換")
+    lint_err, lint_warn, lint_info = lint_content(content, unowned=args.unowned)
+    extra = [f"[{code}] {msg}" for code, msg in lint_err]
     if title is None:
         extra.append("H1タイトルが見つからない（1行目を # タイトル に）")
 
     print("\n=== 検証 ===")
     print("validate_blocks:", issues or "OK")
-    print("追加チェック  :", extra or "OK")
+    print_findings("article_lint", lint_err, lint_warn, lint_info)
     print(f"タイトル: {title}")
     print(f"画像ブロック: {content.count('<!-- wp:image')}  表  : {content.count('<!-- wp:table')}  "
           f"見出し: {content.count('wp:heading')//2}  本文長: {len(content)}字")
@@ -245,7 +246,10 @@ def main():
         return
 
     if issues or extra:
-        sys.exit("\n❌ 検証エラーがあるため投稿中止。")
+        if args.skip_lint and not issues:
+            print("\n⚠️ --skip-lint によりlintのERRORを無視して投稿します（理由を必ずMEMORY.mdへ記録）")
+        else:
+            sys.exit("\n❌ 検証エラーがあるため投稿中止。")
 
     # 🛡 status事故防止（2026-07-18）：--update で未指定なら status を送らない＝現在の公開状態を維持。
     # （旧実装は既定"draft"を常に送っており、公開記事の更新で下書きに戻る事故が起きた）
@@ -278,6 +282,42 @@ def main():
         except Exception as e:  # noqa: BLE001
             print(f"   ⚠ ホーム更新に失敗（記事公開は成功済み）: {e}")
             print("     手動更新: python3 blog/scripts/update_home_cards.py")
+
+    # 公開後フック（2026-08-01）：ミラー同期 ＋ SNS原稿キュー
+    # 「ミラーが2週間古いまま」「公開してもSNS拡散ゼロ」の再発防止。
+    if res.get("status") == "publish":
+        import subprocess
+        r2 = subprocess.run([sys.executable, str(ROOT / "blog" / "scripts" / "sync_posts_to_local.py")],
+                            capture_output=True, text=True)
+        print("   📄 ローカルミラー同期: " + ("完了" if r2.returncode == 0 else f"失敗 → 手動で sync_posts_to_local.py を実行\n{r2.stderr[:200]}"))
+        if not args.update:
+            from datetime import date
+            qdir = ROOT / "sns" / "queue"
+            qdir.mkdir(parents=True, exist_ok=True)
+            qpath = qdir / f"{date.today().isoformat()}-{res['id']}-{args.slug}.md"
+            qpath.write_text(
+                f"""---
+post_id: {res['id']}
+title: "{title}"
+url: {res.get('link')}
+published: {date.today().isoformat()}
+status: 未拡散
+---
+
+# SNS拡散キュー：{title}
+
+<!-- 公開時に自動生成。X原稿2案を書いたら status を「原稿済み」、投稿したら「拡散済み」に更新する。 -->
+
+## X 案1（140字以内・数字を1つ入れる）
+
+（未作成）
+
+## X 案2（別の切り口）
+
+（未作成）
+""", encoding="utf-8")
+            print(f"   📣 SNS原稿キュー作成: sns/queue/{qpath.name}")
+            print("      → このままX原稿2案をここに書き足してから作業を終えること（SKILL.md 公開後フロー）")
 
     # md の画像URLをWP URLへ書換（任意）
     if args.rewrite_md and args.publish:
