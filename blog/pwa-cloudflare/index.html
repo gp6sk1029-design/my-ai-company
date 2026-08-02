@@ -379,12 +379,11 @@
             <div class="ai-conn-block-title">🧠 Codex画像生成</div>
             <label class="ai-conn-field-label" for="ai-conn-codex-workspace">Codexワークスペース（絶対パス）</label>
             <input type="text" id="ai-conn-codex-workspace" placeholder="例：/Users/あなた/Documents/my-ai-company" autocomplete="off" spellcheck="false">
-            <label class="ai-conn-field-label" for="ai-conn-codex-output">Codex一時受け渡しフォルダ（端末内・絶対パス）</label>
-            <input type="text" id="ai-conn-codex-output" placeholder="例：/Users/あなた/Downloads/article-meshi-codex" autocomplete="off" spellcheck="false">
+            <div class="ai-conn-codex-temp-status" id="codex-temp-status">一時フォルダ：未設定</div>
             <div class="ai-conn-quick">
-              <button type="button" id="btn-conn-pick-codex-folder" class="btn-conn-find">📁 同じ一時フォルダを選択</button>
+              <button type="button" id="btn-conn-pick-codex-folder" class="btn-conn-find">📁 一時フォルダを自動準備（初回のみ）</button>
             </div>
-            <small class="ai-conn-codex-hint">このフォルダはCodexとの一時的な受け渡し専用です。完成画像の保存先は、記事めしで選択中のGoogleドライブ記事フォルダです。設定値はこの端末内だけに保存されます。</small>
+            <small class="ai-conn-codex-hint">初回だけボタンを押し、上で入力したCodexワークスペースと同じフォルダを選んでください。専用の一時フォルダを自動作成します。完成画像の保存先はGoogleドライブの記事フォルダです。</small>
           </div>
 
           <!-- ChatGPT セクション -->

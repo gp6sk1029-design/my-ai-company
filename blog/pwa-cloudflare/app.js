@@ -79,6 +79,15 @@
       tx.onerror = () => rej(tx.error);
     });
   }
+  async function settingsDelete(key) {
+    const db = await openDB();
+    return new Promise((res, rej) => {
+      const tx = db.transaction(SETTINGS_STORE, 'readwrite');
+      tx.objectStore(SETTINGS_STORE).delete(key);
+      tx.oncomplete = () => res();
+      tx.onerror = () => rej(tx.error);
+    });
+  }
   async function queuePut(r) {
     const db = await openDB();
     return new Promise((res, rej) => {
@@ -535,6 +544,8 @@
   const CONN_KEY_CODEX_WORKSPACE = 'pwa-meshi-conn-codex-workspace';
   const CONN_KEY_CODEX_OUTPUT = 'pwa-meshi-conn-codex-output';
   const CODEX_PENDING_KEY = 'pwa-meshi-codex-pending-job';
+  const CODEX_FOLDER_HANDLE_KEY = 'codex-handoff-folder-handle';
+  const CODEX_TEMP_DIR_NAME = '.article-meshi-codex';
   const DEFAULT_GPT_URL = 'https://chatgpt.com/?model=gpt-4o';
   const DEFAULT_GEM_URL = 'https://gemini.google.com/app';
 
@@ -711,12 +722,22 @@
     }
   }
 
+  async function refreshCodexTempStatus() {
+    const status = document.getElementById('codex-temp-status');
+    if (!status) return;
+    let ready = false;
+    try { ready = !!(await settingsGet(CODEX_FOLDER_HANDLE_KEY)); } catch (_) {}
+    status.textContent = ready
+      ? '✅ 一時フォルダ設定済み（普段は操作不要）'
+      : '一時フォルダ：未設定（初回だけ準備してください）';
+    status.classList.toggle('is-ready', ready);
+  }
+
   // 設定UIへのイベント紐付け
   setTimeout(() => {
     const inpGpt = document.getElementById('ai-conn-chatgpt');
     const inpGem = document.getElementById('ai-conn-gemini');
     const inpCodexWorkspace = document.getElementById('ai-conn-codex-workspace');
-    const inpCodexOutput = document.getElementById('ai-conn-codex-output');
     const btnPickCodexFolder = document.getElementById('btn-conn-pick-codex-folder');
     const btnSave = document.getElementById('btn-conn-save');
     const btnReset = document.getElementById('btn-conn-reset');
@@ -724,23 +745,24 @@
     const btnPasteGem = document.getElementById('btn-conn-paste-gem');
     const btnOpenChatGPTFind = document.getElementById('btn-conn-open-chatgpt-find');
     const btnOpenGeminiFind = document.getElementById('btn-conn-open-gemini-find');
-    if (!inpGpt || !inpGem || !inpCodexWorkspace || !inpCodexOutput) return;
+    if (!inpGpt || !inpGem || !inpCodexWorkspace) return;
     inpGpt.value = localStorage.getItem(CONN_KEY_GPT) || '';
     inpGem.value = localStorage.getItem(CONN_KEY_GEM) || '';
     inpCodexWorkspace.value = localStorage.getItem(CONN_KEY_CODEX_WORKSPACE) || '';
-    inpCodexOutput.value = localStorage.getItem(CONN_KEY_CODEX_OUTPUT) || '';
     updateConnBar();
+    refreshCodexTempStatus();
 
     if (btnPickCodexFolder) btnPickCodexFolder.addEventListener('click', async () => {
-      const handle = await chooseDownloadFolder('readwrite');
-      if (!handle) return;
-      const configured = inpCodexOutput.value.trim().replace(/[\\/]+$/, '');
-      const leaf = configured.split(/[\\/]/).pop();
-      if (configured && leaf !== handle.name) {
-        showToast(`選択した「${handle.name}」と絶対パス末尾「${leaf}」が一致しません`, 'warn');
-      } else {
-        showToast(`「${handle.name}」をCodex画像の一時受け渡しフォルダに設定しました`, 'success');
+      const workspacePath = inpCodexWorkspace.value.trim().replace(/[\\/]+$/, '');
+      if (!isAbsoluteLocalPath(workspacePath)) {
+        showToast('先にCodexワークスペースの絶対パスを入力してください', 'warn');
+        return;
       }
+      localStorage.setItem(CONN_KEY_CODEX_WORKSPACE, workspacePath);
+      const handle = await setupCodexHandoffFolder(workspacePath);
+      if (!handle) return;
+      await refreshCodexTempStatus();
+      updateConnBar();
     });
 
     // 📋 クリップボードから貼付（ChatGPT）
@@ -790,37 +812,36 @@
       const v1 = inpGpt.value.trim();
       const v2 = inpGem.value.trim();
       const codexWorkspace = inpCodexWorkspace.value.trim().replace(/[\\/]+$/, '');
-      const codexOutput = inpCodexOutput.value.trim().replace(/[\\/]+$/, '');
       if (v1 && !isValidChatGPTUrl(v1)) {
         showToast('ChatGPT URL の形式が不正です（chatgpt.com / chat.openai.com 必須）', 'error'); return;
       }
       if (v2 && !isValidGeminiUrl(v2)) {
         showToast('Gemini URL の形式が不正です（gemini.google.com 必須）', 'error'); return;
       }
-      if ((codexWorkspace || codexOutput) && (!isAbsoluteLocalPath(codexWorkspace) || !isAbsoluteLocalPath(codexOutput))) {
-        showToast('Codexの2つのパスは、/ から始まる絶対パスで入力してください', 'error'); return;
+      if (codexWorkspace && !isAbsoluteLocalPath(codexWorkspace)) {
+        showToast('Codexワークスペースは、/ から始まる絶対パスで入力してください', 'error'); return;
       }
       localStorage.setItem(CONN_KEY_GPT, v1);
       localStorage.setItem(CONN_KEY_GEM, v2);
       localStorage.setItem(CONN_KEY_CODEX_WORKSPACE, codexWorkspace);
-      localStorage.setItem(CONN_KEY_CODEX_OUTPUT, codexOutput);
       updateConnBar();
-      const configured = [codexWorkspace && codexOutput ? '🧠 Codex' : '', v1 ? '🤖 ChatGPT' : '', v2 ? '🍌 Gemini' : ''].filter(Boolean);
+      const configured = [codexWorkspace && localStorage.getItem(CONN_KEY_CODEX_OUTPUT) ? '🧠 Codex' : '', v1 ? '🤖 ChatGPT' : '', v2 ? '🍌 Gemini' : ''].filter(Boolean);
       const msg = configured.join(' + ') + ' に接続設定完了';
       showToast(msg || '設定をクリア', 'success');
       navigator.vibrate && navigator.vibrate(20);
     });
 
     // デフォルトに戻す
-    if (btnReset) btnReset.addEventListener('click', () => {
+    if (btnReset) btnReset.addEventListener('click', async () => {
       localStorage.removeItem(CONN_KEY_GPT);
       localStorage.removeItem(CONN_KEY_GEM);
       localStorage.removeItem(CONN_KEY_CODEX_WORKSPACE);
       localStorage.removeItem(CONN_KEY_CODEX_OUTPUT);
+      try { await settingsDelete(CODEX_FOLDER_HANDLE_KEY); } catch (_) {}
       inpGpt.value = '';
       inpGem.value = '';
       inpCodexWorkspace.value = '';
-      inpCodexOutput.value = '';
+      await refreshCodexTempStatus();
       updateConnBar();
       showToast('デフォルトに戻しました', 'success');
     });
@@ -899,6 +920,47 @@
     } catch (e) {
       if (e && e.name === 'AbortError') return null; // キャンセル
       showToast('フォルダ選択に失敗: ' + (e.message || e), 'error');
+      return null;
+    }
+  }
+
+  // Codex専用の一時受け渡しフォルダ。一般の画像取込元とは別ハンドルで保持する。
+  async function getCodexHandoffFolderHandle(mode = 'read') {
+    if (!supportsFSAccess()) return null;
+    try {
+      const handle = await settingsGet(CODEX_FOLDER_HANDLE_KEY);
+      if (!handle) return null;
+      const opts = { mode };
+      let perm = await handle.queryPermission(opts);
+      if (perm === 'prompt') perm = await handle.requestPermission(opts);
+      if (perm !== 'granted') return null;
+      return handle;
+    } catch (e) {
+      console.warn('Codex handoff folder handle invalid:', e);
+      return null;
+    }
+  }
+
+  async function setupCodexHandoffFolder(workspacePath) {
+    if (!supportsFSAccess()) {
+      showToast('このブラウザはフォルダ選択非対応です。Chrome/Edgeで開いてください', 'warn');
+      return null;
+    }
+    try {
+      const rootHandle = await window.showDirectoryPicker({ mode: 'readwrite', startIn: 'documents' });
+      const workspaceLeaf = String(workspacePath || '').split(/[\\/]/).filter(Boolean).pop() || '';
+      if (!workspaceLeaf || rootHandle.name !== workspaceLeaf) {
+        showToast(`入力したワークスペース「${workspaceLeaf}」と、選択した「${rootHandle.name}」が一致しません`, 'error');
+        return null;
+      }
+      const handle = await rootHandle.getDirectoryHandle(CODEX_TEMP_DIR_NAME, { create: true });
+      await settingsPut(CODEX_FOLDER_HANDLE_KEY, handle);
+      localStorage.setItem(CONN_KEY_CODEX_OUTPUT, joinLocalPath(workspacePath, CODEX_TEMP_DIR_NAME));
+      showToast('✅ Codex一時フォルダを自動準備しました。今後は操作不要です', 'success');
+      return handle;
+    } catch (e) {
+      if (e && e.name === 'AbortError') return null;
+      showToast('Codex一時フォルダの準備に失敗: ' + (e.message || e), 'error');
       return null;
     }
   }
@@ -2899,11 +2961,12 @@
     }
 
     const workspacePath = (localStorage.getItem(CONN_KEY_CODEX_WORKSPACE) || '').trim().replace(/[\\/]+$/, '');
-    const outputDirPath = (localStorage.getItem(CONN_KEY_CODEX_OUTPUT) || '').trim().replace(/[\\/]+$/, '');
-    if (!isAbsoluteLocalPath(workspacePath) || !isAbsoluteLocalPath(outputDirPath)) {
-      openCodexSettingsForSetup('初回設定が必要です。Codexワークスペースと一時受け渡しフォルダを入力して保存してください');
+    if (!isAbsoluteLocalPath(workspacePath)) {
+      openCodexSettingsForSetup('初回設定が必要です。Codexワークスペースを入力して保存してください');
       return;
     }
+    let outputDirPath = (localStorage.getItem(CONN_KEY_CODEX_OUTPUT) || '').trim().replace(/[\\/]+$/, '');
+    const expectedOutputDirPath = joinLocalPath(workspacePath, CODEX_TEMP_DIR_NAME);
 
     const articleFolderId = getSelectedArticleFolderId();
     if (!articleFolderId) {
@@ -2911,14 +2974,17 @@
       return;
     }
 
-    let dirHandle = await getSavedFolderHandle('readwrite');
-    if (!dirHandle) dirHandle = await chooseDownloadFolder('readwrite');
-    if (!dirHandle) return;
-    const configuredLeaf = outputDirPath.split(/[\\/]/).pop();
-    if (configuredLeaf !== dirHandle.name) {
-      openCodexSettingsForSetup(`絶対パス末尾「${configuredLeaf}」と選択フォルダ「${dirHandle.name}」が一致しません`);
-      return;
+    // ワークスペース変更後に古いフォルダハンドルへ書き込まない。
+    let dirHandle = outputDirPath === expectedOutputDirPath
+      ? await getCodexHandoffFolderHandle('readwrite')
+      : null;
+    if (!dirHandle && outputDirPath && outputDirPath !== expectedOutputDirPath) {
+      try { await settingsDelete(CODEX_FOLDER_HANDLE_KEY); } catch (_) {}
     }
+    if (!dirHandle) dirHandle = await setupCodexHandoffFolder(workspacePath);
+    if (!dirHandle) return;
+    outputDirPath = expectedOutputDirPath;
+    localStorage.setItem(CONN_KEY_CODEX_OUTPUT, outputDirPath);
 
     const now = new Date();
     const stamp = compactTimestamp(now);
@@ -3103,7 +3169,7 @@
       showToast('取込待ちのCodex画像ジョブがありません', 'warn');
       return;
     }
-    const handle = await getSavedFolderHandle('read');
+    const handle = await getCodexHandoffFolderHandle('read');
     if (!handle) {
       openCodexSettingsForSetup('Codex画像の一時受け渡しフォルダを選び直してください');
       return;

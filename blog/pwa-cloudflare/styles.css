@@ -1374,6 +1374,21 @@ body.is-dropping .drop-overlay { display: flex; }
   line-height: 1.55;
 }
 
+.ai-conn-codex-temp-status {
+  margin-top: 10px;
+  padding: 9px 11px;
+  border-radius: 8px;
+  background: #f1f5f9;
+  color: #475569;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.ai-conn-codex-temp-status.is-ready {
+  background: #ecfdf5;
+  color: #047857;
+}
+
 .ai-helper-tip {
   margin: 12px 0 0;
   padding: 10px 12px;

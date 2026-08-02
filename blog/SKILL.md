@@ -43,7 +43,7 @@ mdを直してブラウザ自動リロード（WP往復なし）。装飾修正�
 
 | # | 工程 | 具体アクション |
 |---|---|---|
-| ⓪-a | レビュー画像づくり（記事の土台＝素材） | 記事の土台となるレビュー画像（撮影写真のトリミング/背景クリーンアップ/注釈・図解・スクショ等）を用意し、記事めしPWA（`blog-capture-secure.gp6sk1029.workers.dev`・Cloudflare Access必須）でGoogle Driveフォルダにアップロード。**Codex経路**：先に保存先の記事フォルダを選択→プロンプト準備→「🧠 Codexで画像生成」→Codex側で送信1回→生成後「📥 Codex画像をDriveへ保存」。ジョブJSON・元画像・生成PNGは端末内の一時受け渡しフォルダを使うが、完成画像は取込と同時にジョブ開始時のGoogle Drive記事フォルダへ直接保存する（記事を途中で切り替えても保存先を変えない）。**Canvaは必須ではなく、ユーザーが必要と判断した場合のみ仕上げに使う**。ChatGPT/Gemini手動経路とクリップボード貼付/ドラッグ&ドロップも残す。この画像群が記事の「画像の土台」になる |
+| ⓪-a | レビュー画像づくり（記事の土台＝素材） | 記事の土台となるレビュー画像（撮影写真のトリミング/背景クリーンアップ/注釈・図解・スクショ等）を用意し、記事めしPWA（`blog-capture-secure.gp6sk1029.workers.dev`・Cloudflare Access必須）でGoogle Driveフォルダにアップロード。**Codex経路**：先に保存先の記事フォルダを選択→プロンプト準備→「🧠 Codexで画像生成」→Codex側で送信1回→生成後「📥 Codex画像をDriveへ保存」。初回だけワークスペースを選ぶと、PWAが`.article-meshi-codex`を一時受け渡し用に自動作成する（パス入力不要）。完成画像は取込と同時にジョブ開始時のGoogle Drive記事フォルダへ直接保存する（記事を途中で切り替えても保存先を変えない）。**Canvaは必須ではなく、ユーザーが必要と判断した場合のみ仕上げに使う**。ChatGPT/Gemini手動経路とクリップボード貼付/ドラッグ&ドロップも残す。この画像群が記事の「画像の土台」になる |
 | ⓪-b | 伝えたいこと＝記事の骨子・流れ（PROMPT.md） | PWAで「記事タイプ」＋「読者に伝えたいポイント（＝記事でポイントになること・話の流れ／優先度順）」を入力 → Driveの画像フォルダに `PROMPT.md` が自動生成される。これが**記事の骨子（伝えたいこと・流れ）の土台**になる |
 | ⓪-c | context.md化（執筆セッション） | `python3 blog/scripts/article_from_meshi.py --folder-id <Driveフォルダid> --slug <slug>` → PROMPT.md取得＋画像を役割タグ(eyecatch/hero/section/product/diagram/compare/ngsummary)で分類し `articles/{slug}_context.md` を生成。**Claudeはこの context.md を最初に読む** |
 | ① | 執筆 | context.md を基にmdを `blog/articles/` に作成。**記事めしメモは「種」、本文は深掘り**（MEMORY「記事めしメモは種」原則：各ポイントを仕組み/数値/理論/反論先回り/実体験で800〜1500字に展開）。前回記事スタイル踏襲・ROI table/キャラ対話/金額換算は必須 |
