@@ -6,6 +6,10 @@
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
+  "display_override": ["standalone"],
+  "launch_handler": {
+    "client_mode": "focus-existing"
+  },
   "background_color": "#bae6fd",
   "theme_color": "#7c3aed",
   "orientation": "portrait",

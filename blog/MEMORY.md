@@ -793,7 +793,7 @@ curl -s https://blog-capture.pages.dev/?t=$RANDOM | grep -c "新機能のキー�
 
 ## 📱 記事めしPWA：スマホのホーム画面へ追加（2026-08-03）
 - manifest・アプリアイコンに加え、上部の`⇩`から追加できる導線を実装。Androidはブラウザのインストール確認、iPhoneはSafariの「ホーム画面に追加」の操作案内を出す。
-- Service Workerは起動管理のみに限定し、Cloudflare Accessで保護した画面をオフラインキャッシュしない。認証方針を変えずに単独アプリ起動を実現。
+- ChromeでショートカットではなくPWAとして認識されるよう、Service Workerに静的画面のキャッシュ処理を追加。記事データ・Google Drive・認証を伴うAPI通信は対象外とし、認証方針を変えずに単独アプリ起動を実現。
 - 制約：スマホではカメラ・素材転送・ChatGPT/Gemini連携を利用。Codex画像編集はMacのCodexアプリとローカル一時フォルダを使うため、スマホ用導線には出さない。
 
 ---

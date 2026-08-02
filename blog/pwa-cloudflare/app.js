@@ -58,9 +58,9 @@
   }
   function openInstallGuide() {
     if (!installGuide || !installGuideText) return;
-    installGuideText.innerHTML = isIosDevice()
+    installGuideText.textContent = isIosDevice()
       ? 'Safariの共有ボタンから「ホーム画面に追加」を選び、右上の「追加」を押してください。'
-      : 'ブラウザのメニューから「アプリをインストール」または「ホーム画面に追加」を選んでください。';
+      : 'Chromeのメニューから「アプリをインストール」を選んでください。ショートカットではなく、単独アプリとして追加されます。';
     installGuide.hidden = false;
   }
   window.addEventListener('beforeinstallprompt', (event) => {
