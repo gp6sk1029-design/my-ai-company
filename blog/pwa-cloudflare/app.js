@@ -2449,6 +2449,7 @@
     }
     const engineLabel = getEngineLabel(pendingReplace.aiEngine);
     const isCanva = pendingReplace.aiEngine === 'canva';
+    const isCodex = pendingReplace.aiEngine === 'codex';
     const promptPreview = (pendingReplace.prompt || '').slice(0, 200);
     editingBanner.innerHTML =
       '<button type="button" id="banner-close-x" class="banner-close-x" title="バナーを閉じる（置換待機もキャンセル）" aria-label="閉じる">✕</button>' +
@@ -2461,7 +2462,12 @@
             '<span class="step-chip">②画像 <kbd>⌘V</kbd></span><span class="arrow">→</span>' +
             '<span class="step-chip">③テキスト等で装飾</span><span class="arrow">→</span>' +
             '<span class="step-chip submit-chip">④ダウンロード→取込</span>'
-          : (pendingReplace.needsPromptPaste
+          : (isCodex
+            ? '<strong>Codexで編集中：</strong> 指示書と元画像はCodexへ受け渡し済みです。<br>' +
+              '<span class="step-chip is-active">①Codexで編集</span><span class="arrow">→</span>' +
+              '<span class="step-chip">②生成を実行</span><span class="arrow">→</span>' +
+              '<span class="step-chip submit-chip">③Driveへ保存</span>'
+            : (pendingReplace.needsPromptPaste
             ? '<strong>編集中（プロジェクトURL）：</strong> プロンプトは2段階で貼付。<br>' +
               '<span class="step-chip is-active">①AIを開く</span><span class="arrow">→</span>' +
               '<span class="step-chip" data-clip-chip>②画像 <kbd>⌘V</kbd></span><span class="arrow">→</span>' +
@@ -2478,7 +2484,7 @@
               '<span class="step-chip is-active">①AIを開く</span><span class="arrow">→</span>' +
               '<span class="step-chip" data-clip-chip>②画像 <kbd>⌘V</kbd></span><span class="arrow">→</span>' +
               '<span class="step-chip">③送信</span><span class="arrow">→</span>' +
-              '<span class="step-chip submit-chip">④受取</span>'))) +
+              '<span class="step-chip submit-chip">④受取</span>')))) +
       '</div>' +
       // === ④受取の具体的な手順を強調表示 ===
       '<div class="banner-receive-guide">' +
@@ -2492,7 +2498,14 @@
             '<li>右上「共有」→「ダウンロード」で PNG/JPG 保存</li>' +
             '<li>このPWA に戻り <strong>「📥 完成画像を取込」</strong> または <strong>ドラッグ＆ドロップ</strong> → 自動置換</li>' +
             '</ol>'
-          : '<strong>📥 ④受取：AI画像が出たあと</strong>' +
+          : (isCodex
+            ? '<strong>🧠 Codex編集の受取</strong>' +
+              '<ol style="margin:6px 0 0; padding-left:20px; font-size:0.85em;">' +
+                '<li>Codexで画像の生成・編集を完了します</li>' +
+                '<li>このPWAに戻り、下の <strong>「📥 Codex画像をDriveへ保存」</strong> を押します</li>' +
+                '<li>→ 完成画像を選択中のGoogleドライブ記事フォルダへ直接保存します</li>' +
+              '</ol>'
+            : '<strong>📥 ④受取：AI画像が出たあと</strong>' +
             (isMobileDevice() && navigator.share
               ? '<ol style="margin:6px 0 0; padding-left:20px; font-size:0.85em;">' +
                 '<li>AI画像を<strong>長押し→画像を保存</strong>（または共有→このPWAを選択）</li>' +
@@ -2505,38 +2518,52 @@
                 '<li>このPWA画面に戻る（Cmd+Tab）</li>' +
                 '<li><kbd>⌘V</kbd> でペースト → 元画像が <strong>自動で置換</strong>されます</li>' +
                 '<li>または保存ファイルをこのPWA画面に <strong>ドラッグ＆ドロップ</strong></li>' +
-                '</ol>')) +
+                '</ol>'))) +
       '</div>' +
       // 直前再コピー（重要操作）を強調表示
-      '<div class="banner-prep-paste">' +
-        '<div class="prep-paste-title">📋 AIで <kbd>⌘V</kbd> する <strong>直前に</strong> 押してください</div>' +
-        '<div class="prep-paste-buttons">' +
-          '<button type="button" id="banner-copy-image" class="prep-btn prep-btn-image" title="クリップボードを画像に上書き">🖼 画像を再コピー</button>' +
-          '<button type="button" id="banner-copy-prompt" class="prep-btn prep-btn-prompt" title="クリップボードをプロンプトに上書き">📝 プロンプトをコピー</button>' +
-        '</div>' +
-        '<small class="prep-paste-hint">途中で別のスクショを取ると上書きされます。AIに貼付直前にこのボタンを押してください。</small>' +
-      '</div>' +
+      (isCodex ? '' : '<div class="banner-prep-paste">' +
+          '<div class="prep-paste-title">📋 AIで <kbd>⌘V</kbd> する <strong>直前に</strong> 押してください</div>' +
+          '<div class="prep-paste-buttons">' +
+            '<button type="button" id="banner-copy-image" class="prep-btn prep-btn-image" title="クリップボードを画像に上書き">🖼 画像を再コピー</button>' +
+            '<button type="button" id="banner-copy-prompt" class="prep-btn prep-btn-prompt" title="クリップボードをプロンプトに上書き">📝 プロンプトをコピー</button>' +
+          '</div>' +
+          '<small class="prep-paste-hint">途中で別のスクショを取ると上書きされます。AIに貼付直前にこのボタンを押してください。</small>' +
+        '</div>') +
       '<div class="editing-banner-actions">' +
-        (isMobileDevice() && navigator.share
-          ? `<button type="button" id="banner-share" class="banner-open-ai" title="画像＋プロンプトを共有">📤 ${engineLabel}アプリへ共有</button>`
-          : `<button type="button" id="banner-open-ai" class="banner-open-ai" title="${engineLabel} を開き直す">🚀 ${engineLabel} を開く</button>`) +
-        '<button type="button" id="banner-receive-file" title="設定フォルダから最新画像を自動取込（未設定なら標準ファイル選択）">📥 完成画像を取込</button>' +
-        '<button type="button" id="banner-set-folder" title="取込元フォルダ（Google Drive ダウンロード等）を設定">📁 取込元設定</button>' +
+        (isCodex
+          ? '<button type="button" id="banner-open-codex" class="banner-open-codex" title="最新の指示書と元画像でCodexを開き直す">🧠 Codexを開き直す</button>' +
+            '<button type="button" id="banner-import-codex" class="banner-open-codex" title="Codexが作成した完成画像をGoogleドライブの記事フォルダへ保存">📥 Codex画像をDriveへ保存</button>'
+          : (isMobileDevice() && navigator.share
+            ? `<button type="button" id="banner-share" class="banner-open-ai" title="画像＋プロンプトを共有">📤 ${engineLabel}アプリへ共有</button>`
+            : `<button type="button" id="banner-open-ai" class="banner-open-ai" title="${engineLabel} を開き直す">🚀 ${engineLabel} を開く</button>`) +
+            (!isCanva && !isMobileDevice() && supportsFSAccess()
+              ? '<button type="button" id="banner-open-codex" class="banner-open-codex" title="元画像と最新プロンプトをCodexへ渡して編集する">🧠 Codexで編集</button>'
+              : '') +
+            '<button type="button" id="banner-receive-file" title="設定フォルダから最新画像を自動取込（未設定なら標準ファイル選択）">📥 完成画像を取込</button>' +
+            '<button type="button" id="banner-set-folder" title="取込元フォルダ（Google Drive ダウンロード等）を設定">📁 取込元設定</button>') +
         '<button type="button" id="banner-cancel">置換キャンセル</button>' +
       '</div>' +
       '<div id="banner-folder-status" class="banner-folder-status"></div>' +
       // いま送られるプロンプトの要約（テンプレ名・タイトル・冒頭）— 上部での編集にライブ追従
       '<div id="banner-prompt-summary" class="banner-prompt-summary"></div>' +
       // 📝 プロンプトの編集場所は上部「プロンプト準備」に一本化（旧：バナー内エディタは廃止）
-      '<div class="banner-prompt-hint">📝 プロンプトを直したいときは、ページ上部の<strong>「プロンプト準備」</strong>欄で編集してください。' +
-      'ここの「📝 プロンプトをコピー」と「🚀 開く」には<strong>常に最新の内容が自動反映</strong>されます。</div>' +
+      '<div class="banner-prompt-hint">' +
+        (isCodex
+          ? '📝 プロンプトを直したいときは、ページ上部の<strong>「プロンプト準備」</strong>欄で編集してください。' +
+            '変更後に<strong>「🧠 Codexを開き直す」</strong>を押すと、最新の内容で新しい編集ジョブを作成します。'
+          : '📝 プロンプトを直したいときは、ページ上部の<strong>「プロンプト準備」</strong>欄で編集してください。' +
+            'ここの「📝 プロンプトをコピー」と「🚀 開く」には<strong>常に最新の内容が自動反映</strong>されます。') +
+      '</div>' +
       '</div>';
     editingBanner.style.display = 'block';
     // 取込元フォルダ名を非同期表示
     (async () => {
       const fs = document.getElementById('banner-folder-status');
       if (!fs) return;
-      if (!supportsFSAccess()) {
+      if (isCodex) {
+        fs.innerHTML = '🧠 Codexの完成画像は「📥 Codex画像をDriveへ保存」で選択中の記事フォルダへ直接保存します';
+        return;
+      } else if (!supportsFSAccess()) {
         fs.innerHTML = '⚠️ このブラウザはフォルダ自動取込に未対応（Chrome/Edge推奨）';
         return;
       }
@@ -2640,6 +2667,21 @@
           : `🚀 ${getEngineLabel(engine)}を開きました。プロンプトは自動入力済み（このブラウザは画像の自動コピー不可）`, 'success');
       };
     }
+    const btnOpenCodex = document.getElementById('banner-open-codex');
+    if (btnOpenCodex) {
+      btnOpenCodex.onclick = async () => {
+        if (!pendingReplace || !pendingReplace.originalItem) return;
+        btnOpenCodex.disabled = true;
+        try {
+          await startCodexImageJob(pendingReplace.originalItem);
+          if (pendingReplace && pendingReplace.aiEngine === 'codex') showEditingBanner();
+        } finally {
+          btnOpenCodex.disabled = false;
+        }
+      };
+    }
+    const btnImportCodex = document.getElementById('banner-import-codex');
+    if (btnImportCodex) btnImportCodex.onclick = () => importLatestCodexImage();
     const btnCopyImage = document.getElementById('banner-copy-image');
     const btnCopyPrompt = document.getElementById('banner-copy-prompt');
     if (btnCopyImage) {

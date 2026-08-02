@@ -37,6 +37,9 @@ tools/ec/data/mercari_chrome/
 *.tmp
 *.log
 
+# 記事めし→Codex画像編集の一時受け渡し（画像・指示書はコミットしない）
+.article-meshi-codex/
+
 # Git同期エラー通知用
 .claude/.push_failed
 .claude/.push_error
