@@ -2,7 +2,7 @@
  * Code.gs
  * ─────────────────────────────────────────────
  * blog-capture API（Cloudflare PWA から呼ばれるバックエンド）
- * - 認可は共有トークン方式（Config.gs の SHARED_TOKEN）
+ * - 認可は共有トークン方式（値はScript Propertiesで管理）
  * - CORS: x-www-form-urlencoded / GET でのみ呼ばれる前提（preflight不要）
  * - GAS Web App の access: ANYONE_ANONYMOUS
  */
@@ -723,7 +723,11 @@ function handleResumableUrl_(p) {
 
 // ─── トークン検証 ─────────────────────
 function verifyToken_(token) {
-  return token && token === CONFIG.SHARED_TOKEN;
+  if (!token) return false;
+  const properties = PropertiesService.getScriptProperties();
+  const workerToken = properties.getProperty(CONFIG.SHARED_TOKEN_PROPERTY);
+  const localToken = properties.getProperty(CONFIG.LOCAL_SHARED_TOKEN_PROPERTY);
+  return token === workerToken || token === localToken;
 }
 
 function jsonResponse_(obj) {

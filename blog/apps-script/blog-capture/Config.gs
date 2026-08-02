@@ -1,7 +1,7 @@
 /**
  * Config.gs
  * ─────────────────────────────────────────────
- * blog-capture の設定値（全て非秘匿な ID のため直接ハードコード）
+ * blog-capture の非秘匿設定値
  * bootstrap.py 実行後に値が埋まる仕組み。
  */
 
@@ -9,8 +9,9 @@ const CONFIG = {
   ROOT_FOLDER_ID: '1F6svjxNFWR9Ts1jVSNu8uxKTwK3T3mct',
   LOG_SPREADSHEET_ID: '1XLeYodNGRaNCSG7U3zhUpxYnGLIq6Mrivqzhcv-Bogo',
   ALLOWED_EMAIL: 'gp6sk1029@gmail.com',
-  // Cloudflare PWA から呼ぶ際の共有トークン（PWAコードと一致させる）
-  SHARED_TOKEN: 'NP99L5IGacCx9N8JO7V0769HOVckd-tF',
+  // 秘密値そのものはScript Propertiesへ保存する。
+  SHARED_TOKEN_PROPERTY: 'BLOG_CAPTURE_SHARED_TOKEN',
+  LOCAL_SHARED_TOKEN_PROPERTY: 'BLOG_CAPTURE_LOCAL_SHARED_TOKEN_V2',
   ARTICLE_PREFIX: '【記事】',
   SMALL_FILE_LIMIT_BYTES: 20 * 1024 * 1024,
   LOG_SHEET_NAME: '転送ログ',

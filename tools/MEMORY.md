@@ -36,16 +36,17 @@
 ## 💡 共通Tips
 
 ### Cloudflare Workers / Pages
-（運用開始後に追記）
+- 2026-08-02：静的PWAを安全にWorkerへ移すときは、`assets.run_worker_first:true`で全リクエストをWorkerへ通し、Cloudflare Accessに加えてWorker内でもJWTの署名・AUD・issuer・期限を検証する。`preview_urls:false`を明示する。assetsのルートに`.wrangler/`がある場合は`.assetsignore`へ必ず追加し、さらにWorker側でもドットファイル・`src/`・`wrangler.jsonc`を404にして二重防御する。
 
 ### D1データベース
 （運用開始後に追記）
 
 ### Cloudflare Access認証
-（運用開始後に追記）
+- 2026-08-02：Workersを保護対象にすると、`workers.dev`本番とPreview URLをAccessアプリへ直接関連付けられる。未認証curlが302でAccessログインへ転送されること、本人ログイン後に実データ取得まで通ることの両方を本番確認する。AUDタグは公開識別子であり、WorkerのJWT検証用環境変数として管理できる。
 
 ### 環境変数（Secrets）管理
-（運用開始後に追記）
+- 2026-08-02：ブラウザからGASを直接呼ぶ構成では共有トークンが必ず露出する。同一オリジンのWorkerプロキシへ変更し、WorkerがCloudflare Secretから認証値をGETクエリ/POST JSONへ上書き注入する。クライアントの`config.js`には相対URLだけを置く。
+- 2026-08-02：同じGASをローカルCLIからも使う場合、Worker用Secretを使い回さずローカル専用トークンをScript Propertiesへ分け、macOSではキーチェーンから読む。複数スクリプトは認証読込を共通モジュール化し、ブラウザ配信用`config.js`を秘密値の保管場所に戻さない。
 
 ---
 

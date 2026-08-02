@@ -1,0 +1,8 @@
+src
+src/**
+wrangler.jsonc
+.assetsignore
+README.md
+.wrangler
+.wrangler/**
+*.map

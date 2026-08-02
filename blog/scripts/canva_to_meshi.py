@@ -21,30 +21,17 @@ Canva Connect API の export-design で得た「書き出し済みPNGのURL」�
 import argparse
 import base64
 import json
-import re
 import sys
 import urllib.parse
 import urllib.request
 from datetime import datetime
-from pathlib import Path
 
-CONFIG_JS = Path(__file__).resolve().parents[1] / "pwa-cloudflare" / "config.js"
+from gas_config import load_gas_config
+
 VALID_ROLES = {
     "eyecatch", "hero", "section", "product",
     "diagram", "compare", "comparetable", "ngsummary",
 }
-
-
-def load_gas_config():
-    """config.js から GAS_URL と SHARED_TOKEN を読む（秘密情報は出力しない）。"""
-    if not CONFIG_JS.exists():
-        sys.exit(f"設定ファイルが見つかりません: {CONFIG_JS}")
-    text = CONFIG_JS.read_text(encoding="utf-8")
-    url = re.search(r"GAS_URL\s*:\s*['\"]([^'\"]+)['\"]", text)
-    token = re.search(r"SHARED_TOKEN\s*:\s*['\"]([^'\"]+)['\"]", text)
-    if not url or not token:
-        sys.exit("config.js から GAS_URL / SHARED_TOKEN を取得できませんでした")
-    return url.group(1), token.group(1)
 
 
 def gas_post(gas_url, params):

@@ -26,23 +26,7 @@ import urllib.parse
 from pathlib import Path
 from typing import Optional
 
-
-# ─── GAS 設定 ─────────────────────
-# blog/config.json から読み込み（PWA と同じ設定を流用）
-def load_gas_config() -> tuple[str, str]:
-    cfg_path = Path(__file__).resolve().parent.parent / 'pwa-cloudflare' / 'config.js'
-    if not cfg_path.exists():
-        # フォールバック: ハードコード（緊急時のみ）
-        return (
-            'https://script.google.com/macros/s/AKfycby9BSLfRFE_oxx3xi0wez1qD_crpTu6xc6gd5MI0OYa9dwycX2LuIoRD9NklcgOjTSm9g/exec',
-            'NP99L5IGacCx9N8JO7V0769HOVckd-tF',
-        )
-    text = cfg_path.read_text(encoding='utf-8')
-    gas_url_m = re.search(r"GAS_URL\s*:\s*'([^']+)'", text)
-    token_m = re.search(r"SHARED_TOKEN\s*:\s*'([^']+)'", text)
-    if not gas_url_m or not token_m:
-        raise RuntimeError('GAS_URL / SHARED_TOKEN を pwa-cloudflare/config.js から取得できませんでした')
-    return gas_url_m.group(1), token_m.group(1)
+from gas_config import load_gas_config
 
 
 GAS_URL, TOKEN = load_gas_config()

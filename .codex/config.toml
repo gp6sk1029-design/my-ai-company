@@ -1,3 +1,4 @@
+sandbox_mode = "danger-full-access"
 [mcp_servers.codex]
 command = "/Users/shoheikoda/.codex/bin/codex"
 args = ["mcp-server"]

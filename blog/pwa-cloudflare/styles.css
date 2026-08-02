@@ -1324,6 +1324,55 @@ body.is-dropping .drop-overlay { display: flex; }
   color: #fff;
 }
 .btn-primary:hover { filter: brightness(1.05); }
+.btn-codex {
+  background: linear-gradient(135deg, #111827, #334155);
+  color: #fff;
+  border: 2px solid #0f172a !important;
+}
+.btn-codex:hover { filter: brightness(1.15); }
+.codex-handoff-status {
+  margin: 4px 0 12px;
+  padding: 9px 11px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #f8fafc;
+  color: #475569;
+  font-size: 12.5px;
+}
+.codex-handoff-status a {
+  display: inline-block;
+  margin-left: 5px;
+  color: #1d4ed8;
+  font-weight: 700;
+}
+
+.ai-conn-block-codex {
+  border-color: #94a3b8;
+  background: #f8fafc;
+}
+.ai-conn-block-codex input {
+  width: 100%;
+  box-sizing: border-box;
+  margin-bottom: 8px;
+  padding: 9px 10px;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 7px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+}
+.ai-conn-field-label {
+  display: block;
+  margin: 7px 0 4px;
+  color: #334155;
+  font-size: 12px;
+  font-weight: 700;
+}
+.ai-conn-codex-hint {
+  display: block;
+  margin-top: 7px;
+  color: #475569;
+  line-height: 1.55;
+}
 
 .ai-helper-tip {
   margin: 12px 0 0;
@@ -1493,6 +1542,11 @@ body.is-dropping .drop-overlay { display: flex; }
   bottom: 6px;
   left: 74px;
   background: linear-gradient(135deg, #7c3aed, #4338ca);
+}
+.ai-edit-btn[data-action="ai-codex"] {
+  bottom: 6px;
+  left: 108px;
+  background: linear-gradient(135deg, #111827, #334155);
 }
 /* 画像役割サイクルボタン（右下） */
 .role-btn {

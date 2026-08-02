@@ -1,0 +1,18 @@
+{
+  "$schema": "https://raw.githubusercontent.com/cloudflare/workers-sdk/main/packages/wrangler/config-schema.json",
+  "name": "blog-capture-secure",
+  "main": "src/worker.js",
+  "compatibility_date": "2026-08-02",
+  "workers_dev": true,
+  "preview_urls": false,
+  "assets": {
+    "directory": ".",
+    "binding": "ASSETS",
+    "run_worker_first": true
+  },
+  "vars": {
+    "GAS_URL": "https://script.google.com/macros/s/AKfycby9BSLfRFE_oxx3xi0wez1qD_crpTu6xc6gd5MI0OYa9dwycX2LuIoRD9NklcgOjTSm9g/exec",
+    "ACCESS_TEAM_DOMAIN": "bold-dew-ee41.cloudflareaccess.com",
+    "ACCESS_AUD": "33d2f7770e1909904edd4bfd9fb519fbf45de5fd42cd156eaed13a3909cbdbfa"
+  }
+}

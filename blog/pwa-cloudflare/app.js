@@ -2,7 +2,8 @@
 (() => {
   const CFG = window.BLOG_CAPTURE_CONFIG;
   const GAS_URL = CFG.GAS_URL;
-  const TOKEN = CFG.SHARED_TOKEN;
+  // 認証トークンはWorker側で付与する。ブラウザには渡さない。
+  const TOKEN = '';
   const SMALL_FILE_LIMIT = CFG.SMALL_FILE_LIMIT || 20 * 1024 * 1024;
   const CHUNK_SIZE = 8 * 1024 * 1024;
 
@@ -300,6 +301,7 @@
     await queuePut(record);
     await renderQueue();
     showToast('追加（' + prettySize(blob.size) + '）', 'success');
+    return id;
   }
   let issuedObjectURLs = [];   // 🛡 リーク防止：発行済みObjectURLを再描画ごとに一括解放
   let isUploading = false;     // 🛡 転送中はキュー操作（削除・役割変更・編集）をロック
@@ -336,11 +338,12 @@
       const editBtnHtml = (isVideo || isPdf) ? '' :
         '<button class="ai-edit-btn" type="button" title="ChatGPTで編集" data-action="ai-gpt">🤖</button>' +
         '<button class="ai-edit-btn ai-edit-gemini" type="button" title="Geminiで編集" data-action="ai-gem">🍌</button>' +
-        '<button class="ai-edit-btn ai-edit-canva" type="button" title="Canvaで仕上げ" data-action="ai-canva">🎨</button>';
+        '<button class="ai-edit-btn ai-edit-canva" type="button" title="Canvaで仕上げ（必要な場合のみ）" data-action="ai-canva">🎨</button>' +
+        '<button class="ai-edit-btn" type="button" title="Codexで生成・編集" data-action="ai-codex">🧠</button>';
       // 📦 別の記事へコピー/移動（動画・PDFでも使えるので常に表示）
       const transferBtnHtml =
         '<button class="ai-edit-btn" type="button" title="別の記事へコピー/移動" data-action="transfer" ' +
-        'style="bottom:6px;left:' + ((isVideo || isPdf) ? 6 : 108) + 'px;background:linear-gradient(135deg,#64748b,#475569);">📦</button>';
+        'style="bottom:6px;left:' + ((isVideo || isPdf) ? 6 : 142) + 'px;background:linear-gradient(135deg,#64748b,#475569);">📦</button>';
       const curRoleKey = (item.role || (item.isEyecatch ? 'eyecatch' : 'none'));
       const roleDef = getRoleDef(curRoleKey);
       const roleBtnHtml = (isVideo || isPdf) ? '' :
@@ -387,10 +390,16 @@
       const gptBtn = div.querySelector('[data-action="ai-gpt"]');
       const gemBtn = div.querySelector('[data-action="ai-gem"]');
       const canvaBtn = div.querySelector('[data-action="ai-canva"]');
+      const codexBtn = div.querySelector('[data-action="ai-codex"]');
       const roleBtn = div.querySelector('[data-action="cycle-role"]');
       if (gptBtn) gptBtn.addEventListener('click', async (e) => { e.stopPropagation(); await confirmThenEdit(item, 'chatgpt'); });
       if (gemBtn) gemBtn.addEventListener('click', async (e) => { e.stopPropagation(); await confirmThenEdit(item, 'gemini'); });
       if (canvaBtn) canvaBtn.addEventListener('click', async (e) => { e.stopPropagation(); await confirmThenEdit(item, 'canva'); });
+      if (codexBtn) codexBtn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        await window.openAIHelperWithImage(item);
+        await startCodexImageJob(item);
+      });
       if (roleBtn) roleBtn.addEventListener('click', async (e) => {
         e.stopPropagation();
         await openRolePickerForItem(item.id);
@@ -523,6 +532,9 @@
   // ─── AI 接続先設定（プロジェクト／Gem URL を localStorage に保存） ────────
   const CONN_KEY_GPT = 'pwa-meshi-conn-chatgpt';
   const CONN_KEY_GEM = 'pwa-meshi-conn-gemini';
+  const CONN_KEY_CODEX_WORKSPACE = 'pwa-meshi-conn-codex-workspace';
+  const CONN_KEY_CODEX_OUTPUT = 'pwa-meshi-conn-codex-output';
+  const CODEX_PENDING_KEY = 'pwa-meshi-codex-pending-job';
   const DEFAULT_GPT_URL = 'https://chatgpt.com/?model=gpt-4o';
   const DEFAULT_GEM_URL = 'https://gemini.google.com/app';
 
@@ -531,6 +543,32 @@
   }
   function getGeminiUrl() {
     return (localStorage.getItem(CONN_KEY_GEM) || '').trim() || DEFAULT_GEM_URL;
+  }
+
+  function isAbsoluteLocalPath(value) {
+    const v = String(value || '').trim();
+    return /^\//.test(v) || /^[A-Za-z]:[\\/]/.test(v) || /^\\\\/.test(v);
+  }
+
+  function joinLocalPath(base, name) {
+    const b = String(base || '').replace(/[\\/]+$/, '');
+    const sep = /^[A-Za-z]:[\\/]/.test(b) || /^\\\\/.test(b) ? '\\' : '/';
+    return b + sep + name;
+  }
+
+  function compactTimestamp(date = new Date()) {
+    const p = (n) => String(n).padStart(2, '0');
+    return `${date.getFullYear()}${p(date.getMonth() + 1)}${p(date.getDate())}_${p(date.getHours())}${p(date.getMinutes())}${p(date.getSeconds())}`;
+  }
+
+  function safeFilePart(value, fallback = 'image') {
+    const cleaned = String(value || '')
+      .normalize('NFKC')
+      .replace(/[\\/:*?"<>|\u0000-\u001f]/g, '_')
+      .replace(/\s+/g, '-')
+      .replace(/^[._-]+|[._-]+$/g, '')
+      .slice(0, 48);
+    return cleaned || fallback;
   }
 
   // プロンプトを URL クエリに埋め込んで AI 起動 URL を構築
@@ -619,6 +657,7 @@
 
   // Engine ラベル取得（バナー表示用）
   function getEngineLabel(engine) {
+    if (engine === 'codex')  return '🧠 Codex';
     if (engine === 'gemini') return '🍌 Gemini';
     if (engine === 'canva')  return '🎨 Canva';
     return '🤖 ChatGPT';
@@ -653,7 +692,10 @@
     if (!bar || !engines) return;
     const gpt = localStorage.getItem(CONN_KEY_GPT) || '';
     const gem = localStorage.getItem(CONN_KEY_GEM) || '';
+    const codexWorkspace = localStorage.getItem(CONN_KEY_CODEX_WORKSPACE) || '';
+    const codexOutput = localStorage.getItem(CONN_KEY_CODEX_OUTPUT) || '';
     const parts = [];
+    if (codexWorkspace && codexOutput) parts.push('<span class="ai-conn-bar-engine"><span class="ai-conn-bar-icon">🧠</span> Codex</span>');
     if (gpt) parts.push(`<span class="ai-conn-bar-engine"><span class="ai-conn-bar-icon">🤖</span> ${extractProjectLabel(gpt,'chatgpt')}</span>`);
     if (gem) parts.push(`<span class="ai-conn-bar-engine ai-conn-bar-gem"><span class="ai-conn-bar-icon">🍌</span> ${extractProjectLabel(gem,'gemini')}</span>`);
     if (parts.length === 0) {
@@ -673,16 +715,33 @@
   setTimeout(() => {
     const inpGpt = document.getElementById('ai-conn-chatgpt');
     const inpGem = document.getElementById('ai-conn-gemini');
+    const inpCodexWorkspace = document.getElementById('ai-conn-codex-workspace');
+    const inpCodexOutput = document.getElementById('ai-conn-codex-output');
+    const btnPickCodexFolder = document.getElementById('btn-conn-pick-codex-folder');
     const btnSave = document.getElementById('btn-conn-save');
     const btnReset = document.getElementById('btn-conn-reset');
     const btnPasteGpt = document.getElementById('btn-conn-paste-gpt');
     const btnPasteGem = document.getElementById('btn-conn-paste-gem');
     const btnOpenChatGPTFind = document.getElementById('btn-conn-open-chatgpt-find');
     const btnOpenGeminiFind = document.getElementById('btn-conn-open-gemini-find');
-    if (!inpGpt || !inpGem) return;
+    if (!inpGpt || !inpGem || !inpCodexWorkspace || !inpCodexOutput) return;
     inpGpt.value = localStorage.getItem(CONN_KEY_GPT) || '';
     inpGem.value = localStorage.getItem(CONN_KEY_GEM) || '';
+    inpCodexWorkspace.value = localStorage.getItem(CONN_KEY_CODEX_WORKSPACE) || '';
+    inpCodexOutput.value = localStorage.getItem(CONN_KEY_CODEX_OUTPUT) || '';
     updateConnBar();
+
+    if (btnPickCodexFolder) btnPickCodexFolder.addEventListener('click', async () => {
+      const handle = await chooseDownloadFolder('readwrite');
+      if (!handle) return;
+      const configured = inpCodexOutput.value.trim().replace(/[\\/]+$/, '');
+      const leaf = configured.split(/[\\/]/).pop();
+      if (configured && leaf !== handle.name) {
+        showToast(`選択した「${handle.name}」と絶対パス末尾「${leaf}」が一致しません`, 'warn');
+      } else {
+        showToast(`「${handle.name}」をCodex画像の一時受け渡しフォルダに設定しました`, 'success');
+      }
+    });
 
     // 📋 クリップボードから貼付（ChatGPT）
     if (btnPasteGpt) btnPasteGpt.addEventListener('click', async () => {
@@ -730,16 +789,24 @@
     if (btnSave) btnSave.addEventListener('click', () => {
       const v1 = inpGpt.value.trim();
       const v2 = inpGem.value.trim();
+      const codexWorkspace = inpCodexWorkspace.value.trim().replace(/[\\/]+$/, '');
+      const codexOutput = inpCodexOutput.value.trim().replace(/[\\/]+$/, '');
       if (v1 && !isValidChatGPTUrl(v1)) {
         showToast('ChatGPT URL の形式が不正です（chatgpt.com / chat.openai.com 必須）', 'error'); return;
       }
       if (v2 && !isValidGeminiUrl(v2)) {
         showToast('Gemini URL の形式が不正です（gemini.google.com 必須）', 'error'); return;
       }
+      if ((codexWorkspace || codexOutput) && (!isAbsoluteLocalPath(codexWorkspace) || !isAbsoluteLocalPath(codexOutput))) {
+        showToast('Codexの2つのパスは、/ から始まる絶対パスで入力してください', 'error'); return;
+      }
       localStorage.setItem(CONN_KEY_GPT, v1);
       localStorage.setItem(CONN_KEY_GEM, v2);
+      localStorage.setItem(CONN_KEY_CODEX_WORKSPACE, codexWorkspace);
+      localStorage.setItem(CONN_KEY_CODEX_OUTPUT, codexOutput);
       updateConnBar();
-      const msg = (v1 ? '🤖 ChatGPT' : '') + (v1 && v2 ? ' + ' : '') + (v2 ? '🍌 Gemini' : '') + ' に接続設定完了';
+      const configured = [codexWorkspace && codexOutput ? '🧠 Codex' : '', v1 ? '🤖 ChatGPT' : '', v2 ? '🍌 Gemini' : ''].filter(Boolean);
+      const msg = configured.join(' + ') + ' に接続設定完了';
       showToast(msg || '設定をクリア', 'success');
       navigator.vibrate && navigator.vibrate(20);
     });
@@ -748,8 +815,12 @@
     if (btnReset) btnReset.addEventListener('click', () => {
       localStorage.removeItem(CONN_KEY_GPT);
       localStorage.removeItem(CONN_KEY_GEM);
+      localStorage.removeItem(CONN_KEY_CODEX_WORKSPACE);
+      localStorage.removeItem(CONN_KEY_CODEX_OUTPUT);
       inpGpt.value = '';
       inpGem.value = '';
+      inpCodexWorkspace.value = '';
+      inpCodexOutput.value = '';
       updateConnBar();
       showToast('デフォルトに戻しました', 'success');
     });
@@ -797,13 +868,13 @@
   }
 
   // 保存済みのフォルダハンドルを取得（権限がなければ再要求）
-  async function getSavedFolderHandle() {
+  async function getSavedFolderHandle(mode = 'read') {
     if (!supportsFSAccess()) return null;
     try {
       const handle = await settingsGet(FOLDER_KEY);
       if (!handle) return null;
       // 権限確認
-      const opts = { mode: 'read' };
+      const opts = { mode };
       let perm = await handle.queryPermission(opts);
       if (perm === 'prompt') perm = await handle.requestPermission(opts);
       if (perm !== 'granted') return null;
@@ -815,13 +886,13 @@
   }
 
   // ユーザーにフォルダを選んでもらい IDB に保存
-  async function chooseDownloadFolder() {
+  async function chooseDownloadFolder(mode = 'read') {
     if (!supportsFSAccess()) {
       showToast('このブラウザはフォルダ選択非対応（Chrome/Edge で開いてください）', 'warn');
       return null;
     }
     try {
-      const handle = await window.showDirectoryPicker({ mode: 'read', startIn: 'downloads' });
+      const handle = await window.showDirectoryPicker({ mode, startIn: 'downloads' });
       await settingsPut(FOLDER_KEY, handle);
       showToast(`📁 取込元フォルダを「${handle.name}」に設定しました`, 'success');
       return handle;
@@ -835,12 +906,13 @@
   // フォルダ内で「最新の画像ファイル」を取得
   //   sinceMs: この時刻以降に更新されたファイルのみ対象（編集開始時刻を渡す → 古いゴミを拾わない）
   //   excludeKey: 直前に取り込んだファイルのキー（name+lastModified）を渡せばそれは除外
-  async function pickLatestImageFromFolder(dirHandle, sinceMs = 0, excludeKey = '') {
+  async function pickLatestImageFromFolder(dirHandle, sinceMs = 0, excludeKey = '', excludeNameRe = null) {
     const IMG_EXT = /\.(png|jpe?g|webp|gif|heic|heif|avif)$/i;
     const all = [];
     for await (const [name, entry] of dirHandle.entries()) {
       if (entry.kind !== 'file') continue;
       if (!IMG_EXT.test(name)) continue;
+      if (excludeNameRe && excludeNameRe.test(name)) continue;
       try {
         const f = await entry.getFile();
         const key = `${name}|${f.lastModified}`;
@@ -2773,6 +2845,378 @@
   const aiPrompt = $('ai-prompt');
   const btnAiCopy = $('btn-ai-copy');
   const btnAiOpen = $('btn-ai-open');
+  const btnAiOpenCodex = $('btn-ai-open-codex');
+  const btnAiImportCodex = $('btn-ai-import-codex');
+
+  async function writeFileToDirectory(dirHandle, fileName, data) {
+    const fileHandle = await dirHandle.getFileHandle(fileName, { create: true });
+    const writable = await fileHandle.createWritable();
+    try {
+      await writable.write(data);
+    } finally {
+      await writable.close();
+    }
+  }
+
+  function openCodexSettingsForSetup(message) {
+    const details = document.getElementById('ai-conn-settings');
+    if (details) {
+      details.open = true;
+      details.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+    showToast(message || '先に「AI 接続先設定」でCodexの作業場所と一時受け渡しフォルダを保存してください', 'warn');
+  }
+
+  function loadCodexPendingJob() {
+    try { return JSON.parse(localStorage.getItem(CODEX_PENDING_KEY) || 'null'); }
+    catch (_) { return null; }
+  }
+
+  async function resizeImageBlobToMax(blob, maxPx = 1800) {
+    const img = new Image();
+    const url = URL.createObjectURL(blob);
+    try {
+      img.src = url;
+      await new Promise((res, rej) => { img.onload = res; img.onerror = rej; });
+      const longest = Math.max(img.naturalWidth, img.naturalHeight);
+      if (!longest || longest <= maxPx) return blob;
+      const scale = maxPx / longest;
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.max(1, Math.round(img.naturalWidth * scale));
+      canvas.height = Math.max(1, Math.round(img.naturalHeight * scale));
+      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+      return (await new Promise((res) => canvas.toBlob(res, 'image/png'))) || blob;
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+  }
+
+  async function startCodexImageJob(sourceItem = null) {
+    const promptText = (aiPrompt && aiPrompt.value || '').trim();
+    if (!promptText) {
+      showToast('プロンプトが空です。テンプレートと内容を入力してください', 'error');
+      return;
+    }
+
+    const workspacePath = (localStorage.getItem(CONN_KEY_CODEX_WORKSPACE) || '').trim().replace(/[\\/]+$/, '');
+    const outputDirPath = (localStorage.getItem(CONN_KEY_CODEX_OUTPUT) || '').trim().replace(/[\\/]+$/, '');
+    if (!isAbsoluteLocalPath(workspacePath) || !isAbsoluteLocalPath(outputDirPath)) {
+      openCodexSettingsForSetup('初回設定が必要です。Codexワークスペースと一時受け渡しフォルダを入力して保存してください');
+      return;
+    }
+
+    const articleFolderId = getSelectedArticleFolderId();
+    if (!articleFolderId) {
+      showToast('先に完成画像の保存先となるGoogleドライブの記事フォルダを選択してください', 'warn');
+      return;
+    }
+
+    let dirHandle = await getSavedFolderHandle('readwrite');
+    if (!dirHandle) dirHandle = await chooseDownloadFolder('readwrite');
+    if (!dirHandle) return;
+    const configuredLeaf = outputDirPath.split(/[\\/]/).pop();
+    if (configuredLeaf !== dirHandle.name) {
+      openCodexSettingsForSetup(`絶対パス末尾「${configuredLeaf}」と選択フォルダ「${dirHandle.name}」が一致しません`);
+      return;
+    }
+
+    const now = new Date();
+    const stamp = compactTimestamp(now);
+    const templateKey = (aiTemplateSelect && aiTemplateSelect.value) || 'custom';
+    const role = TEMPLATE_TO_ROLE[templateKey] || 'none';
+    const rolePrefix = role === 'none' ? 'image' : role;
+    const articleTitle = (typeof getCurrentArticleName === 'function' && getCurrentArticleName())
+      || getSelectedArticleTitle() || '記事';
+    const outputFileName = `${rolePrefix}_${safeFilePart(articleTitle)}_${stamp}.png`;
+    const outputPath = joinLocalPath(outputDirPath, outputFileName);
+    let sourceFileName = '';
+    let sourceImagePath = '';
+
+    const editTarget = sourceItem || currentEditTarget;
+    if (editTarget && editTarget.blob) {
+      sourceFileName = `_codex_source_${safeFilePart(articleTitle)}_${stamp}.png`;
+      sourceImagePath = joinLocalPath(outputDirPath, sourceFileName);
+      const pngBlob = await blobToPngBlob(editTarget.blob);
+      await writeFileToDirectory(dirHandle, sourceFileName, pngBlob);
+    }
+
+    const jobFileName = `meshi_codex_job_${stamp}.json`;
+    const jobPath = joinLocalPath(outputDirPath, jobFileName);
+    const job = {
+      schemaVersion: 1,
+      createdAt: now.toISOString(),
+      articleTitle,
+      articleFolderId,
+      templateKey,
+      role,
+      mode: sourceImagePath ? 'edit' : 'generate',
+      prompt: promptText,
+      sourceImagePath,
+      outputPath,
+      outputFileName,
+      maxEdgePx: 1800,
+      canvaPolicy: 'Canvaは必須ではない。ユーザーが必要と判断した場合だけ使用する',
+    };
+    await writeFileToDirectory(dirHandle, jobFileName, new Blob([JSON.stringify(job, null, 2)], { type: 'application/json' }));
+
+    const pending = {
+      createdAt: Date.now(),
+      jobPath,
+      outputPath,
+      outputFileName,
+      sourceFileName,
+      replaceOriginalId: editTarget && editTarget.id != null ? editTarget.id : '',
+      templateKey,
+      role,
+      articleTitle,
+      articleFolderId,
+    };
+    localStorage.setItem(CODEX_PENDING_KEY, JSON.stringify(pending));
+
+    if (pending.replaceOriginalId) {
+      const all = await queueAll();
+      const latest = all.find((x) => String(x.id) === String(pending.replaceOriginalId));
+      if (latest) {
+        pendingReplace = {
+          originalId: latest.id,
+          originalItem: latest,
+          aiEngine: 'codex',
+          prompt: promptText,
+          startedAt: pending.createdAt,
+        };
+        await queueUpdate(latest.id, (x) => { x.editingWith = 'codex'; });
+        await renderQueue();
+      }
+    }
+
+    const handoffPrompt = [
+      '$imagegen',
+      '記事めしから渡された画像生成ジョブを処理してください。',
+      `ジョブファイル: ${jobPath}`,
+      '',
+      '1. JSONを読み、mode=generateなら新規生成、mode=editならsourceImagePathをview_imageで確認して編集する。',
+      '2. built-in image_genを使い、promptの要件と既存のプロジェクトルールに従う。',
+      '3. 完成画像をJSONのoutputPathへPNGでコピーし、既存ファイルを上書きしない。',
+      '4. 長辺がmaxEdgePxを超える場合はblog/scripts/image_resizer.pyで縮小する。',
+      '5. Canvaは自動で開かず、ユーザーが必要と判断した場合だけ提案する。',
+      '6. 完了時に画像を表示し、保存先を報告する。',
+      '',
+      '不足がなければ確認質問なしで実行してください。',
+    ].join('\n');
+    const qs = new URLSearchParams({ prompt: handoffPrompt, path: workspacePath });
+    const deepLink = 'codex://new?' + qs.toString();
+    const fallbackBox = document.getElementById('codex-handoff-status');
+    const fallbackLink = document.getElementById('codex-handoff-link');
+    if (fallbackLink) fallbackLink.href = deepLink;
+    if (fallbackBox) fallbackBox.hidden = false;
+    const link = document.createElement('a');
+    link.href = deepLink;
+    link.style.display = 'none';
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    showToast('🧠 Codexを開きました。送信後、完成したら「📥 Codex画像をDriveへ保存」を押してください', 'success');
+  }
+
+  async function recordCodexRoleInPrompt(pending, uploadResult) {
+    const role = pending.role || 'none';
+    const folderId = pending.articleFolderId || '';
+    if (role === 'none' || !folderId || !uploadResult || !uploadResult.fileName) return;
+    const def = getRoleDef(role);
+    if (!def || def.key === 'none') return;
+
+    // Drive側の最新PROMPT.mdを先に読み、ユーザーメモを消さずに画像役割だけ追記する。
+    try { await loadExistingPrompt(folderId, { silent: true }); } catch (_) {}
+    const fid = uploadResult.fileId ? ` (fileId: ${uploadResult.fileId})` : '';
+    const note = `${def.label}: ${uploadResult.fileName}${fid}`;
+    memos = memos.filter((m) => {
+      if (!ROLE_NOTE_RE.test(m)) return true;
+      if (uploadResult.fileId && m.includes(uploadResult.fileId)) return false;
+      if (m.includes(uploadResult.fileName)) return false;
+      if (def.unique && m.indexOf(def.label) === 0) return false;
+      return true;
+    });
+    memos = [note, ...memos];
+    persistMemoState();
+    renderMemos();
+    await savePromptToDrive('', folderId);
+    if (uploadResult.fileId && pending.templateKey) {
+      try { efTplSet(uploadResult.fileId, pending.templateKey); } catch (_) {}
+    }
+  }
+
+  async function saveCodexQueueItemToDrive(item, pending) {
+    const folderId = pending.articleFolderId || '';
+    if (!item || !folderId) return false;
+    const role = normalizeItemRole(item);
+    const def = getRoleDef(role);
+
+    return !!(await withServerLock('Codex画像をGoogleドライブの記事フォルダへ保存中…', async () => {
+      // 1記事1枚の役割が既にある場合は、従来の「すべて転送」と同じく上書きか新規保存を選べる。
+      if (!item.replaceDriveFileId && def && def.unique && def.prefix) {
+        try {
+          const listUrl = GAS_URL + '?' + new URLSearchParams({
+            token: TOKEN, action: 'listArticleFiles', articleFolderId: folderId,
+          }).toString();
+          const listRes = await fetch(listUrl).then((r) => r.json());
+          const existing = listRes.ok && Array.isArray(listRes.files)
+            ? listRes.files.filter((f) => new RegExp('^' + def.prefix, 'i').test(f.name || ''))
+              .sort((a, b) => (b.modifiedTime || '').localeCompare(a.modifiedTime || ''))[0]
+            : null;
+          if (existing) {
+            const overwrite = window.confirm(
+              `${def.emoji} ${def.label}は記事フォルダに既にあります。\n\n` +
+              `[OK] 既存画像を上書き\n[キャンセル] 元画像を残して新規保存`
+            );
+            if (overwrite) {
+              item.replaceDriveFileId = existing.id;
+              await queuePut(item);
+            } else {
+              const demoted = await gasRenameFile(existing.id, stripRolePrefix(existing.name), folderId);
+              if (demoted) {
+                try { updateRoleLineForFile(existing, demoted.fileName, ''); } catch (_) {}
+                try { efTplSet(existing.id, ''); } catch (_) {}
+              }
+            }
+          }
+        } catch (e) {
+          console.warn('Codex画像の役割重複確認に失敗:', e);
+        }
+      }
+
+      const result = await uploadSmall(item, '', folderId);
+      if (!result || !result.ok || !['success', 'skipped'].includes(result.result)) {
+        showToast('Googleドライブへの保存に失敗しました: ' + ((result && result.message) || ''), 'error');
+        return false;
+      }
+      await queueDelete(item.id);
+      if (result.result === 'success') await recordCodexRoleInPrompt(pending, result);
+      await loadExistingFiles(folderId);
+      await renderQueue();
+      return true;
+    }));
+  }
+
+  async function importLatestCodexImage() {
+    const pending = loadCodexPendingJob();
+    if (!pending) {
+      showToast('取込待ちのCodex画像ジョブがありません', 'warn');
+      return;
+    }
+    const handle = await getSavedFolderHandle('read');
+    if (!handle) {
+      openCodexSettingsForSetup('Codex画像の一時受け渡しフォルダを選び直してください');
+      return;
+    }
+
+    const destinationFolderId = pending.articleFolderId || getSelectedArticleFolderId();
+    if (!destinationFolderId) {
+      showToast('保存先のGoogleドライブ記事フォルダが見つかりません。記事を選び直してください', 'error');
+      return;
+    }
+    pending.articleFolderId = destinationFolderId;
+    if (getSelectedArticleFolderId() !== destinationFolderId) {
+      await alignSelectionToFolder(destinationFolderId);
+    }
+
+    let result = null;
+    try {
+      const exactHandle = await handle.getFileHandle(pending.outputFileName);
+      const exactFile = await exactHandle.getFile();
+      result = { file: exactFile, key: `${exactFile.name}|${exactFile.lastModified}`, name: exactFile.name };
+    } catch (_) {}
+    if (!result) {
+      result = await pickLatestImageFromFolder(handle, (pending.createdAt || 0) - 30000, '', /^_codex_source_/i);
+    }
+    if (!result) {
+      showToast(`「${handle.name}」に完成画像がまだありません。Codexの生成完了後にもう一度押してください`, 'warn');
+      return;
+    }
+
+    const resized = await resizeImageBlobToMax(result.file, 1800);
+    const ext = 'png';
+    let ok = false;
+    let savedToDrive = false;
+    if (pending.replaceOriginalId) {
+      const beforeItems = await queueAllRaw();
+      const beforeIds = new Set(beforeItems.map((x) => String(x.id)));
+      const all = await queueAll();
+      const latest = all.find((x) => String(x.id) === String(pending.replaceOriginalId));
+      pendingReplace = {
+        originalId: latest ? latest.id : pending.replaceOriginalId,
+        originalItem: latest || null,
+        aiEngine: 'codex',
+        startedAt: pending.createdAt || Date.now(),
+      };
+      ok = await tryReplaceWithEditedImage(resized, 'image/png', ext);
+      if (ok) {
+        const afterItems = await queueAllRaw();
+        const remaining = afterItems.find((x) => String(x.id) === String(pending.replaceOriginalId));
+        const fallbackAdded = afterItems.find((x) => !beforeIds.has(String(x.id)));
+        if (!remaining) {
+          if (fallbackAdded) {
+            // 編集開始後に元画像が削除された場合は、新規追加された編集結果を記事フォルダへ保存する。
+            fallbackAdded.originalName = pending.outputFileName;
+            fallbackAdded.role = pending.role || 'none';
+            fallbackAdded.templateKey = pending.templateKey || '';
+            await queuePut(fallbackAdded);
+            savedToDrive = await saveCodexQueueItemToDrive(fallbackAdded, pending);
+            ok = savedToDrive;
+          } else {
+            // Drive既存画像の編集は tryReplaceWithEditedImage 内で保存まで完了している。
+            savedToDrive = true;
+          }
+        } else if (!remaining.replaceDriveFileId) {
+          // 一時保存画像の編集結果も、そのままこの記事のDriveフォルダへ保存する。
+          savedToDrive = await saveCodexQueueItemToDrive(remaining, pending);
+          ok = savedToDrive;
+        }
+      }
+    } else {
+      const id = await addToQueue(resized, 'image/png', ext);
+      if (pending.role && pending.role !== 'none') {
+        const def = ROLE_DEFS.find((x) => x.key === pending.role);
+        if (def && def.unique) {
+          const all = await queueAll();
+          for (const item of all) {
+            if (String(item.id) !== String(id) && normalizeItemRole(item) === pending.role) {
+              await queueUpdate(item.id, (x) => { x.role = 'none'; x.isEyecatch = false; });
+            }
+          }
+        }
+      }
+      await queueUpdate(id, (item) => {
+        item.originalName = pending.outputFileName;
+        item.role = pending.role || 'none';
+        item.isEyecatch = item.role === 'eyecatch';
+        item.templateKey = pending.templateKey || '';
+        item.editedWith = 'codex';
+      });
+      await renderQueue();
+      const added = (await queueAllRaw()).find((x) => String(x.id) === String(id));
+      savedToDrive = await saveCodexQueueItemToDrive(added, pending);
+      ok = savedToDrive;
+    }
+    if (!ok) {
+      showToast('Codex画像の取込に失敗しました', 'error');
+      return;
+    }
+    localStorage.removeItem(CODEX_PENDING_KEY);
+    const fallbackBox = document.getElementById('codex-handoff-status');
+    if (fallbackBox) fallbackBox.hidden = true;
+    currentEditTarget = null;
+    if (aiSourceImg && aiSourceImg.src && aiSourceImg.src.startsWith('blob:')) {
+      try { URL.revokeObjectURL(aiSourceImg.src); } catch (_) {}
+    }
+    if (aiSourceImg) aiSourceImg.src = '';
+    if (aiSourceImageBox) aiSourceImageBox.hidden = true;
+    showToast(savedToDrive
+      ? `✅ Codex画像「${result.name}」をGoogleドライブの記事フォルダへ保存しました`
+      : `✅ Codex画像「${result.name}」を一時保存へ取り込みました`, 'success');
+  }
+
+  if (btnAiOpenCodex) btnAiOpenCodex.addEventListener('click', () => startCodexImageJob());
+  if (btnAiImportCodex) btnAiImportCodex.addEventListener('click', () => importLatestCodexImage());
 
   // ─── テンプレごとの入力欄ラベル＆プレースホルダー定義 ─────────
   // テンプレを切り替えると4つの変数欄が「そのテンプレに最適な質問」に変化

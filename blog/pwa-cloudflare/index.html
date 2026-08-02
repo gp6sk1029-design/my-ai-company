@@ -231,12 +231,12 @@
   <details class="ai-helper" id="ai-helper">
     <summary>
       <span class="ai-helper-summary-label">📝 プロンプト準備</span>
-      <span class="ai-helper-summary-hint">テンプレ／変数で書く → 一時保存の画像に🤖🍌🎨で使う</span>
+      <span class="ai-helper-summary-hint">テンプレ／変数で書く → 🧠Codexへ渡す／必要なら他AIで使う</span>
     </summary>
     <div class="ai-helper-body">
       <p class="ai-helper-intro">
-        <strong>ここでプロンプトを準備</strong> → 下の <strong>一時保存</strong> に画像を入れて <strong>🤖 / 🍌 / 🎨</strong> ボタンを押すと、このプロンプトと画像が一緒に AI に送られます。<br>
-        <small style="opacity:.8">単体で AI を開いてもプロンプトしか渡せないため、AI 起動ボタンは廃止しました。</small>
+        <strong>ここでプロンプトを準備</strong> → <strong>🧠 Codexで画像生成</strong>を押すと、指示書と元画像（編集時）を一時フォルダへ渡してCodexを開きます。<br>
+        <small style="opacity:.8">Codex側では送信を1回押してください。生成後は「📥 Codex画像をDriveへ保存」で、選択中のGoogleドライブ記事フォルダへ直接保存します。Canva仕上げは必要と判断した場合だけ行います。</small>
       </p>
 
       <!-- 編集対象の画像プレビュー（一時保存からセット） -->
@@ -328,14 +328,20 @@
       </div>
 
       <div class="ai-actions">
+        <button type="button" id="btn-ai-open-codex" class="btn-codex">🧠 Codexで画像生成</button>
+        <button type="button" id="btn-ai-import-codex" class="btn-secondary">📥 Codex画像をDriveへ保存</button>
         <button type="button" id="btn-ai-copy" class="btn-secondary">📋 プロンプトをコピー</button>
         <button type="button" id="btn-compare-bundle" class="btn-secondary" hidden
           title="キューの「⚖️比較」画像を製品ラベル付きの1枚に連結し、プロンプトと一緒にAIへ渡します">⚖️ 比較画像をまとめてAIへ</button>
         <button type="button" id="btn-combine-bundle" class="btn-secondary"
           title="2つの商品画像を選び、1枚に並べてAIで自然に合成します（商品はそのまま・背景と影を統一）">🧩 2つの商品を合成</button>
         <span style="align-self:center; font-size:0.85em; opacity:.75; padding:0 8px;">
-          ↑ コピー後、<strong>一時保存の画像</strong>を 🤖🍌🎨 で開くとプロンプト同梱で AI 起動
+          ↑ Codexは指示書と一時出力先を自動セット。完成画像は選択中のGoogleドライブ記事フォルダへ保存します
         </span>
+      </div>
+      <div class="codex-handoff-status" id="codex-handoff-status" hidden>
+        <span>Codexが自動で開かない場合：</span>
+        <a id="codex-handoff-link" href="#">🚀 入力済みのCodexタスクを開く</a>
       </div>
 
       <div class="ai-engine-hint">
@@ -365,8 +371,21 @@
         </summary>
         <div class="ai-conn-body">
           <p class="ai-conn-intro">
-            毎回同じ ChatGPT プロジェクト（例：<strong>ブログ画像編集</strong>）または Gemini Gem に繋ぎます。
+            Codexの作業場所・一時受け渡しフォルダと、必要に応じて使うChatGPT／Geminiの接続先を保存します。完成画像は、記事めしで選択中のGoogleドライブ記事フォルダへ保存されます。
           </p>
+
+          <!-- Codex セクション（値はこの端末のlocalStorageだけに保存） -->
+          <div class="ai-conn-block ai-conn-block-codex">
+            <div class="ai-conn-block-title">🧠 Codex画像生成</div>
+            <label class="ai-conn-field-label" for="ai-conn-codex-workspace">Codexワークスペース（絶対パス）</label>
+            <input type="text" id="ai-conn-codex-workspace" placeholder="例：/Users/あなた/Documents/my-ai-company" autocomplete="off" spellcheck="false">
+            <label class="ai-conn-field-label" for="ai-conn-codex-output">Codex一時受け渡しフォルダ（端末内・絶対パス）</label>
+            <input type="text" id="ai-conn-codex-output" placeholder="例：/Users/あなた/Downloads/article-meshi-codex" autocomplete="off" spellcheck="false">
+            <div class="ai-conn-quick">
+              <button type="button" id="btn-conn-pick-codex-folder" class="btn-conn-find">📁 同じ一時フォルダを選択</button>
+            </div>
+            <small class="ai-conn-codex-hint">このフォルダはCodexとの一時的な受け渡し専用です。完成画像の保存先は、記事めしで選択中のGoogleドライブ記事フォルダです。設定値はこの端末内だけに保存されます。</small>
+          </div>
 
           <!-- ChatGPT セクション -->
           <div class="ai-conn-block">
@@ -398,7 +417,7 @@
           </div>
 
           <p class="ai-conn-howto">
-            <strong>最速の接続手順：</strong><br>
+            <strong>ChatGPTを併用する場合の接続手順：</strong><br>
             ① 上の「🔍 ChatGPTを開いてURLを探す」をクリック<br>
             ② 開いた ChatGPT で「ブログ画像編集」プロジェクトを開く<br>
             ③ アドレスバーのURLをコピー<br>
