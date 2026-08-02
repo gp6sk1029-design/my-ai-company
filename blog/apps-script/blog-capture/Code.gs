@@ -24,6 +24,8 @@ function doGet(e) {
       return handleDownloadFile_(p);
     case 'getProductInfo':
       return handleGetProductInfo_(p);
+    case 'getAIConnections':
+      return handleGetAIConnections_();
     case 'ping':
       return jsonResponse_({ ok: true, time: new Date().toISOString() });
     default:
@@ -44,7 +46,76 @@ function doPost(e) {
   if (p.action === 'transferFile') return handleTransferFile_(p);
   if (p.action === 'deleteFile') return handleDeleteFile_(p);
   if (p.action === 'saveProductInfo') return handleSaveProductInfo_(p);
+  if (p.action === 'saveAIConnections') return handleSaveAIConnections_(p);
   return jsonResponse_({ ok: false, message: 'unknown action: ' + p.action });
+}
+
+// ─── 端末共通のAI接続先設定（Google Drive） ─────────────────────
+// 保存対象はChatGPT/GeminiのURLだけ。PC固有のCodexパス、フォルダ権限、
+// トークンなどは端末内またはScript Propertiesに残し、Driveへ書き出さない。
+function normalizeAIConnections_(value) {
+  const source = value && typeof value === 'object' ? value : {};
+  const chatgptUrl = String(source.chatgptUrl || '').trim();
+  const geminiUrl = String(source.geminiUrl || '').trim();
+  if (chatgptUrl && !/^https?:\/\/(?:chat\.openai\.com|chatgpt\.com)\//i.test(chatgptUrl)) {
+    throw new Error('ChatGPT URLの形式が不正です');
+  }
+  if (geminiUrl && !/^https?:\/\/(?:gemini\.google\.com|aistudio\.google\.com)\//i.test(geminiUrl)) {
+    throw new Error('Gemini URLの形式が不正です');
+  }
+  if (chatgptUrl.length > 2048 || geminiUrl.length > 2048) {
+    throw new Error('URLが長すぎます');
+  }
+  return { chatgptUrl: chatgptUrl, geminiUrl: geminiUrl };
+}
+
+function getAIConnectionsFile_() {
+  const root = DriveApp.getFolderById(CONFIG.ROOT_FOLDER_ID);
+  const files = root.getFilesByName(CONFIG.AI_CONNECTIONS_FILE_NAME);
+  return files.hasNext() ? files.next() : null;
+}
+
+function handleGetAIConnections_() {
+  try {
+    const file = getAIConnectionsFile_();
+    if (!file) return jsonResponse_({ ok: true, exists: false, settings: {} });
+    const parsed = JSON.parse(file.getBlob().getDataAsString('UTF-8'));
+    return jsonResponse_({ ok: true, exists: true, settings: normalizeAIConnections_(parsed) });
+  } catch (err) {
+    Logger.log('handleGetAIConnections_ error: ' + err.message);
+    return jsonResponse_({ ok: false, message: err.message });
+  }
+}
+
+function handleSaveAIConnections_(p) {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(15000);
+  try {
+    let parsed = {};
+    try { parsed = JSON.parse(p.settingsJson || '{}'); } catch (_) {
+      return jsonResponse_({ ok: false, message: '設定データの形式が不正です' });
+    }
+    const settings = normalizeAIConnections_(parsed);
+    const content = JSON.stringify({
+      schemaVersion: 1,
+      updatedAt: new Date().toISOString(),
+      chatgptUrl: settings.chatgptUrl,
+      geminiUrl: settings.geminiUrl,
+    }, null, 2);
+    const root = DriveApp.getFolderById(CONFIG.ROOT_FOLDER_ID);
+    let file = getAIConnectionsFile_();
+    if (file) {
+      file.setContent(content);
+    } else {
+      file = root.createFile(Utilities.newBlob(content, 'application/json', CONFIG.AI_CONNECTIONS_FILE_NAME));
+    }
+    return jsonResponse_({ ok: true, settings: settings, updatedAt: new Date().toISOString() });
+  } catch (err) {
+    Logger.log('handleSaveAIConnections_ error: ' + err.message);
+    return jsonResponse_({ ok: false, message: err.message });
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 // ─── ファイル削除（ゴミ箱へ移動・2026-07-11） ─────────────────────

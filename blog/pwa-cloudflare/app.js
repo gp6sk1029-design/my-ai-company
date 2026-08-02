@@ -794,6 +794,38 @@
     status.classList.toggle('is-ready', ready);
   }
 
+  function updateAIConnectionSyncStatus(message, state) {
+    const status = document.getElementById('ai-conn-sync-status');
+    if (!status) return;
+    status.textContent = message;
+    status.classList.toggle('is-error', state === 'error');
+    status.classList.toggle('is-synced', state === 'synced');
+  }
+
+  async function loadSharedAIConnections() {
+    const query = new URLSearchParams({ token: TOKEN, action: 'getAIConnections' });
+    const response = await fetch(GAS_URL + '?' + query.toString());
+    const data = await response.json();
+    if (!response.ok || !data.ok) throw new Error(data.message || 'Google Driveから設定を読み込めませんでした');
+    return data;
+  }
+
+  async function saveSharedAIConnections(chatgptUrl, geminiUrl) {
+    const body = new URLSearchParams({
+      token: TOKEN,
+      action: 'saveAIConnections',
+      settingsJson: JSON.stringify({ chatgptUrl, geminiUrl }),
+    });
+    const response = await fetch(GAS_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
+      body: body.toString(),
+    });
+    const data = await response.json();
+    if (!response.ok || !data.ok) throw new Error(data.message || 'Google Driveへの設定保存に失敗しました');
+    return data;
+  }
+
   // 設定UIへのイベント紐付け
   setTimeout(() => {
     const inpGpt = document.getElementById('ai-conn-chatgpt');
@@ -812,6 +844,32 @@
     inpCodexWorkspace.value = localStorage.getItem(CONN_KEY_CODEX_WORKSPACE) || '';
     updateConnBar();
     refreshCodexTempStatus();
+
+    let sharedConnectionWasEdited = false;
+    [inpGpt, inpGem].forEach((input) => input.addEventListener('input', () => {
+      sharedConnectionWasEdited = true;
+    }));
+    loadSharedAIConnections().then((data) => {
+      if (!data.exists) {
+        updateAIConnectionSyncStatus('☁️ Google Driveに接続先設定はまだありません', '');
+        return;
+      }
+      if (sharedConnectionWasEdited) {
+        updateAIConnectionSyncStatus('☁️ この端末で編集済みのため、Google Driveからの読込を保留中', '');
+        return;
+      }
+      const gpt = (data.settings && data.settings.chatgptUrl) || '';
+      const gem = (data.settings && data.settings.geminiUrl) || '';
+      localStorage.setItem(CONN_KEY_GPT, gpt);
+      localStorage.setItem(CONN_KEY_GEM, gem);
+      inpGpt.value = gpt;
+      inpGem.value = gem;
+      updateConnBar();
+      updateAIConnectionSyncStatus('☁️ Google Driveと同期済み（ChatGPT／Gemini）', 'synced');
+    }).catch((error) => {
+      console.warn('AI接続先のGoogle Drive同期に失敗:', error);
+      updateAIConnectionSyncStatus('⚠️ Google Driveの接続先設定を読み込めませんでした', 'error');
+    });
 
     if (btnPickCodexFolder) btnPickCodexFolder.addEventListener('click', async () => {
       const workspacePath = inpCodexWorkspace.value.trim().replace(/[\\/]+$/, '');
@@ -836,6 +894,7 @@
           return;
         }
         inpGpt.value = text;
+        sharedConnectionWasEdited = true;
         showToast('ChatGPT URL を貼付しました。「💾 保存」をお忘れなく', 'success');
       } catch (err) {
         showToast('クリップボード読取が拒否されました。手動でペーストしてください', 'error');
@@ -852,6 +911,7 @@
           return;
         }
         inpGem.value = text;
+        sharedConnectionWasEdited = true;
         showToast('Gemini URL を貼付しました。「💾 保存」をお忘れなく', 'success');
       } catch (err) {
         showToast('クリップボード読取が拒否されました。手動でペーストしてください', 'error');
@@ -869,7 +929,7 @@
     });
 
     // 💾 保存
-    if (btnSave) btnSave.addEventListener('click', () => {
+    if (btnSave) btnSave.addEventListener('click', async () => {
       const v1 = inpGpt.value.trim();
       const v2 = inpGem.value.trim();
       const codexWorkspace = inpCodexWorkspace.value.trim().replace(/[\\/]+$/, '');
@@ -886,14 +946,44 @@
       localStorage.setItem(CONN_KEY_GEM, v2);
       localStorage.setItem(CONN_KEY_CODEX_WORKSPACE, codexWorkspace);
       updateConnBar();
+      btnSave.disabled = true;
+      const originalLabel = btnSave.textContent;
+      btnSave.textContent = '☁️ 同期中...';
+      try {
+        await saveSharedAIConnections(v1, v2);
+        sharedConnectionWasEdited = false;
+        updateAIConnectionSyncStatus('☁️ Google Driveと同期済み（ChatGPT／Gemini）', 'synced');
+      } catch (error) {
+        console.warn('AI接続先のGoogle Drive保存に失敗:', error);
+        updateAIConnectionSyncStatus('⚠️ この端末には保存済み。Google Driveへの同期に失敗しました', 'error');
+        showToast('この端末には保存しましたが、Google Driveへの同期に失敗しました', 'warn');
+        return;
+      } finally {
+        btnSave.disabled = false;
+        btnSave.textContent = originalLabel;
+      }
       const configured = [codexWorkspace && localStorage.getItem(CONN_KEY_CODEX_OUTPUT) ? '🧠 Codex' : '', v1 ? '🤖 ChatGPT' : '', v2 ? '🍌 Gemini' : ''].filter(Boolean);
       const msg = configured.join(' + ') + ' に接続設定完了';
-      showToast(msg || '設定をクリア', 'success');
+      showToast((msg || '設定をクリア') + '（Google Driveへ同期済み）', 'success');
       navigator.vibrate && navigator.vibrate(20);
     });
 
     // デフォルトに戻す
     if (btnReset) btnReset.addEventListener('click', async () => {
+      btnReset.disabled = true;
+      const originalLabel = btnReset.textContent;
+      btnReset.textContent = '☁️ 同期中...';
+      try {
+        await saveSharedAIConnections('', '');
+      } catch (error) {
+        console.warn('AI接続先のGoogle Driveリセットに失敗:', error);
+        updateAIConnectionSyncStatus('⚠️ Google Driveの接続先設定をリセットできませんでした', 'error');
+        showToast('Google Driveへ接続できないため、設定は変更しませんでした', 'warn');
+        return;
+      } finally {
+        btnReset.disabled = false;
+        btnReset.textContent = originalLabel;
+      }
       localStorage.removeItem(CONN_KEY_GPT);
       localStorage.removeItem(CONN_KEY_GEM);
       localStorage.removeItem(CONN_KEY_CODEX_WORKSPACE);
@@ -904,7 +994,9 @@
       inpCodexWorkspace.value = '';
       await refreshCodexTempStatus();
       updateConnBar();
-      showToast('デフォルトに戻しました', 'success');
+      sharedConnectionWasEdited = false;
+      updateAIConnectionSyncStatus('☁️ Google Driveの接続先設定をリセットしました', 'synced');
+      showToast('デフォルトに戻しました（Google Driveも同期済み）', 'success');
     });
   }, 200);
 

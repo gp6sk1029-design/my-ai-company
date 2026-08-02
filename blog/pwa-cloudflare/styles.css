@@ -1988,6 +1988,13 @@ body.is-dropping .drop-overlay { display: flex; }
   color: #475569;
   line-height: 1.6;
 }
+.ai-conn-sync-status {
+  margin: -4px 0 12px;
+  color: #64748b;
+  font-size: 12px;
+}
+.ai-conn-sync-status.is-synced { color: #047857; }
+.ai-conn-sync-status.is-error { color: #b45309; }
 .ai-conn-intro code {
   background: #e2e8f0;
   padding: 1px 6px;
