@@ -36,6 +36,67 @@
   const clearQueueBtn = $('clear-queue');
   const statusArea = $('status-area');
   const toast = $('toast');
+  const installAppBtn = $('pwa-install');
+  const installGuide = $('pwa-install-guide');
+  const installGuideText = $('pwa-install-guide-text');
+  const installGuideClose = $('pwa-install-guide-close');
+
+  // ─── スマホへのインストール ────────────────────────────────
+  let deferredInstallPrompt = null;
+  function isStandaloneApp() {
+    return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+  }
+  function isIosDevice() {
+    return /iphone|ipad|ipod/i.test(navigator.userAgent);
+  }
+  function updateInstallButton() {
+    if (!installAppBtn) return;
+    installAppBtn.classList.toggle('hidden', isStandaloneApp());
+  }
+  function closeInstallGuide() {
+    if (installGuide) installGuide.hidden = true;
+  }
+  function openInstallGuide() {
+    if (!installGuide || !installGuideText) return;
+    installGuideText.innerHTML = isIosDevice()
+      ? 'Safariの共有ボタンから「ホーム画面に追加」を選び、右上の「追加」を押してください。'
+      : 'ブラウザのメニューから「アプリをインストール」または「ホーム画面に追加」を選んでください。';
+    installGuide.hidden = false;
+  }
+  window.addEventListener('beforeinstallprompt', (event) => {
+    event.preventDefault();
+    deferredInstallPrompt = event;
+    updateInstallButton();
+  });
+  window.addEventListener('appinstalled', () => {
+    deferredInstallPrompt = null;
+    closeInstallGuide();
+    updateInstallButton();
+  });
+  if (installAppBtn) {
+    installAppBtn.addEventListener('click', async () => {
+      if (!deferredInstallPrompt) {
+        openInstallGuide();
+        return;
+      }
+      deferredInstallPrompt.prompt();
+      await deferredInstallPrompt.userChoice;
+      deferredInstallPrompt = null;
+      updateInstallButton();
+    });
+  }
+  if (installGuideClose) installGuideClose.addEventListener('click', closeInstallGuide);
+  if (installGuide) {
+    installGuide.addEventListener('click', (event) => {
+      if (event.target === installGuide) closeInstallGuide();
+    });
+  }
+  if ('serviceWorker' in navigator && window.isSecureContext) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/sw.js').catch((error) => console.warn('service worker registration failed:', error));
+    });
+  }
+  updateInstallButton();
 
   // ─── IndexedDB ─────────────────────
   const DB_NAME = 'blog-capture';

@@ -23,6 +23,7 @@
       <img src="/icon-192.png" alt="記事めし" width="38" height="38">
     </div>
     <div class="brand">記事めし</div>
+    <button type="button" id="pwa-install" class="app-install hidden" title="スマホのホーム画面に追加" aria-label="スマホのホーム画面に追加">⇩</button>
     <div class="pending-pill" id="pending-pill">
       <span id="pending-count">0</span>
     </div>
@@ -328,6 +329,8 @@
       </div>
 
       <div class="ai-actions">
+        <button type="button" id="btn-ai-open" class="btn-primary">🚀 ChatGPTを開く</button>
+        <button type="button" id="btn-ai-open-gemini" class="btn-gemini">🍌 Geminiを開く</button>
         <button type="button" id="btn-ai-open-codex" class="btn-codex">🧠 Codexで画像生成</button>
         <button type="button" id="btn-ai-import-codex" class="btn-secondary">📥 Codex画像をDriveへ保存</button>
         <button type="button" id="btn-ai-copy" class="btn-secondary">📋 プロンプトをコピー</button>
@@ -524,6 +527,13 @@
   </footer>
 
   <div id="toast" class="toast hidden"></div>
+  <div id="pwa-install-guide" class="pwa-install-guide" hidden role="dialog" aria-modal="true" aria-labelledby="pwa-install-title">
+    <div class="pwa-install-guide-panel">
+      <button type="button" id="pwa-install-guide-close" class="pwa-install-guide-close" aria-label="閉じる">×</button>
+      <h2 id="pwa-install-title">ホーム画面に追加</h2>
+      <p id="pwa-install-guide-text"></p>
+    </div>
+  </div>
 
   <script src="/config.js"></script>
   <script src="/app.js"></script>

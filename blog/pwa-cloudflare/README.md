@@ -27,3 +27,12 @@ Cloudflare Accessアプリを作成した後、`ACCESS_TEAM_DOMAIN` と `ACCESS_
 ```bash
 wrangler dev
 ```
+
+## スマホへ追加
+
+Cloudflare Accessでログインした状態で記事めしを開き、上部の`⇩`を押す。
+
+- Android（Chrome）: 表示される確認画面でインストール、またはChromeのメニューから「アプリをインストール」を選ぶ。
+- iPhone（Safari）: 共有ボタンから「ホーム画面に追加」→「追加」を選ぶ。
+
+追加後はホーム画面の「記事めし」アイコンから、ブラウザのタブを開かずに起動できる。カメラ・素材転送・ChatGPT/Gemini連携はスマホで利用できる。Codexでの画像編集はMac上のCodexと一時受け渡しフォルダを使うため、Macで行う。

@@ -2,6 +2,7 @@
   "name": "記事めし",
   "short_name": "記事めし",
   "description": "ブログ記事用の素材（写真・動画・PDF）をスマホから Google Drive へ転送するツール",
+  "id": "/",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
