@@ -3251,8 +3251,15 @@
     }
 
     const handoffPrompt = [
+      'あなたは「SNS統括PDMセッション」として動作してください。',
+      '',
+      '担当: X／Instagram／YouTubeのSNS運用、ブログ記事のハブ&スポーク拡散、SNS画像の企画・改善。',
+      'このセッションの役割キーは `sns` です。',
+      '開始時に `CLAUDE.md`、`sns/SKILL.md`、`sns/MEMORY.md` を読み、最新の共通ルールとSNS方針を確認してください。',
+      'このセッションを引き継ぐときは、必ず `python3 tools/handover.py --role sns` を実行してください。',
+      '',
       '$imagegen',
-      '記事めしから渡された画像生成ジョブを処理してください。',
+      '記事めしから渡されたSNS用の画像生成ジョブを処理してください。',
       `ジョブファイル: ${jobPath}`,
       '',
       '1. JSONを読み、mode=generateなら新規生成、mode=editならsourceImagePathをview_imageで確認して編集する。',
@@ -3276,7 +3283,7 @@
     document.body.appendChild(link);
     link.click();
     link.remove();
-    showToast('🧠 Codexを開きました。送信後、完成したら「📥 Codex画像をDriveへ保存」を押してください', 'success');
+    showToast('🧠 SNS統括PDMのCodexタスクを開きました。送信後、完成したら「📥 Codex画像をDriveへ保存」を押してください', 'success');
   }
 
   async function recordCodexRoleInPrompt(pending, uploadResult) {

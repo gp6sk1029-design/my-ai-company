@@ -12,6 +12,8 @@
 
 CodexとのジョブJSON・元画像・完成PNGの受け渡しには、ワークスペース内にPWAが初回だけ自動作成する`.article-meshi-codex`を使う。通常画面ではパス入力欄を表示しない。完成画像はPWAの「📥 Codex画像をDriveへ保存」で、ジョブ開始時に選択していたGoogle Drive記事フォルダへ直接保存する。一時フォルダを最終保存先として扱わない。
 
+記事めしの「🧠 SNS統括PDMで画像生成」は、古いCodexタスクへのリンクを使わず、その都度SNS統括PDM（役割キー`sns`）として新規タスクを開く。起動時に`CLAUDE.md`、`sns/SKILL.md`、`sns/MEMORY.md`を読む指示を渡すため、SNS統括PDMを引き継いだ後でも次の起動から最新ルールを参照できる。
+
 ## PC・スマホ間の設定同期
 
 「AI 接続先設定」で保存したChatGPTプロジェクトURLとGemini Gem URLは、Google Driveの`記事めし_AI接続先設定.json`へ保存する。記事めしを開くたびにこのファイルを読み込むため、PCとスマホで同じ接続先を使える。
