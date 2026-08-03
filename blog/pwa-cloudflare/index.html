@@ -331,7 +331,7 @@
       <div class="ai-actions">
         <button type="button" id="btn-ai-open" class="btn-primary">🚀 ChatGPTを開く</button>
         <button type="button" id="btn-ai-open-gemini" class="btn-gemini">🍌 Geminiを開く</button>
-        <button type="button" id="btn-ai-open-codex" class="btn-codex">🧠 SNS統括PDMで画像生成</button>
+        <button type="button" id="btn-ai-open-codex" class="btn-codex">🧠 Codexで画像生成</button>
         <button type="button" id="btn-ai-import-codex" class="btn-secondary">📥 Codex画像をDriveへ保存</button>
         <button type="button" id="btn-ai-copy" class="btn-secondary">📋 プロンプトをコピー</button>
         <button type="button" id="btn-compare-bundle" class="btn-secondary" hidden
@@ -339,14 +339,14 @@
         <button type="button" id="btn-combine-bundle" class="btn-secondary"
           title="2つの商品画像を選び、1枚に並べてAIで自然に合成します（商品はそのまま・背景と影を統一）">🧩 2つの商品を合成</button>
         <span style="align-self:center; font-size:0.85em; opacity:.75; padding:0 8px;">
-          ↑ 画像ジョブだけをSNS統括PDMへ渡します。編集元画像はローカルパスからCodexが読み込み、完成画像はGoogleドライブの記事フォルダへ保存します
+          ↑ 新しいCodex画像タスクへ指示を自動入力します。画像編集時は対象画像もコピーするので、開いたCodexで⌘Vして添付してください
         </span>
       </div>
       <div class="codex-handoff-status" id="codex-handoff-status" hidden>
-        <span id="codex-handoff-copy-status">SNS統括PDMへ渡す指示を用意しました：</span>
+        <span id="codex-handoff-copy-status">Codex画像タスクを用意しました：</span>
         <button type="button" id="codex-handoff-copy">📋 指示をコピー</button>
-        <button type="button" id="codex-handoff-copy-image" hidden>🖼 編集元画像をコピー</button>
-        <a id="codex-handoff-link" href="#">🧠 SNS統括PDMを開く</a>
+        <button type="button" id="codex-handoff-copy-image" hidden>🖼 編集元画像を再コピー</button>
+        <a id="codex-handoff-link" href="#">🚀 入力済みCodexタスクを開く</a>
       </div>
 
       <div class="ai-engine-hint">
@@ -376,7 +376,7 @@
         </summary>
         <div class="ai-conn-body">
           <p class="ai-conn-intro">
-            Codexの作業場所・一時受け渡しフォルダと、必要に応じて使うChatGPT／Geminiの接続先を保存します。ChatGPT／GeminiのURLとSNS統括PDMの移動先はGoogle Driveで同期されます。完成画像は、記事めしで選択中のGoogleドライブ記事フォルダへ保存されます。
+            Codexの作業場所・一時受け渡しフォルダと、必要に応じて使うChatGPT／Geminiの接続先を保存します。ChatGPT／GeminiのURLはGoogle Driveで同期されます。完成画像は、記事めしで選択中のGoogleドライブ記事フォルダへ保存されます。
           </p>
           <p class="ai-conn-sync-status" id="ai-conn-sync-status">☁️ Google Driveの接続先設定を確認中</p>
 
@@ -390,12 +390,6 @@
               <button type="button" id="btn-conn-pick-codex-folder" class="btn-conn-find">📁 一時フォルダを自動準備（初回のみ）</button>
             </div>
             <small class="ai-conn-codex-hint">初回だけボタンを押し、上で入力したCodexワークスペースと同じフォルダを選んでください。専用の一時フォルダを自動作成します。完成画像の保存先はGoogleドライブの記事フォルダです。</small>
-            <label class="ai-conn-field-label" for="ai-conn-codex-sns-thread">SNS統括PDMの移動先</label>
-            <input type="text" id="ai-conn-codex-sns-thread" placeholder="CodexタスクID" autocomplete="off" spellcheck="false">
-            <div class="ai-conn-quick">
-              <button type="button" id="btn-conn-open-codex-sns" class="btn-conn-find">🧠 現在のSNS統括PDMを開く</button>
-            </div>
-            <small class="ai-conn-codex-hint">SNS統括PDMを新しいセッションへ更新したときは、新しいタスクIDに替えて「💾 保存」を押してください。以後のCodex画像生成は新しいSNS統括PDMを開きます。</small>
           </div>
 
           <!-- ChatGPT セクション -->
