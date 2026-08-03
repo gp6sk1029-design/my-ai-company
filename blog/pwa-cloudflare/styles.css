@@ -811,15 +811,20 @@ body {
   background: #fff; border-radius: var(--radius-lg);
   padding: 22px 20px 20px; box-shadow: var(--shadow-sm);
   margin-bottom: 14px;
+  container-type: inline-size;
 }
 .section-header { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
 .section-header h2 { font-size: 20px; font-weight: 700; letter-spacing: -0.3px; }
 #btn-jump-existing { margin-left: auto; }
 .queue-count { font-size: 15px; color: var(--text-muted); font-weight: 600; }
 .queue-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-@media (max-width: 360px) {
-  /* 下部の3操作を十分な間隔で押せるよう、最小幅ではカードを2列にする。 */
+/* 画面幅ではなく一時保存欄そのものの幅で列数を変える。
+   PCの狭いウィンドウや分割表示でも、カード内の操作が重ならない。 */
+@container (max-width: 380px) {
   .queue-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@container (max-width: 220px) {
+  .queue-grid { grid-template-columns: 1fr; }
 }
 .queue-item {
   position: relative; aspect-ratio: 1;
