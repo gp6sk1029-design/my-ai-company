@@ -1,6 +1,6 @@
 // PWAとして認識させるため、ログイン後に受け取った静的画面だけをオフライン用に保存する。
 // 記事データ・Google Drive通信・認証を伴うAPIは絶対にキャッシュしない。
-const CACHE_NAME = 'article-meshi-shell-v7';
+const CACHE_NAME = 'article-meshi-shell-v8';
 const APP_SHELL = [
   '/',
   '/index.html',

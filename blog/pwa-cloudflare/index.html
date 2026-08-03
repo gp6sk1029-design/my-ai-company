@@ -339,12 +339,13 @@
         <button type="button" id="btn-combine-bundle" class="btn-secondary"
           title="2つの商品画像を選び、1枚に並べてAIで自然に合成します（商品はそのまま・背景と影を統一）">🧩 2つの商品を合成</button>
         <span style="align-self:center; font-size:0.85em; opacity:.75; padding:0 8px;">
-          ↑ SNS統括PDMとしてCodexを新規起動し、指示書と一時出力先を自動セットします。完成画像は選択中のGoogleドライブ記事フォルダへ保存します
+          ↑ 画像ジョブだけをSNS統括PDMへ渡します。編集元画像はローカルパスからCodexが読み込み、完成画像はGoogleドライブの記事フォルダへ保存します
         </span>
       </div>
       <div class="codex-handoff-status" id="codex-handoff-status" hidden>
         <span id="codex-handoff-copy-status">SNS統括PDMへ渡す指示を用意しました：</span>
         <button type="button" id="codex-handoff-copy">📋 指示をコピー</button>
+        <button type="button" id="codex-handoff-copy-image" hidden>🖼 編集元画像をコピー</button>
         <a id="codex-handoff-link" href="#">🧠 SNS統括PDMを開く</a>
       </div>
 

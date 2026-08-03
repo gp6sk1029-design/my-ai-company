@@ -605,6 +605,7 @@
   // 既存のSNS統括PDM_260801。更新時は設定欄から新しいタスクIDへ切り替える。
   const DEFAULT_CODEX_SNS_THREAD_ID = '019fbf2a-4e8a-7033-b530-a5f61c4c1b8e';
   let latestCodexHandoffPrompt = '';
+  let latestCodexSourceBlob = null;
 
   function getChatGPTUrl() {
     return (localStorage.getItem(CONN_KEY_GPT) || '').trim() || DEFAULT_GPT_URL;
@@ -3175,6 +3176,7 @@
   const btnAiOpenCodex = $('btn-ai-open-codex');
   const btnAiImportCodex = $('btn-ai-import-codex');
   const btnCodexHandoffCopy = $('codex-handoff-copy');
+  const btnCodexHandoffCopyImage = $('codex-handoff-copy-image');
 
   if (btnCodexHandoffCopy) btnCodexHandoffCopy.addEventListener('click', async () => {
     if (!latestCodexHandoffPrompt) {
@@ -3186,6 +3188,19 @@
       showToast('📋 SNS統括PDMへ渡す指示をコピーしました。貼り付けて送信してください', 'success');
     } catch (error) {
       showToast('指示のコピーに失敗しました: ' + (error.message || error), 'error');
+    }
+  });
+
+  if (btnCodexHandoffCopyImage) btnCodexHandoffCopyImage.addEventListener('click', async () => {
+    if (!latestCodexSourceBlob) {
+      showToast('このジョブには編集元画像がありません', 'warn');
+      return;
+    }
+    try {
+      await navigator.clipboard.write([new ClipboardItem({ 'image/png': latestCodexSourceBlob })]);
+      showToast('🖼 編集元画像をコピーしました。必要な場合だけCodexへ貼り付けてください', 'success');
+    } catch (error) {
+      showToast('編集元画像のコピーに失敗しました: ' + (error.message || error), 'error');
     }
   });
 
@@ -3276,12 +3291,14 @@
     const outputPath = joinLocalPath(outputDirPath, outputFileName);
     let sourceFileName = '';
     let sourceImagePath = '';
+    latestCodexSourceBlob = null;
 
     const editTarget = sourceItem || currentEditTarget;
     if (editTarget && editTarget.blob) {
       sourceFileName = `_codex_source_${safeFilePart(articleTitle)}_${stamp}.png`;
       sourceImagePath = joinLocalPath(outputDirPath, sourceFileName);
       const pngBlob = await blobToPngBlob(editTarget.blob);
+      latestCodexSourceBlob = pngBlob;
       await writeFileToDirectory(dirHandle, sourceFileName, pngBlob);
     }
 
@@ -3335,25 +3352,19 @@
     }
 
     const handoffPrompt = [
-      'あなたは「SNS統括PDMセッション」として動作してください。',
-      '',
-      '担当: X／Instagram／YouTubeのSNS運用、ブログ記事のハブ&スポーク拡散、SNS画像の企画・改善。',
-      'このセッションの役割キーは `sns` です。',
-      '開始時に `CLAUDE.md`、`sns/SKILL.md`、`sns/MEMORY.md` を読み、最新の共通ルールとSNS方針を確認してください。',
-      'このセッションを引き継ぐときは、必ず `python3 tools/handover.py --role sns` を実行してください。',
-      '',
       '$imagegen',
-      '記事めしから渡されたSNS用の画像生成ジョブを処理してください。',
+      '記事めしの画像生成ジョブを実行してください。',
       `ジョブファイル: ${jobPath}`,
+      sourceImagePath ? `編集元画像: ${sourceImagePath}` : '編集元画像: なし（新規生成）',
+      sourceImagePath ? `![編集元画像](<${sourceImagePath}>)` : '',
       '',
-      '1. JSONを読み、mode=generateなら新規生成、mode=editならsourceImagePathをview_imageで確認して編集する。',
-      '2. built-in image_genを使い、promptの要件と既存のプロジェクトルールに従う。',
-      '3. 完成画像をJSONのoutputPathへPNGでコピーし、既存ファイルを上書きしない。',
-      '4. 長辺がmaxEdgePxを超える場合はblog/scripts/image_resizer.pyで縮小する。',
-      '5. Canvaは自動で開かず、ユーザーが必要と判断した場合だけ提案する。',
-      '6. 完了時に画像を表示し、保存先を報告する。',
+      sourceImagePath
+        ? '画像はチャット添付ではなく上記パスに保存済みです。最初にview_imageで読み込み、編集対象としてbuilt-in image_genへ渡してください。'
+        : 'JSONのpromptを使ってbuilt-in image_genで新規生成してください。',
+      '完成画像はJSONのoutputPathへ既存ファイルを上書きせずPNGで保存し、maxEdgePxを超える場合だけ縮小してください。',
+      'Canvaは自動で開かず、完了時に画像と保存先を報告してください。',
       '',
-      '不足がなければ確認質問なしで実行してください。',
+      'セッション宣言・役割変更・引き継ぎ作成は不要です。不足がなければ確認質問なしで実行してください。',
     ].join('\n');
     latestCodexHandoffPrompt = handoffPrompt;
     let copiedHandoffPrompt = false;
@@ -3367,10 +3378,12 @@
     const fallbackBox = document.getElementById('codex-handoff-status');
     const fallbackLink = document.getElementById('codex-handoff-link');
     const fallbackCopyStatus = document.getElementById('codex-handoff-copy-status');
+    const fallbackCopyImage = document.getElementById('codex-handoff-copy-image');
     if (fallbackLink) fallbackLink.href = deepLink;
     if (fallbackCopyStatus) fallbackCopyStatus.textContent = copiedHandoffPrompt
       ? 'SNS統括PDMへ渡す指示をコピーしました。開いたタスクで貼り付けて送信してください：'
       : 'SNS統括PDMへ渡す指示を用意しました。「📋 指示をコピー」を押してから送信してください：';
+    if (fallbackCopyImage) fallbackCopyImage.hidden = !sourceImagePath;
     if (fallbackBox) fallbackBox.hidden = false;
     openCodexDeepLink(deepLink);
     showToast(copiedHandoffPrompt
