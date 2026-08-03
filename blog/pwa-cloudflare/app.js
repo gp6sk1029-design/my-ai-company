@@ -661,30 +661,36 @@
     return cleaned || fallback;
   }
 
-  // プロンプトを URL クエリに埋め込んで AI 起動 URL を構築する。
-  // ChatGPTのプロジェクト/GPT URLが保存済みなら、URLプリフィルよりプロジェクト文脈を優先する。
-  // プロンプトは起動前にクリップボードへコピーし、ChatGPT側で貼り付ける。
-  function buildAIUrl(engine, prompt) {
+  // URLへ入れられるプロンプト長には上限がある。高品質テンプレートの全文は
+  // クリップボード経由で渡し、URL要約によって内容を欠かせないようにする。
+  const AI_URL_PREFILL_MAX_ENC_BYTES = 5000;
+
+  function promptNeedsManualPaste(engine, prompt) {
+    if (!prompt) return false;
+    if (engine === 'gemini') return true;
+    return engine === 'chatgpt' && (
+      Boolean(getSavedChatGPTUrl()) ||
+      encodeURIComponent(prompt).length > AI_URL_PREFILL_MAX_ENC_BYTES
+    );
+  }
+
+  // 通常の短い指示だけURLに入れる。画像編集など既存の処理では要約URLを
+  // 使えるよう allowSummary を残すが、上部の高品質テンプレート送信では使わない。
+  function buildAIUrl(engine, prompt, { allowSummary = true } = {}) {
     if (!prompt) {
       // プロンプトなし → ユーザー設定のプロジェクトURLを尊重
       return engine === 'gemini' ? getGeminiUrl() : getChatGPTUrl();
     }
-    // プロンプトあり
-    // ChatGPTサーバーは長いURLで HTTP 431 を返す。
-    // 🔬 2026-07-11 実測（本人のChrome・ログインCookie込み）：URL約6.1KBまで200 OK・6.3KL超で431。
-    //   Cookieは増減するためマージンを取り、URLエンコード後 5000バイト（日本語≈550字）を上限とする。
-    //   ※判定は文字数でなくエンコード後バイト数（ASCII混在プロンプトで損しないため）
-    const MAX_ENC_BYTES = 5000;
+    // ChatGPTサーバーは長いURLで HTTP 431 を返す。URLを使う場面だけ要約する。
     let p = prompt;
-    if (encodeURIComponent(p).length > MAX_ENC_BYTES) {
-      // 🛡 短縮版は「先頭から切る」ではなく、ユーザーが入力した変数（タイトル・内容・補足・配色）を
-      // 最優先で載せる（2026-07-11修正）。先頭だけだと共通の定型文で枠が尽きて、
-      // せっかく入力した補足・配色がAIに一切届かないバグになっていた。
-      p = buildUrlPromptSummary_(prompt, MAX_ENC_BYTES);
+    const exceedsUrlLimit = encodeURIComponent(p).length > AI_URL_PREFILL_MAX_ENC_BYTES;
+    if (exceedsUrlLimit && allowSummary) {
+      p = buildUrlPromptSummary_(prompt, AI_URL_PREFILL_MAX_ENC_BYTES);
     }
     if (engine === 'gemini') {
       const saved = (localStorage.getItem(CONN_KEY_GEM) || '').trim();
       const base = saved || 'https://gemini.google.com/app';
+      if (!allowSummary || exceedsUrlLimit) return base;
       const sep = base.includes('?') ? '&' : '?';
       return base + sep + 'prompt=' + encodeURIComponent(p) + '&autosubmit=false';
     }
@@ -697,6 +703,7 @@
     // ?q=を付けるとプロジェクト外の通常チャットへ移動するため、プロンプトはクリップボードで渡す。
     const savedChatGPTUrl = getSavedChatGPTUrl();
     if (savedChatGPTUrl) return savedChatGPTUrl;
+    if (exceedsUrlLimit && !allowSummary) return 'https://chatgpt.com/';
     return 'https://chatgpt.com/?q=' + encodeURIComponent(p);
   }
 
@@ -2205,8 +2212,11 @@
     });
     if (!engine) return;
     if (engine === 'codex') {
+      // Codexは、まず記事めし上で対象画像と高品質プロンプトを確認・編集する。
+      // ここでジョブを開始すると編集する前にCodexが開いてしまうため、送信は上部の
+      // 「🧠 Codexで画像生成」ボタンを押した時だけ行う。
       await window.openAIHelperWithImage(item);
-      await startCodexImageJob(item);
+      showToast('🧠 Codex編集の準備完了。高品質プロンプトを確認・編集してから「Codexで画像生成」を押してください', 'success');
       return;
     }
     await confirmThenEdit(item, engine);
@@ -3226,22 +3236,6 @@
     }
   }
 
-  // Codexへは、ChatGPT/Gemini用の長い共通ガードを渡さない。
-  // とくに背景除去は、対象・保持条件・出力だけを明確にする。
-  function buildCodexJobPrompt(templateKey, fallbackPrompt) {
-    if (templateKey === 'bgremove') {
-      return [
-        '背景除去（透過PNG化）',
-        '添付画像の主役被写体だけを残し、背景を完全に透明化してください。',
-        '被写体の形・色・質感・既存の印字・ロゴ・比率・向きは変更しないでください。',
-        '毛髪・繊維・半透明の素材は自然な半透明エッジ、直線部分はくっきり処理してください。',
-        '古い背景色の残り・縁のハロー・影・新しい文字や装飾の追加は禁止です。',
-        '画像サイズは可能な限り維持し、PNGのアルファチャンネルを有効にしてください。',
-      ].join('\n');
-    }
-    return fallbackPrompt;
-  }
-
   async function startCodexImageJob(sourceItem = null) {
     const promptText = (aiPrompt && aiPrompt.value || '').trim();
     if (!promptText) {
@@ -3278,7 +3272,6 @@
     const now = new Date();
     const stamp = compactTimestamp(now);
     const templateKey = (aiTemplateSelect && aiTemplateSelect.value) || 'custom';
-    const codexPrompt = buildCodexJobPrompt(templateKey, promptText);
     const role = TEMPLATE_TO_ROLE[templateKey] || 'none';
     const rolePrefix = role === 'none' ? 'image' : role;
     const articleTitle = (typeof getCurrentArticleName === 'function' && getCurrentArticleName())
@@ -3308,7 +3301,8 @@
       templateKey,
       role,
       mode: sourceImagePath ? 'edit' : 'generate',
-      prompt: codexPrompt,
+      // 選択した高品質テンプレート全文を保存する。Codexも同じ指示で実行する。
+      prompt: promptText,
       sourceImagePath,
       outputPath,
       outputFileName,
@@ -3339,7 +3333,7 @@
           originalId: latest.id,
           originalItem: latest,
           aiEngine: 'codex',
-          prompt: codexPrompt,
+          prompt: promptText,
           startedAt: pending.createdAt,
         };
         await queueUpdate(latest.id, (x) => { x.editingWith = 'codex'; });
@@ -5000,7 +4994,7 @@ ${COMMON_GUARDS}`,
     // 記事名を自動入力
     if (!aiVarTitle.value) aiVarTitle.value = getCurrentArticleName() || '';
     aiHelperDetails.scrollIntoView({behavior: 'smooth', block: 'start'});
-    showToast('AI編集モード：画像をセットしました', 'success');
+    showToast('編集対象画像をセットしました。高品質プロンプトを選び、必要なら編集してください', 'success');
   };
 
   // クリアボタン
@@ -5043,7 +5037,7 @@ ${COMMON_GUARDS}`,
           URL.revokeObjectURL(img.src);
         }
         await navigator.clipboard.write([new ClipboardItem({'image/png': blob})]);
-        showToast('画像をクリップボードにコピー完了。ChatGPT/Geminiで Cmd/Ctrl+V で貼付してください', 'success');
+        showToast('画像をクリップボードにコピー完了。ChatGPT／Geminiで Cmd/Ctrl+V で貼付してください', 'success');
         navigator.vibrate && navigator.vibrate(30);
       } catch (err) {
         console.error('image copy failed:', err);
@@ -5142,11 +5136,12 @@ ${COMMON_GUARDS}`,
         return;
       }
       try { await navigator.clipboard.writeText(text); } catch (e) {}
-      const url = buildAIUrl('chatgpt', text);
+      const needsPaste = promptNeedsManualPaste('chatgpt', text);
+      const url = buildAIUrl('chatgpt', text, { allowSummary: false });
       const w = openFreshAI('chatgpt', url, 'width=900,height=900,scrollbars=yes,resizable=yes');
       if (!w) window.open(url, '_blank');
-      showToast(getSavedChatGPTUrl()
-        ? '✨ 指定済みのChatGPTプロジェクトを開きました。プロンプトはコピー済みなので貼り付けて送信してください'
+      showToast(needsPaste
+        ? '✨ ChatGPTを開きました。高品質プロンプト全文はコピー済みです。貼り付けて送信してください'
         : '✨ ChatGPTを開きました。プロンプトは自動入力済み → 送信するだけ', 'success');
     });
   }
@@ -5565,10 +5560,10 @@ ${COMMON_GUARDS}`,
         return;
       }
       try { await navigator.clipboard.writeText(text); } catch (e) {}
-      const url = buildAIUrl('gemini', text);
+      const url = buildAIUrl('gemini', text, { allowSummary: false });
       const w = openFreshAI('gemini', url, 'width=1000,height=900,scrollbars=yes,resizable=yes');
       if (!w) window.open(url, '_blank');
-      showToast('✨ Geminiを開きました。プロンプトは自動入力済み → 送信するだけ（モデルで「ナノバナナ2」/画像生成を選択）', 'success');
+      showToast('✨ Geminiを開きました。高品質プロンプト全文はコピー済みです。貼り付けて送信してください（モデルで「ナノバナナ2」/画像生成を選択）', 'success');
     });
   }
 

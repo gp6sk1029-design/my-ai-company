@@ -249,14 +249,14 @@
         <div class="ai-source-preview">
           <img id="ai-source-img" src="" alt="編集対象">
           <div class="ai-source-info">
-            <p>この画像を編集します。<br>下のボタンで <strong>画像をクリップボードにコピー</strong> → ChatGPT/Geminiを開いて画像と一緒にプロンプトを貼付してください。</p>
+            <p>この画像を編集します。<br><strong>Codexの場合：</strong>下の高品質プロンプトを確認・編集してから「🧠 Codexで画像生成」を押してください。<br><strong>ChatGPT／Geminiの場合：</strong>画像をコピーして、各サービスで画像とプロンプトを貼り付けてください。</p>
             <button type="button" id="btn-ai-copy-image" class="btn-secondary">📋 画像をクリップボードにコピー</button>
           </div>
         </div>
       </div>
 
       <div class="ai-template-row">
-        <label for="ai-template-select" class="ai-label">テンプレート選択：</label>
+        <label for="ai-template-select" class="ai-label">高品質プロンプト一覧：</label>
         <select id="ai-template-select" class="ai-template-select">
           <optgroup label="── 記事冒頭 ──">
             <option value="eyecatch">🖼️ ブログアイキャッチ（1200×630・青系）</option>
@@ -356,10 +356,8 @@
           <li><strong>Gemini ナノバナナ2</strong>：<u>日本語テキスト含む画像</u>・既存写真の編集・背景除去に強い</li>
         </ul>
         <p class="ai-engine-extension-hint" style="margin-top:8px; padding:8px 10px; background:#fff8e6; border-left:3px solid #f59e0b; border-radius:4px; font-size:0.85em;">
-          ⚠️ <strong>Gemini を使う場合：</strong>Gemini はURLプロンプトのプリフィルに非対応のため、Chrome拡張機能
-          <a href="https://chromewebstore.google.com/detail/send-to-gemini/gklmoobnblcdiglifjmdilofgndghmml" target="_blank" rel="noopener"><strong>Send to Gemini</strong></a>
-          をインストールしてください。
-          このPWAは <code>?prompt=...&amp;autosubmit=false</code> で開くため、プリフィルされた状態で停止し、画像貼付の時間が確保できます。
+          ⚠️ <strong>Gemini を使う場合：</strong>高品質プロンプト全文をクリップボードへコピーしてからGeminiを開きます。入力欄で貼り付けて送信してください。
+          長いプロンプトをURLで省略しないため、一覧で選んだ指示がそのまま渡ります。
         </p>
       </div>
 
