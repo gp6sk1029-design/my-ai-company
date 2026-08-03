@@ -599,22 +599,44 @@
   inputVideo.addEventListener('change', handleInputChange);
   inputFiles.addEventListener('change', handleInputChange);
 
-  // ─── AI 接続先設定（プロジェクト／Gem URL を localStorage に保存） ────────
+  // ─── AI 接続先設定（端末固有値はlocalStorage、共有値はGoogle Driveへ同期） ────────
   const CONN_KEY_GPT = 'pwa-meshi-conn-chatgpt';
   const CONN_KEY_GEM = 'pwa-meshi-conn-gemini';
   const CONN_KEY_CODEX_WORKSPACE = 'pwa-meshi-conn-codex-workspace';
   const CONN_KEY_CODEX_OUTPUT = 'pwa-meshi-conn-codex-output';
+  const CONN_KEY_CODEX_SNS_THREAD = 'pwa-meshi-conn-codex-sns-thread';
   const CODEX_PENDING_KEY = 'pwa-meshi-codex-pending-job';
   const CODEX_FOLDER_HANDLE_KEY = 'codex-handoff-folder-handle';
   const CODEX_TEMP_DIR_NAME = '.article-meshi-codex';
   const DEFAULT_GPT_URL = 'https://chatgpt.com/?model=gpt-4o';
   const DEFAULT_GEM_URL = 'https://gemini.google.com/app';
+  // 既存のSNS統括PDM_260801。更新時は設定欄から新しいタスクIDへ切り替える。
+  const DEFAULT_CODEX_SNS_THREAD_ID = '019fbf2a-4e8a-7033-b530-a5f61c4c1b8e';
+  let latestCodexHandoffPrompt = '';
 
   function getChatGPTUrl() {
     return (localStorage.getItem(CONN_KEY_GPT) || '').trim() || DEFAULT_GPT_URL;
   }
   function getGeminiUrl() {
     return (localStorage.getItem(CONN_KEY_GEM) || '').trim() || DEFAULT_GEM_URL;
+  }
+  function isValidCodexThreadId(value) {
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(value || '').trim());
+  }
+  function getCodexSnsThreadId() {
+    const saved = (localStorage.getItem(CONN_KEY_CODEX_SNS_THREAD) || '').trim();
+    return isValidCodexThreadId(saved) ? saved : DEFAULT_CODEX_SNS_THREAD_ID;
+  }
+  function getCodexSnsThreadLink() {
+    return 'codex://threads/' + getCodexSnsThreadId();
+  }
+  function openCodexDeepLink(link) {
+    const anchor = document.createElement('a');
+    anchor.href = link;
+    anchor.style.display = 'none';
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
   }
 
   function isAbsoluteLocalPath(value) {
@@ -810,11 +832,11 @@
     return data;
   }
 
-  async function saveSharedAIConnections(chatgptUrl, geminiUrl) {
+  async function saveSharedAIConnections(chatgptUrl, geminiUrl, codexSnsThreadId) {
     const body = new URLSearchParams({
       token: TOKEN,
       action: 'saveAIConnections',
-      settingsJson: JSON.stringify({ chatgptUrl, geminiUrl }),
+      settingsJson: JSON.stringify({ chatgptUrl, geminiUrl, codexSnsThreadId }),
     });
     const response = await fetch(GAS_URL, {
       method: 'POST',
@@ -831,22 +853,25 @@
     const inpGpt = document.getElementById('ai-conn-chatgpt');
     const inpGem = document.getElementById('ai-conn-gemini');
     const inpCodexWorkspace = document.getElementById('ai-conn-codex-workspace');
+    const inpCodexSnsThread = document.getElementById('ai-conn-codex-sns-thread');
     const btnPickCodexFolder = document.getElementById('btn-conn-pick-codex-folder');
+    const btnOpenCodexSns = document.getElementById('btn-conn-open-codex-sns');
     const btnSave = document.getElementById('btn-conn-save');
     const btnReset = document.getElementById('btn-conn-reset');
     const btnPasteGpt = document.getElementById('btn-conn-paste-gpt');
     const btnPasteGem = document.getElementById('btn-conn-paste-gem');
     const btnOpenChatGPTFind = document.getElementById('btn-conn-open-chatgpt-find');
     const btnOpenGeminiFind = document.getElementById('btn-conn-open-gemini-find');
-    if (!inpGpt || !inpGem || !inpCodexWorkspace) return;
+    if (!inpGpt || !inpGem || !inpCodexWorkspace || !inpCodexSnsThread) return;
     inpGpt.value = localStorage.getItem(CONN_KEY_GPT) || '';
     inpGem.value = localStorage.getItem(CONN_KEY_GEM) || '';
     inpCodexWorkspace.value = localStorage.getItem(CONN_KEY_CODEX_WORKSPACE) || '';
+    inpCodexSnsThread.value = getCodexSnsThreadId();
     updateConnBar();
     refreshCodexTempStatus();
 
     let sharedConnectionWasEdited = false;
-    [inpGpt, inpGem].forEach((input) => input.addEventListener('input', () => {
+    [inpGpt, inpGem, inpCodexSnsThread].forEach((input) => input.addEventListener('input', () => {
       sharedConnectionWasEdited = true;
     }));
     loadSharedAIConnections().then((data) => {
@@ -860,12 +885,15 @@
       }
       const gpt = (data.settings && data.settings.chatgptUrl) || '';
       const gem = (data.settings && data.settings.geminiUrl) || '';
+      const snsThreadId = (data.settings && data.settings.codexSnsThreadId) || DEFAULT_CODEX_SNS_THREAD_ID;
       localStorage.setItem(CONN_KEY_GPT, gpt);
       localStorage.setItem(CONN_KEY_GEM, gem);
+      localStorage.setItem(CONN_KEY_CODEX_SNS_THREAD, snsThreadId);
       inpGpt.value = gpt;
       inpGem.value = gem;
+      inpCodexSnsThread.value = snsThreadId;
       updateConnBar();
-      updateAIConnectionSyncStatus('☁️ Google Driveと同期済み（ChatGPT／Gemini）', 'synced');
+      updateAIConnectionSyncStatus('☁️ Google Driveと同期済み（ChatGPT／Gemini／SNS統括PDM）', 'synced');
     }).catch((error) => {
       console.warn('AI接続先のGoogle Drive同期に失敗:', error);
       updateAIConnectionSyncStatus('⚠️ Google Driveの接続先設定を読み込めませんでした', 'error');
@@ -882,6 +910,15 @@
       if (!handle) return;
       await refreshCodexTempStatus();
       updateConnBar();
+    });
+
+    if (btnOpenCodexSns) btnOpenCodexSns.addEventListener('click', () => {
+      const threadId = inpCodexSnsThread.value.trim();
+      if (!isValidCodexThreadId(threadId)) {
+        showToast('SNS統括PDMのタスクIDが不正です。保存済みの値を確認してください', 'error');
+        return;
+      }
+      openCodexDeepLink('codex://threads/' + threadId);
     });
 
     // 📋 クリップボードから貼付（ChatGPT）
@@ -933,6 +970,7 @@
       const v1 = inpGpt.value.trim();
       const v2 = inpGem.value.trim();
       const codexWorkspace = inpCodexWorkspace.value.trim().replace(/[\\/]+$/, '');
+      const codexSnsThreadId = inpCodexSnsThread.value.trim();
       if (v1 && !isValidChatGPTUrl(v1)) {
         showToast('ChatGPT URL の形式が不正です（chatgpt.com / chat.openai.com 必須）', 'error'); return;
       }
@@ -942,17 +980,21 @@
       if (codexWorkspace && !isAbsoluteLocalPath(codexWorkspace)) {
         showToast('Codexワークスペースは、/ から始まる絶対パスで入力してください', 'error'); return;
       }
+      if (!isValidCodexThreadId(codexSnsThreadId)) {
+        showToast('SNS統括PDMのタスクIDの形式が不正です', 'error'); return;
+      }
       localStorage.setItem(CONN_KEY_GPT, v1);
       localStorage.setItem(CONN_KEY_GEM, v2);
       localStorage.setItem(CONN_KEY_CODEX_WORKSPACE, codexWorkspace);
+      localStorage.setItem(CONN_KEY_CODEX_SNS_THREAD, codexSnsThreadId);
       updateConnBar();
       btnSave.disabled = true;
       const originalLabel = btnSave.textContent;
       btnSave.textContent = '☁️ 同期中...';
       try {
-        await saveSharedAIConnections(v1, v2);
+        await saveSharedAIConnections(v1, v2, codexSnsThreadId);
         sharedConnectionWasEdited = false;
-        updateAIConnectionSyncStatus('☁️ Google Driveと同期済み（ChatGPT／Gemini）', 'synced');
+        updateAIConnectionSyncStatus('☁️ Google Driveと同期済み（ChatGPT／Gemini／SNS統括PDM）', 'synced');
       } catch (error) {
         console.warn('AI接続先のGoogle Drive保存に失敗:', error);
         updateAIConnectionSyncStatus('⚠️ この端末には保存済み。Google Driveへの同期に失敗しました', 'error');
@@ -974,7 +1016,7 @@
       const originalLabel = btnReset.textContent;
       btnReset.textContent = '☁️ 同期中...';
       try {
-        await saveSharedAIConnections('', '');
+        await saveSharedAIConnections('', '', '');
       } catch (error) {
         console.warn('AI接続先のGoogle Driveリセットに失敗:', error);
         updateAIConnectionSyncStatus('⚠️ Google Driveの接続先設定をリセットできませんでした', 'error');
@@ -988,10 +1030,12 @@
       localStorage.removeItem(CONN_KEY_GEM);
       localStorage.removeItem(CONN_KEY_CODEX_WORKSPACE);
       localStorage.removeItem(CONN_KEY_CODEX_OUTPUT);
+      localStorage.removeItem(CONN_KEY_CODEX_SNS_THREAD);
       try { await settingsDelete(CODEX_FOLDER_HANDLE_KEY); } catch (_) {}
       inpGpt.value = '';
       inpGem.value = '';
       inpCodexWorkspace.value = '';
+      inpCodexSnsThread.value = DEFAULT_CODEX_SNS_THREAD_ID;
       await refreshCodexTempStatus();
       updateConnBar();
       sharedConnectionWasEdited = false;
@@ -3104,6 +3148,20 @@
   const btnAiOpen = $('btn-ai-open');
   const btnAiOpenCodex = $('btn-ai-open-codex');
   const btnAiImportCodex = $('btn-ai-import-codex');
+  const btnCodexHandoffCopy = $('codex-handoff-copy');
+
+  if (btnCodexHandoffCopy) btnCodexHandoffCopy.addEventListener('click', async () => {
+    if (!latestCodexHandoffPrompt) {
+      showToast('先に「SNS統括PDMで画像生成」を押してください', 'warn');
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(latestCodexHandoffPrompt);
+      showToast('📋 SNS統括PDMへ渡す指示をコピーしました。貼り付けて送信してください', 'success');
+    } catch (error) {
+      showToast('指示のコピーに失敗しました: ' + (error.message || error), 'error');
+    }
+  });
 
   async function writeFileToDirectory(dirHandle, fileName, data) {
     const fileHandle = await dirHandle.getFileHandle(fileName, { create: true });
@@ -3271,19 +3329,27 @@
       '',
       '不足がなければ確認質問なしで実行してください。',
     ].join('\n');
-    const qs = new URLSearchParams({ prompt: handoffPrompt, path: workspacePath });
-    const deepLink = 'codex://new?' + qs.toString();
+    latestCodexHandoffPrompt = handoffPrompt;
+    let copiedHandoffPrompt = false;
+    try {
+      await navigator.clipboard.writeText(handoffPrompt);
+      copiedHandoffPrompt = true;
+    } catch (error) {
+      console.warn('SNS統括PDMへの指示コピーに失敗:', error);
+    }
+    const deepLink = getCodexSnsThreadLink();
     const fallbackBox = document.getElementById('codex-handoff-status');
     const fallbackLink = document.getElementById('codex-handoff-link');
+    const fallbackCopyStatus = document.getElementById('codex-handoff-copy-status');
     if (fallbackLink) fallbackLink.href = deepLink;
+    if (fallbackCopyStatus) fallbackCopyStatus.textContent = copiedHandoffPrompt
+      ? 'SNS統括PDMへ渡す指示をコピーしました。開いたタスクで貼り付けて送信してください：'
+      : 'SNS統括PDMへ渡す指示を用意しました。「📋 指示をコピー」を押してから送信してください：';
     if (fallbackBox) fallbackBox.hidden = false;
-    const link = document.createElement('a');
-    link.href = deepLink;
-    link.style.display = 'none';
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    showToast('🧠 SNS統括PDMのCodexタスクを開きました。送信後、完成したら「📥 Codex画像をDriveへ保存」を押してください', 'success');
+    openCodexDeepLink(deepLink);
+    showToast(copiedHandoffPrompt
+      ? '🧠 既存のSNS統括PDMを開き、画像生成の指示をコピーしました。貼り付けて送信してください'
+      : '🧠 既存のSNS統括PDMを開きました。「📋 指示をコピー」後に貼り付けて送信してください', 'success');
   }
 
   async function recordCodexRoleInPrompt(pending, uploadResult) {

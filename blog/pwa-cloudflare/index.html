@@ -343,8 +343,9 @@
         </span>
       </div>
       <div class="codex-handoff-status" id="codex-handoff-status" hidden>
-        <span>Codexが自動で開かない場合：</span>
-        <a id="codex-handoff-link" href="#">🚀 入力済みのCodexタスクを開く</a>
+        <span id="codex-handoff-copy-status">SNS統括PDMへ渡す指示を用意しました：</span>
+        <button type="button" id="codex-handoff-copy">📋 指示をコピー</button>
+        <a id="codex-handoff-link" href="#">🧠 SNS統括PDMを開く</a>
       </div>
 
       <div class="ai-engine-hint">
@@ -374,7 +375,7 @@
         </summary>
         <div class="ai-conn-body">
           <p class="ai-conn-intro">
-            Codexの作業場所・一時受け渡しフォルダと、必要に応じて使うChatGPT／Geminiの接続先を保存します。ChatGPT／GeminiのURLはGoogle DriveでPC・スマホに同期されます。完成画像は、記事めしで選択中のGoogleドライブ記事フォルダへ保存されます。
+            Codexの作業場所・一時受け渡しフォルダと、必要に応じて使うChatGPT／Geminiの接続先を保存します。ChatGPT／GeminiのURLとSNS統括PDMの移動先はGoogle Driveで同期されます。完成画像は、記事めしで選択中のGoogleドライブ記事フォルダへ保存されます。
           </p>
           <p class="ai-conn-sync-status" id="ai-conn-sync-status">☁️ Google Driveの接続先設定を確認中</p>
 
@@ -388,6 +389,12 @@
               <button type="button" id="btn-conn-pick-codex-folder" class="btn-conn-find">📁 一時フォルダを自動準備（初回のみ）</button>
             </div>
             <small class="ai-conn-codex-hint">初回だけボタンを押し、上で入力したCodexワークスペースと同じフォルダを選んでください。専用の一時フォルダを自動作成します。完成画像の保存先はGoogleドライブの記事フォルダです。</small>
+            <label class="ai-conn-field-label" for="ai-conn-codex-sns-thread">SNS統括PDMの移動先</label>
+            <input type="text" id="ai-conn-codex-sns-thread" placeholder="CodexタスクID" autocomplete="off" spellcheck="false">
+            <div class="ai-conn-quick">
+              <button type="button" id="btn-conn-open-codex-sns" class="btn-conn-find">🧠 現在のSNS統括PDMを開く</button>
+            </div>
+            <small class="ai-conn-codex-hint">SNS統括PDMを新しいセッションへ更新したときは、新しいタスクIDに替えて「💾 保存」を押してください。以後のCodex画像生成は新しいSNS統括PDMを開きます。</small>
           </div>
 
           <!-- ChatGPT セクション -->

@@ -51,12 +51,13 @@ function doPost(e) {
 }
 
 // ─── 端末共通のAI接続先設定（Google Drive） ─────────────────────
-// 保存対象はChatGPT/GeminiのURLだけ。PC固有のCodexパス、フォルダ権限、
-// トークンなどは端末内またはScript Propertiesに残し、Driveへ書き出さない。
+// 保存対象はChatGPT/GeminiのURLとCodexのSNS統括PDMタスクIDだけ。PC固有の
+// Codexパス、フォルダ権限、トークンなどは端末内またはScript Propertiesに残す。
 function normalizeAIConnections_(value) {
   const source = value && typeof value === 'object' ? value : {};
   const chatgptUrl = String(source.chatgptUrl || '').trim();
   const geminiUrl = String(source.geminiUrl || '').trim();
+  const codexSnsThreadId = String(source.codexSnsThreadId || '').trim();
   if (chatgptUrl && !/^https?:\/\/(?:chat\.openai\.com|chatgpt\.com)\//i.test(chatgptUrl)) {
     throw new Error('ChatGPT URLの形式が不正です');
   }
@@ -66,7 +67,10 @@ function normalizeAIConnections_(value) {
   if (chatgptUrl.length > 2048 || geminiUrl.length > 2048) {
     throw new Error('URLが長すぎます');
   }
-  return { chatgptUrl: chatgptUrl, geminiUrl: geminiUrl };
+  if (codexSnsThreadId && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(codexSnsThreadId)) {
+    throw new Error('CodexのSNS統括PDMタスクIDの形式が不正です');
+  }
+  return { chatgptUrl: chatgptUrl, geminiUrl: geminiUrl, codexSnsThreadId: codexSnsThreadId };
 }
 
 function getAIConnectionsFile_() {
@@ -101,6 +105,7 @@ function handleSaveAIConnections_(p) {
       updatedAt: new Date().toISOString(),
       chatgptUrl: settings.chatgptUrl,
       geminiUrl: settings.geminiUrl,
+      codexSnsThreadId: settings.codexSnsThreadId,
     }, null, 2);
     const root = DriveApp.getFolderById(CONFIG.ROOT_FOLDER_ID);
     let file = getAIConnectionsFile_();

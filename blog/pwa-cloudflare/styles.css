@@ -1377,6 +1377,16 @@ body.is-dropping .drop-overlay { display: flex; }
   color: #1d4ed8;
   font-weight: 700;
 }
+.codex-handoff-status button {
+  margin-left: 5px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #1d4ed8;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
 
 .ai-conn-block-codex {
   border-color: #94a3b8;
