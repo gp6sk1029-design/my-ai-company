@@ -617,6 +617,12 @@
   function getChatGPTUrl() {
     return (localStorage.getItem(CONN_KEY_GPT) || '').trim() || DEFAULT_GPT_URL;
   }
+  function getSavedChatGPTUrl() {
+    return (localStorage.getItem(CONN_KEY_GPT) || '').trim();
+  }
+  function isChatGPTProjectUrl(url) {
+    return /\/(?:g|projects?)\//i.test(String(url || ''));
+  }
   function getGeminiUrl() {
     return (localStorage.getItem(CONN_KEY_GEM) || '').trim() || DEFAULT_GEM_URL;
   }
@@ -665,9 +671,9 @@
     return cleaned || fallback;
   }
 
-  // プロンプトを URL クエリに埋め込んで AI 起動 URL を構築
-  // ユーザーが保存したプロジェクト/Gem URL を基底にし、その上に ?q= / ?prompt= を付加する。
-  // ⚠️ プロジェクトURLでは ?q= が効かない可能性があるが、ユーザーは「プロジェクト文脈で開く」ことを優先
+  // プロンプトを URL クエリに埋め込んで AI 起動 URL を構築する。
+  // ChatGPTのプロジェクト/GPT URLが保存済みなら、URLプリフィルよりプロジェクト文脈を優先する。
+  // プロンプトは起動前にクリップボードへコピーし、ChatGPT側で貼り付ける。
   function buildAIUrl(engine, prompt) {
     if (!prompt) {
       // プロンプトなし → ユーザー設定のプロジェクトURLを尊重
@@ -697,8 +703,10 @@
       // 推奨：右上「デザインを作成」→ カスタムサイズ「1200×630」を入力 → ⌘Vで画像貼付
       return 'https://www.canva.com/';
     }
-    // ChatGPT: プロンプトがある場合は chatgpt.com ルートを強制（プロジェクトURLは ?q= を無視するため）
-    // → プロンプト自動入力を最優先。プロジェクト文脈を使いたい場合はChatGPT側で手動切替
+    // ChatGPT: 保存済みのプロジェクト/GPTを必ず開く。
+    // ?q=を付けるとプロジェクト外の通常チャットへ移動するため、プロンプトはクリップボードで渡す。
+    const savedChatGPTUrl = getSavedChatGPTUrl();
+    if (savedChatGPTUrl) return savedChatGPTUrl;
     return 'https://chatgpt.com/?q=' + encodeURIComponent(p);
   }
 
@@ -2280,9 +2288,9 @@
 
     // ChatGPT のプロジェクトURL（/g/g-p-）や、Gemini の Gem URL（/gem/）では ?q=/?prompt= のプリフィルが効かない
     // → プロンプトが入力欄に入らないので、ユーザーに「📋 プロンプト」ボタンで手動切替してもらう必要がある
-    const savedGptUrl = (localStorage.getItem(CONN_KEY_GPT) || '').trim();
+    const savedGptUrl = getSavedChatGPTUrl();
     const savedGemUrl = (localStorage.getItem(CONN_KEY_GEM) || '').trim();
-    const isGptProject = engine === 'chatgpt' && /\/g\/g-p?-/.test(savedGptUrl);
+    const isGptProject = engine === 'chatgpt' && isChatGPTProjectUrl(savedGptUrl);
     const isGemGem     = engine === 'gemini'  && /\/gem\//.test(savedGemUrl);
     pendingReplace.needsPromptPaste = isGptProject || isGemGem;
 
@@ -2859,9 +2867,12 @@
         if (w) { pendingReplace.aiWindow = w; try { w.focus(); } catch (_) {} }
         else { showToast('⚠️ ポップアップがブロックされました。ブラウザでこのサイトのポップアップを許可してください', 'warn'); }
 
-        showToast(copied
-          ? `🚀 ${getEngineLabel(engine)}を開きました。チャット欄で <kbd>⌘/Ctrl+V</kbd> → 画像が貼り付きます（プロンプトは入力欄に自動入力済み）`
-          : `🚀 ${getEngineLabel(engine)}を開きました。プロンプトは自動入力済み（このブラウザは画像の自動コピー不可）`, 'success');
+        const needsProjectPromptPaste = engine === 'chatgpt' && isChatGPTProjectUrl(getSavedChatGPTUrl());
+        showToast(needsProjectPromptPaste
+          ? '🚀 指定済みのChatGPTプロジェクトを開きました。①画像を貼付 ②PWAの「📝 プロンプトをコピー」③ChatGPTで貼付して送信してください'
+          : (copied
+            ? `🚀 ${getEngineLabel(engine)}を開きました。チャット欄で <kbd>⌘/Ctrl+V</kbd> → 画像が貼り付きます（プロンプトは入力欄に自動入力済み）`
+            : `🚀 ${getEngineLabel(engine)}を開きました。プロンプトは自動入力済み（このブラウザは画像の自動コピー不可）`), 'success');
       };
     }
     const btnOpenCodex = document.getElementById('banner-open-codex');
@@ -4014,12 +4025,13 @@
       const prompt = buildProductResearchPrompt(query);
       // ① クリップボードにも入れる（Gemini/Claudeを使う場合やURLが長い時の保険）
       try { await navigator.clipboard.writeText(prompt); } catch (e) {}
-      // ② ChatGPTを開いてプロンプトを自動入力（既存の buildAIUrl＝?q= プリフィルを流用）
-      //    リサーチプロンプトは短い(約400字)のでURLに丸ごと載る＝そのまま貼付済みで開く
+      // ② ChatGPTを開く。保存済みのプロジェクトがある場合はそちらを最優先する。
       const url = buildAIUrl('chatgpt', prompt);
       const w = openFreshAI('chatgpt', url, 'width=900,height=900,scrollbars=yes,resizable=yes');
       if (!w) window.open(url, '_blank');
-      showToast('🤖 ChatGPTを開きました。商品リサーチのプロンプトは自動入力済み → 送信するだけ（回答を下に貼り戻してください）', 'success');
+      showToast(getSavedChatGPTUrl()
+        ? '🤖 指定済みのChatGPTプロジェクトを開きました。商品リサーチのプロンプトはコピー済みなので貼り付けて送信してください'
+        : '🤖 ChatGPTを開きました。商品リサーチのプロンプトは自動入力済み → 送信するだけ（回答を下に貼り戻してください）', 'success');
     });
 
     // AIが付ける引用・装飾を除去（[MaGdget][1] や (【…】) や **太字** [1] 等）
@@ -5105,7 +5117,9 @@ ${COMMON_GUARDS}`,
       const url = buildAIUrl('chatgpt', text);
       const w = openFreshAI('chatgpt', url, 'width=900,height=900,scrollbars=yes,resizable=yes');
       if (!w) window.open(url, '_blank');
-      showToast('✨ ChatGPTを開きました。プロンプトは自動入力済み → 送信するだけ', 'success');
+      showToast(getSavedChatGPTUrl()
+        ? '✨ 指定済みのChatGPTプロジェクトを開きました。プロンプトはコピー済みなので貼り付けて送信してください'
+        : '✨ ChatGPTを開きました。プロンプトは自動入力済み → 送信するだけ', 'success');
     });
   }
 
