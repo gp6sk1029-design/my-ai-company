@@ -405,15 +405,14 @@
       if (isVideo) div.innerHTML = '<video src="' + url + '" muted></video>';
       else if (isPdf) div.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:32px;">📄</div>';
       else div.innerHTML = '<img src="' + url + '" alt="">';
+      // 編集先はカード内に並べず、1つの選択画面にまとめる。
+      // 狭いカードで「別記事へ」「用途」ボタンと重なるのを防ぐ。
       const editBtnHtml = (isVideo || isPdf) ? '' :
-        '<button class="ai-edit-btn" type="button" title="ChatGPTで編集" data-action="ai-gpt">🤖</button>' +
-        '<button class="ai-edit-btn ai-edit-gemini" type="button" title="Geminiで編集" data-action="ai-gem">🍌</button>' +
-        '<button class="ai-edit-btn ai-edit-canva" type="button" title="Canvaで仕上げ（必要な場合のみ）" data-action="ai-canva">🎨</button>' +
-        '<button class="ai-edit-btn" type="button" title="Codexで生成・編集" data-action="ai-codex">🧠</button>';
+        '<button class="queue-tool-btn queue-ai-menu-btn" type="button" title="AIで画像を編集" data-action="ai-menu">✏️</button>';
       // 📦 別の記事へコピー/移動（動画・PDFでも使えるので常に表示）
       const transferBtnHtml =
-        '<button class="ai-edit-btn" type="button" title="別の記事へコピー/移動" data-action="transfer" ' +
-        'style="bottom:6px;left:' + ((isVideo || isPdf) ? 6 : 142) + 'px;background:linear-gradient(135deg,#64748b,#475569);">📦</button>';
+        '<button class="queue-tool-btn queue-transfer-btn' + ((isVideo || isPdf) ? ' queue-transfer-only' : '') +
+        '" type="button" title="別の記事へコピー/移動" data-action="transfer">📦</button>';
       const curRoleKey = (item.role || (item.isEyecatch ? 'eyecatch' : 'none'));
       const roleDef = getRoleDef(curRoleKey);
       const roleBtnHtml = (isVideo || isPdf) ? '' :
@@ -457,18 +456,11 @@
         URL.revokeObjectURL(url);
         await renderQueue();
       });
-      const gptBtn = div.querySelector('[data-action="ai-gpt"]');
-      const gemBtn = div.querySelector('[data-action="ai-gem"]');
-      const canvaBtn = div.querySelector('[data-action="ai-canva"]');
-      const codexBtn = div.querySelector('[data-action="ai-codex"]');
+      const aiMenuBtn = div.querySelector('[data-action="ai-menu"]');
       const roleBtn = div.querySelector('[data-action="cycle-role"]');
-      if (gptBtn) gptBtn.addEventListener('click', async (e) => { e.stopPropagation(); await confirmThenEdit(item, 'chatgpt'); });
-      if (gemBtn) gemBtn.addEventListener('click', async (e) => { e.stopPropagation(); await confirmThenEdit(item, 'gemini'); });
-      if (canvaBtn) canvaBtn.addEventListener('click', async (e) => { e.stopPropagation(); await confirmThenEdit(item, 'canva'); });
-      if (codexBtn) codexBtn.addEventListener('click', async (e) => {
+      if (aiMenuBtn) aiMenuBtn.addEventListener('click', async (e) => {
         e.stopPropagation();
-        await window.openAIHelperWithImage(item);
-        await startCodexImageJob(item);
+        await openAIEditorPicker(item);
       });
       if (roleBtn) roleBtn.addEventListener('click', async (e) => {
         e.stopPropagation();
@@ -2215,6 +2207,29 @@
       }
     }
     await oneClickEdit(item, engine);
+  }
+
+  // ─── キュー画像の編集先選択 ───────────────────────────────
+  // カード内に編集先を横並びにせず、選んだサービスだけを起動する。
+  async function openAIEditorPicker(item) {
+    const engine = await openModal({
+      title: '✏️ 画像の編集先を選択',
+      bodyHTML: '<div class="ai-engine-picker-note">編集に使うサービスを選んでください。</div>',
+      buttons: [
+        { label: 'キャンセル', value: null },
+        { label: '🤖 ChatGPT', value: 'chatgpt' },
+        { label: '🍌 Gemini', value: 'gemini' },
+        { label: '🎨 Canva', value: 'canva' },
+        { label: '🧠 Codex', value: 'codex' },
+      ],
+    });
+    if (!engine) return;
+    if (engine === 'codex') {
+      await window.openAIHelperWithImage(item);
+      await startCodexImageJob(item);
+      return;
+    }
+    await confirmThenEdit(item, engine);
   }
 
   async function oneClickEdit(item, engine) {

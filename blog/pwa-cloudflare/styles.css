@@ -817,6 +817,10 @@ body {
 #btn-jump-existing { margin-left: auto; }
 .queue-count { font-size: 15px; color: var(--text-muted); font-weight: 600; }
 .queue-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+@media (max-width: 360px) {
+  /* 下部の3操作を十分な間隔で押せるよう、最小幅ではカードを2列にする。 */
+  .queue-grid { grid-template-columns: repeat(2, 1fr); }
+}
 .queue-item {
   position: relative; aspect-ratio: 1;
   background: var(--bg-elevated); border-radius: 14px; overflow: hidden;
@@ -1566,9 +1570,11 @@ body.is-dropping .drop-overlay { display: flex; }
   .ai-source-preview img { width: 100%; height: 140px; }
 }
 
-/* ─── キュー画像の AI編集ボタン 2種 ──────── */
-.ai-edit-btn {
+/* ─── キューカード下部の操作 ───────────────────────── */
+/* 編集先は選択画面へまとめ、カードには編集・別記事へ・用途だけを置く。 */
+.queue-tool-btn {
   position: absolute;
+  bottom: 6px;
   width: 28px;
   height: 28px;
   border: 2px solid #fff;
@@ -1584,27 +1590,15 @@ body.is-dropping .drop-overlay { display: flex; }
   color: #fff;
   transition: transform .15s, box-shadow .15s;
 }
-.ai-edit-btn[data-action="ai-gpt"] {
-  bottom: 6px;
+.queue-ai-menu-btn {
   left: 6px;
   background: linear-gradient(135deg, #10b981, #059669);
 }
-.ai-edit-btn[data-action="ai-gem"] {
-  bottom: 6px;
+.queue-transfer-btn {
   left: 40px;
-  background: linear-gradient(135deg, #fbbf24, #f59e0b);
-  color: #1f2937;
+  background: linear-gradient(135deg, #64748b, #475569);
 }
-.ai-edit-btn[data-action="ai-canva"] {
-  bottom: 6px;
-  left: 74px;
-  background: linear-gradient(135deg, #7c3aed, #4338ca);
-}
-.ai-edit-btn[data-action="ai-codex"] {
-  bottom: 6px;
-  left: 108px;
-  background: linear-gradient(135deg, #111827, #334155);
-}
+.queue-transfer-btn.queue-transfer-only { left: 6px; }
 /* 画像役割サイクルボタン（右下） */
 .role-btn {
   position: absolute;
@@ -1650,10 +1644,12 @@ body.is-dropping .drop-overlay { display: flex; }
   white-space: nowrap;
 }
 
-.ai-edit-btn:hover {
+.queue-tool-btn:hover {
   transform: scale(1.15);
   box-shadow: 0 4px 14px rgba(0,0,0,0.3);
 }
+
+.ai-engine-picker-note { color: #4b5563; }
 
 /* ─── 編集中バッジ（個別アイテム） ───── */
 .editing-badge {
