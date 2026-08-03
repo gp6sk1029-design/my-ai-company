@@ -3226,6 +3226,22 @@
     }
   }
 
+  // Codexへは、ChatGPT/Gemini用の長い共通ガードを渡さない。
+  // とくに背景除去は、対象・保持条件・出力だけを明確にする。
+  function buildCodexJobPrompt(templateKey, fallbackPrompt) {
+    if (templateKey === 'bgremove') {
+      return [
+        '背景除去（透過PNG化）',
+        '添付画像の主役被写体だけを残し、背景を完全に透明化してください。',
+        '被写体の形・色・質感・既存の印字・ロゴ・比率・向きは変更しないでください。',
+        '毛髪・繊維・半透明の素材は自然な半透明エッジ、直線部分はくっきり処理してください。',
+        '古い背景色の残り・縁のハロー・影・新しい文字や装飾の追加は禁止です。',
+        '画像サイズは可能な限り維持し、PNGのアルファチャンネルを有効にしてください。',
+      ].join('\n');
+    }
+    return fallbackPrompt;
+  }
+
   async function startCodexImageJob(sourceItem = null) {
     const promptText = (aiPrompt && aiPrompt.value || '').trim();
     if (!promptText) {
@@ -3262,6 +3278,7 @@
     const now = new Date();
     const stamp = compactTimestamp(now);
     const templateKey = (aiTemplateSelect && aiTemplateSelect.value) || 'custom';
+    const codexPrompt = buildCodexJobPrompt(templateKey, promptText);
     const role = TEMPLATE_TO_ROLE[templateKey] || 'none';
     const rolePrefix = role === 'none' ? 'image' : role;
     const articleTitle = (typeof getCurrentArticleName === 'function' && getCurrentArticleName())
@@ -3291,7 +3308,7 @@
       templateKey,
       role,
       mode: sourceImagePath ? 'edit' : 'generate',
-      prompt: promptText,
+      prompt: codexPrompt,
       sourceImagePath,
       outputPath,
       outputFileName,
@@ -3322,7 +3339,7 @@
           originalId: latest.id,
           originalItem: latest,
           aiEngine: 'codex',
-          prompt: promptText,
+          prompt: codexPrompt,
           startedAt: pending.createdAt,
         };
         await queueUpdate(latest.id, (x) => { x.editingWith = 'codex'; });
@@ -3334,15 +3351,13 @@
       '$imagegen',
       '記事めしの画像生成ジョブを実行してください。',
       `ジョブファイル: ${jobPath}`,
-      sourceImagePath ? `編集元画像: ${sourceImagePath}` : '編集元画像: なし（新規生成）',
+      sourceImagePath ? '編集対象: このあと添付する画像' : '編集対象: なし（新規生成）',
       '',
       sourceImagePath
-        ? 'このあと添付する画像を編集対象として使ってください。添付が見えない場合だけ、上記sourceImagePathをview_imageで読み込んでください。'
-        : 'JSONのpromptを使ってbuilt-in image_genで新規生成してください。',
+        ? 'ジョブJSONのpromptに従って編集してください。添付が見えない場合だけ、JSONのsourceImagePathをview_imageで読み込んでください。'
+        : 'ジョブJSONのpromptに従ってbuilt-in image_genで新規生成してください。',
       '完成画像はJSONのoutputPathへ既存ファイルを上書きせずPNGで保存し、maxEdgePxを超える場合だけ縮小してください。',
       'Canvaは自動で開かず、完了時に画像と保存先を報告してください。',
-      '',
-      'セッション宣言・役割変更・引き継ぎ作成は不要です。不足がなければ確認質問なしで実行してください。',
     ].join('\n');
     latestCodexHandoffPrompt = handoffPrompt;
     let copiedSourceImage = false;
