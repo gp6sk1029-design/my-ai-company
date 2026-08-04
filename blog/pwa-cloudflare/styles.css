@@ -148,7 +148,7 @@ body {
 .ef-actions { margin-bottom: 10px; }
 .ef-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
   gap: 10px;
 }
 .ef-card {
@@ -449,14 +449,17 @@ body {
   text-overflow: ellipsis;
 }
 .ef-buttons {
-  display: flex;
-  gap: 4px;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 3px;
+  width: 100%;
 }
 .ef-buttons .ai-edit-btn {
   position: static;
-  width: 26px;
-  height: 26px;
-  font-size: 13px;
+  width: 100%;
+  min-width: 0;
+  height: 28px;
+  font-size: 12px;
 }
 .ef-empty {
   text-align: center;
@@ -817,7 +820,7 @@ body {
 .section-header h2 { font-size: 20px; font-weight: 700; letter-spacing: -0.3px; }
 #btn-jump-existing { margin-left: auto; }
 .queue-count { font-size: 15px; color: var(--text-muted); font-weight: 600; }
-.queue-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.queue-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
 /* 画面幅ではなく一時保存欄そのものの幅で列数を変える。
    PCの狭いウィンドウや分割表示でも、カード内の操作が重ならない。 */
 @container (max-width: 380px) {
@@ -827,11 +830,37 @@ body {
   .queue-grid { grid-template-columns: 1fr; }
 }
 .queue-item {
-  position: relative; aspect-ratio: 1;
-  background: var(--bg-elevated); border-radius: 14px; overflow: hidden;
+  position: relative;
+  background: #fff; border-radius: 10px; overflow: visible;
+  padding: 6px; display: flex; flex-direction: column; gap: 4px;
   box-shadow: 0 2px 6px rgba(120,90,200,0.08);
 }
+.queue-media {
+  position: relative; width: 100%; height: 100px;
+  border-radius: 6px; overflow: hidden; background: var(--bg-elevated);
+}
 .queue-item img, .queue-item video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.queue-pdf-preview { display:flex; align-items:center; justify-content:center; height:100%; font-size:32px; }
+.queue-name {
+  width: 100%; font-size: 0.7em; color: #4b5563;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.queue-role-full {
+  width: 100%; box-sizing: border-box; padding: 6px 8px;
+  font-size: 12px; border: 1px solid #d1d5db; border-radius: 8px;
+  background: #f9fafb; color: #111827; cursor: pointer; font-family: inherit;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: left;
+}
+.queue-role-full:active { background: #eef2ff; }
+.queue-direct-buttons {
+  display: grid; grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 3px; width: 100%;
+}
+.queue-direct-buttons .ai-edit-btn {
+  position: static; width: 100%; min-width: 0; height: 28px; font-size: 12px;
+}
+.queue-transfer-direct { background: linear-gradient(135deg,#64748b,#475569); }
+.ai-edit-codex { background: linear-gradient(135deg,#111827,#374151); }
 .queue-item .type-badge {
   position: absolute; top: 6px; left: 6px;
   background: rgba(0,0,0,0.7); color: #fff;

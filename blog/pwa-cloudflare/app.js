@@ -396,30 +396,35 @@
     uploadAllCount.textContent = items.length > 0 ? `${items.length}件を送信` : '';
     for (const item of items) {
       const div = document.createElement('div');
-      div.className = 'queue-item';
+      div.className = 'queue-item queue-item-unified';
       div.dataset.id = item.id;
       const url = URL.createObjectURL(item.blob);
       issuedObjectURLs.push(url);
       const isVideo = item.mimeType.startsWith('video/');
       const isPdf = item.mimeType === 'application/pdf';
-      if (isVideo) div.innerHTML = '<video src="' + url + '" muted></video>';
-      else if (isPdf) div.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:32px;">📄</div>';
-      else div.innerHTML = '<img src="' + url + '" alt="">';
-      // 編集先はカード内に並べず、1つの選択画面にまとめる。
-      // 狭いカードで「別記事へ」「用途」ボタンと重なるのを防ぐ。
-      const editBtnHtml = (isVideo || isPdf) ? '' :
-        '<button class="queue-tool-btn queue-ai-menu-btn" type="button" title="AIで画像を編集" data-action="ai-menu">✏️</button>';
-      // 📦 別の記事へコピー/移動（動画・PDFでも使えるので常に表示）
-      const transferBtnHtml =
-        '<button class="queue-tool-btn queue-transfer-btn' + ((isVideo || isPdf) ? ' queue-transfer-only' : '') +
-        '" type="button" title="別の記事へコピー/移動" data-action="transfer">📦</button>';
+      const mediaHtml = isVideo
+        ? '<video src="' + url + '" muted></video>'
+        : (isPdf
+          ? '<div class="queue-pdf-preview">📄</div>'
+          : '<img src="' + url + '" alt="' + escHtml(item.originalName || '').replace(/"/g, '&quot;') + '">');
+      div.innerHTML = '<div class="queue-media">' + mediaHtml + '</div>';
+      const mediaEl = div.querySelector('.queue-media');
       const curRoleKey = (item.role || (item.isEyecatch ? 'eyecatch' : 'none'));
       const roleDef = getRoleDef(curRoleKey);
       const roleBtnHtml = (isVideo || isPdf) ? '' :
-        '<button class="role-btn' + (curRoleKey !== 'none' ? ' active' : '') + '" type="button" ' +
+        '<button class="queue-role-full' + (curRoleKey !== 'none' ? ' active' : '') + '" type="button" ' +
         'style="' + (curRoleKey !== 'none' ? `background:${roleDef.color};color:#fff;border-color:${roleDef.color};` : '') + '" ' +
         'title="' + (curRoleKey === 'none' ? 'タップして用途を選ぶ' : `${roleDef.label}（タップで用途を選び直す）`) + '" ' +
-        'data-action="cycle-role">' + roleDef.emoji + '</button>';
+        'data-action="cycle-role">🏷 ' + roleDef.emoji + ' ' + escHtml(roleDef.label) + '</button>';
+      const directButtonsHtml = (isVideo || isPdf)
+        ? '<div class="queue-direct-buttons"><button class="ai-edit-btn queue-transfer-direct" data-action="transfer" title="別の記事へコピー/移動">📦</button></div>'
+        : '<div class="queue-direct-buttons">' +
+            '<button class="ai-edit-btn" data-action="queue-gpt" title="ChatGPTで編集">🤖</button>' +
+            '<button class="ai-edit-btn ai-edit-gemini" data-action="queue-gem" title="Geminiで編集">🍌</button>' +
+            '<button class="ai-edit-btn ai-edit-canva" data-action="queue-canva" title="Canvaで仕上げ">🎨</button>' +
+            '<button class="ai-edit-btn ai-edit-codex" data-action="queue-codex" title="Codexで編集">🧠</button>' +
+            '<button class="ai-edit-btn queue-transfer-direct" data-action="transfer" title="別の記事へコピー/移動">📦</button>' +
+          '</div>';
       const editingBadge = (item.editingWith ? '<div class="editing-badge">編集中…</div>' : '');
       const replaceBadge = (item.replaceDriveFileId ? '<div class="replace-badge" title="転送時に既存ファイルを上書き">↻ 上書き</div>' : '');
       const roleBadge = (curRoleKey !== 'none'
@@ -430,7 +435,7 @@
       const cmpNames = (curRoleKey === 'compare') ? getCompareProductNames() : [];
       const compareSelHtml = (curRoleKey === 'compare')
         ? '<select class="compare-idx-sel" title="どの製品の写真か" ' +
-          'style="position:absolute;right:4px;bottom:38px;z-index:6;font-size:11px;padding:2px 5px;' +
+          'style="position:absolute;right:4px;bottom:4px;z-index:6;font-size:11px;padding:2px 5px;' +
           'max-width:calc(100% - 8px);border-radius:6px;border:1px solid #ec4899;background:#fff;color:#111;">' +
           '<option value="">製品?</option>' +
           [1, 2, 3, 4].map(i =>
@@ -438,12 +443,15 @@
           ).join('') +
           '</select>'
         : '';
-      div.insertAdjacentHTML('beforeend',
+      mediaEl.insertAdjacentHTML('beforeend',
         '<span class="type-badge">' + (isVideo ? 'VID' : isPdf ? 'PDF' : 'IMG') + '</span>' +
-        editBtnHtml + transferBtnHtml + roleBtnHtml +
         '<button class="delete-btn" type="button">✕</button>' +
         (item.status === 'uploading' ? '<div class="status-overlay">転送中…</div>' : '') +
         editingBadge + replaceBadge + roleBadge + compareSelHtml
+      );
+      div.insertAdjacentHTML('beforeend',
+        '<div class="queue-name" title="' + escHtml(item.originalName || '').replace(/"/g, '&quot;') + '">' + escHtml(item.originalName || '一時保存画像') + '</div>' +
+        roleBtnHtml + directButtonsHtml
       );
       // 🛡 転送中は全操作ボタンを無効化（✕削除した画像が送信される事故防止）
       if (isUploading) {
@@ -456,15 +464,28 @@
         URL.revokeObjectURL(url);
         await renderQueue();
       });
-      const aiMenuBtn = div.querySelector('[data-action="ai-menu"]');
       const roleBtn = div.querySelector('[data-action="cycle-role"]');
-      if (aiMenuBtn) aiMenuBtn.addEventListener('click', async (e) => {
-        e.stopPropagation();
-        await openAIEditorPicker(item);
-      });
       if (roleBtn) roleBtn.addEventListener('click', async (e) => {
         e.stopPropagation();
         await openRolePickerForItem(item.id);
+      });
+      const directEngines = [
+        ['queue-gpt', 'chatgpt'],
+        ['queue-gem', 'gemini'],
+        ['queue-canva', 'canva'],
+      ];
+      directEngines.forEach(([action, engine]) => {
+        const btn = div.querySelector('[data-action="' + action + '"]');
+        if (btn) btn.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          await confirmThenEdit(item, engine);
+        });
+      });
+      const codexBtn = div.querySelector('[data-action="queue-codex"]');
+      if (codexBtn) codexBtn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        await window.openAIHelperWithImage(item);
+        showToast('🧠 Codex編集の準備完了。プロンプトを確認して「Codexで画像生成」を押してください', 'success');
       });
       const transferBtn = div.querySelector('[data-action="transfer"]');
       if (transferBtn) transferBtn.addEventListener('click', async (e) => {
@@ -6554,6 +6575,7 @@ ${COMMON_GUARDS}`,
             '<button class="ai-edit-btn" data-action="ef-gpt" title="ChatGPTで再編集">🤖</button>' +
             '<button class="ai-edit-btn ai-edit-gemini" data-action="ef-gem" title="Geminiで再編集">🍌</button>' +
             '<button class="ai-edit-btn ai-edit-canva" data-action="ef-canva" title="Canvaで仕上げ">🎨</button>' +
+            '<button class="ai-edit-btn ai-edit-codex" data-action="ef-codex" title="Codexで再編集">🧠</button>' +
             '<button class="ai-edit-btn" data-action="ef-transfer" title="別の記事へコピー/移動" style="background:linear-gradient(135deg,#64748b,#475569);color:#fff;">📦</button>' +
           '</div>';
         // 🔍 サムネをタップで拡大表示（一覧の全画像を ← → で送れる）
@@ -6570,6 +6592,7 @@ ${COMMON_GUARDS}`,
         card.querySelector('[data-action="ef-gpt"]').onclick = () => editExistingFile(f, 'chatgpt');
         card.querySelector('[data-action="ef-gem"]').onclick = () => editExistingFile(f, 'gemini');
         card.querySelector('[data-action="ef-canva"]').onclick = () => editExistingFile(f, 'canva');
+        card.querySelector('[data-action="ef-codex"]').onclick = () => editExistingFile(f, 'codex');
         card.querySelector('[data-action="ef-transfer"]').onclick = () => transferExistingFile(f, folderId);
         const healBtn = card.querySelector('.ef-heal-btn');
         if (healBtn) healBtn.onclick = async () => {
@@ -6771,6 +6794,11 @@ ${COMMON_GUARDS}`,
     const qs = document.getElementById('queue-section');
     if (qs) qs.scrollIntoView({ behavior: 'smooth', block: 'start' });
     showToast('📥 一時保存に取り込みました。このまま用途を選んで編集します', 'success');
+    if (engine === 'codex') {
+      await window.openAIHelperWithImage(item);
+      showToast('🧠 Codex編集の準備完了。プロンプトを確認して「Codexで画像生成」を押してください', 'success');
+      return;
+    }
     // ③ 一時保存と同じ編集フローへ（つくるもの選択ポップアップ → 編集）
     await confirmThenEdit(item, engine);
   }
