@@ -38,7 +38,6 @@ function doPost(e) {
   if (!verifyToken_(p.token)) return jsonResponse_({ ok: false, message: 'unauthorized' });
 
   if (p.action === 'uploadSmall') return handleUploadSmall_(p);
-  if (p.action === 'uploadSmallBatch') return handleUploadSmallBatch_(p);
   if (p.action === 'savePrompt') return handleSavePrompt_(p);
   if (p.action === 'replaceFile') return handleReplaceFile_(p);
   if (p.action === 'renameArticle') return handleRenameArticle_(p);
@@ -503,8 +502,56 @@ function handleUploadSmall_(p) {
   const lock = LockService.getScriptLock();
   lock.waitLock(30000);
   try {
+    if (!p.fileName) return jsonResponse_({ ok: false, message: 'fileName required' });
+    if (!p.fileDataBase64) return jsonResponse_({ ok: false, message: 'fileDataBase64 required' });
+
+    const bytes = Utilities.base64Decode(p.fileDataBase64);
+    const blob = Utilities.newBlob(bytes, p.mimeType || 'application/octet-stream', p.fileName);
+
     const folder = resolveArticleFolder_(p);
-    return jsonResponse_(uploadSmallOne_(p, folder));
+
+    const hash = computeHash(blob);
+    // 🛡 重複判定は「同じ記事フォルダ内」に限定する。
+    // 旧実装は全記事横断でhash照合していたため、別記事で同じ画像を使うと
+    // 「重複スキップ」でその記事に保存されず、最初の記事に永久固定されていた。
+    const existing = findByHash(hash, folder.getId());
+    if (existing) {
+      appendLog({
+        articleTitle: folder.getName(),
+        fileName: p.fileName,
+        sizeBytes: bytes.length,
+        hash: hash,
+        result: '重複スキップ',
+        note: '既存: ' + existing.fileId,
+      });
+      return jsonResponse_({ ok: true, result: 'skipped', existingFileId: existing.fileId, hash });
+    }
+
+    const capturedAt = p.capturedAt ? new Date(p.capturedAt) : new Date();
+    const normalizedName = normalizeFilename(p.fileName, capturedAt);
+    const finalName = resolveFilenameConflict(folder, normalizedName);
+    blob.setName(finalName);
+
+    const file = folder.createFile(blob);
+    addHashRecord(hash, file.getId(), finalName, folder.getId());
+    appendLog({
+      articleTitle: folder.getName(),
+      fileName: finalName,
+      sizeBytes: bytes.length,
+      hash: hash,
+      result: '成功',
+      note: '',
+    });
+
+    return jsonResponse_({
+      ok: true,
+      result: 'success',
+      fileId: file.getId(),
+      fileName: finalName,
+      articleFolderId: folder.getId(),
+      articleFolderName: folder.getName(),
+      hash: hash,
+    });
   } catch (err) {
     Logger.log('handleUploadSmall_ error: ' + err.message + '\n' + err.stack);
     appendLog({
@@ -516,84 +563,6 @@ function handleUploadSmall_(p) {
   } finally {
     lock.releaseLock();
   }
-}
-
-// 通常画像を1回のGAS起動・1回のロック取得でまとめて保存する。
-// 上書きと大容量ファイルは安全性・再開性を優先し、従来の個別経路を使う。
-function handleUploadSmallBatch_(p) {
-  const lock = LockService.getScriptLock();
-  lock.waitLock(30000);
-  try {
-    let items;
-    try { items = JSON.parse(p.itemsJson || '[]'); } catch (_) { items = null; }
-    if (!Array.isArray(items) || items.length < 2) {
-      return jsonResponse_({ ok: false, message: 'itemsJson must contain at least 2 items' });
-    }
-    if (items.length > 6) return jsonResponse_({ ok: false, message: 'batch item limit exceeded' });
-    let totalBase64Chars = 0;
-    for (var i = 0; i < items.length; i++) totalBase64Chars += String(items[i].fileDataBase64 || '').length;
-    if (totalBase64Chars > 15 * 1024 * 1024) {
-      return jsonResponse_({ ok: false, message: 'batch size limit exceeded' });
-    }
-
-    const folder = resolveArticleFolder_(p);
-    const results = [];
-    for (var j = 0; j < items.length; j++) {
-      const item = items[j] || {};
-      try {
-        results.push(uploadSmallOne_(item, folder));
-      } catch (err) {
-        Logger.log('uploadSmallBatch item error: ' + err.message);
-        appendLog({ fileName: item.fileName || '(unknown)', result: 'エラー', note: err.message });
-        results.push({ ok: false, message: err.message });
-      }
-    }
-    return jsonResponse_({
-      ok: true,
-      result: 'batch',
-      results: results,
-      articleFolderId: folder.getId(),
-      articleFolderName: folder.getName(),
-    });
-  } catch (err) {
-    Logger.log('handleUploadSmallBatch_ error: ' + err.message + '\n' + err.stack);
-    return jsonResponse_({ ok: false, message: err.message });
-  } finally {
-    lock.releaseLock();
-  }
-}
-
-function uploadSmallOne_(p, folder) {
-  if (!p.fileName) throw new Error('fileName required');
-  if (!p.fileDataBase64) throw new Error('fileDataBase64 required');
-
-  const bytes = Utilities.base64Decode(p.fileDataBase64);
-  const blob = Utilities.newBlob(bytes, p.mimeType || 'application/octet-stream', p.fileName);
-  const hash = computeHash(blob);
-  // 🛡 重複判定は同じ記事フォルダ内だけ。別記事の同一画像は許可する。
-  const existing = findByHash(hash, folder.getId());
-  if (existing) {
-    appendLog({
-      articleTitle: folder.getName(), fileName: p.fileName, sizeBytes: bytes.length,
-      hash: hash, result: '重複スキップ', note: '既存: ' + existing.fileId,
-    });
-    return { ok: true, result: 'skipped', existingFileId: existing.fileId, hash: hash };
-  }
-
-  const capturedAt = p.capturedAt ? new Date(p.capturedAt) : new Date();
-  const normalizedName = normalizeFilename(p.fileName, capturedAt);
-  const finalName = resolveFilenameConflict(folder, normalizedName);
-  blob.setName(finalName);
-  const file = folder.createFile(blob);
-  addHashRecord(hash, file.getId(), finalName, folder.getId());
-  appendLog({
-    articleTitle: folder.getName(), fileName: finalName, sizeBytes: bytes.length,
-    hash: hash, result: '成功', note: '',
-  });
-  return {
-    ok: true, result: 'success', fileId: file.getId(), fileName: finalName,
-    articleFolderId: folder.getId(), articleFolderName: folder.getName(), hash: hash,
-  };
 }
 
 // ─── 商品情報（PRODUCT_INFO.md）保存（2026-07-12） ─────────────────────

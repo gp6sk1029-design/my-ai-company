@@ -6,8 +6,6 @@
   const TOKEN = '';
   const SMALL_FILE_LIMIT = CFG.SMALL_FILE_LIMIT || 20 * 1024 * 1024;
   const CHUNK_SIZE = 8 * 1024 * 1024;
-  const SMALL_BATCH_MAX_ITEMS = 6;
-  const SMALL_BATCH_MAX_BYTES = 10 * 1024 * 1024;
 
   // ─── DOM 参照 ─────────────────────
   const $ = (id) => document.getElementById(id);
@@ -5918,43 +5916,6 @@ ${COMMON_GUARDS}`,
     // 役割→[ファイル名+fileId] の記録（PROMPT.mdに反映するため）
     const roleUploadMap = {};
 
-    // 通常の小さい新規画像は最大6枚・合計10MBまで1通信にまとめる。
-    // 上書きは誤更新防止、大容量は再開可能転送のため従来どおり個別処理する。
-    const batchResultById = new Map();
-    const batchGroups = [];
-    let batchGroup = [];
-    let batchBytes = 0;
-    const flushBatchGroup = () => {
-      if (batchGroup.length >= 2) batchGroups.push(batchGroup);
-      batchGroup = [];
-      batchBytes = 0;
-    };
-    for (const item of items) {
-      const batchable = !item.replaceDriveFileId && item.size <= SMALL_FILE_LIMIT && item.size <= SMALL_BATCH_MAX_BYTES;
-      if (!batchable) continue;
-      if (batchGroup.length >= SMALL_BATCH_MAX_ITEMS || batchBytes + (item.size || 0) > SMALL_BATCH_MAX_BYTES) flushBatchGroup();
-      batchGroup.push(item);
-      batchBytes += item.size || 0;
-    }
-    flushBatchGroup();
-    for (let batchIndex = 0; batchIndex < batchGroups.length; batchIndex++) {
-      const group = batchGroups[batchIndex];
-      setStatus(`⚡ 一括転送中 ${batchIndex + 1}/${batchGroups.length}（${group.length}枚）`);
-      try {
-        const batchResponse = await uploadSmallBatch(group, articleTitle, articleFolderId);
-        if (!batchResponse.ok || !Array.isArray(batchResponse.results) || batchResponse.results.length !== group.length) {
-          throw new Error(batchResponse.message || '一括転送の応答が不正です');
-        }
-        batchResponse.results.forEach((result, index) => {
-          // 個別結果が失敗なら従来経路で再試行する。成功・重複だけ確定扱いにする。
-          if (result && result.ok) batchResultById.set(group[index].id, result);
-        });
-      } catch (error) {
-        // 一括経路が使えない旧GASや一時障害でも、下の個別転送へ自動フォールバックする。
-        console.warn('高速一括転送を個別転送へ切替:', error);
-      }
-    }
-
     for (const item of items) {
       setStatus('転送中 ' + (success + skipped + failed + 1) + '/' + items.length);
       try {
@@ -5962,14 +5923,12 @@ ${COMMON_GUARDS}`,
         //   replaceDriveFileId を扱えず新規ファイルを作ってしまう＝「更新されない」原因になるため。
         if (item.replaceDriveFileId) didReplace = true;
         const isLarge = item.size > SMALL_FILE_LIMIT && !item.replaceDriveFileId;
-        const result = batchResultById.has(item.id)
-          ? batchResultById.get(item.id)
-          : (isLarge
-            ? await uploadLarge(item, articleTitle, articleFolderId, (n) => {
-                xfer.bytesDone += n; // 大容量はチャンクごとに加算（進捗がなめらかに動く）
-                updateLockProgress(xfer);
-              })
-            : await uploadSmall(item, articleTitle, articleFolderId));
+        const result = isLarge
+          ? await uploadLarge(item, articleTitle, articleFolderId, (n) => {
+              xfer.bytesDone += n; // 大容量はチャンクごとに加算（進捗がなめらかに動く）
+              updateLockProgress(xfer);
+            })
+          : await uploadSmall(item, articleTitle, articleFolderId);
         if (!isLarge) xfer.bytesDone += item.size || 0;
         if (result.ok && result.result === 'success') {
           success++;
@@ -6156,28 +6115,6 @@ ${COMMON_GUARDS}`,
       mimeType: item.mimeType,
       capturedAt: new Date(item.createdAt).toISOString(),
       fileDataBase64: base64,
-    });
-    const res = await fetch(GAS_URL, {
-      method: 'POST',
-      body: body.toString(),
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
-    });
-    return res.json();
-  }
-
-  async function uploadSmallBatch(items, articleTitle, articleFolderId) {
-    const encodedItems = await Promise.all(items.map(async (item) => ({
-      fileName: item.originalName,
-      mimeType: item.mimeType,
-      capturedAt: new Date(item.createdAt).toISOString(),
-      fileDataBase64: await blobToBase64(item.blob),
-    })));
-    const body = new URLSearchParams({
-      token: TOKEN,
-      action: 'uploadSmallBatch',
-      articleTitle: articleTitle || '',
-      articleFolderId: articleFolderId || '',
-      itemsJson: JSON.stringify(encodedItems),
     });
     const res = await fetch(GAS_URL, {
       method: 'POST',
