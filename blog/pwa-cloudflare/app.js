@@ -6171,25 +6171,122 @@ ${COMMON_GUARDS}`,
   // ─── 記事セレクタ ─────────────────────
   let articleList = [];
   let selectedNewArticle = null;
-  async function loadArticleList() {
-    try {
-      const url = GAS_URL + '?' + new URLSearchParams({ token: TOKEN, action: 'listArticles' }).toString();
-      const res = await fetch(url).then((r) => r.json());
-      if (!res.ok) throw new Error(res.message);
-      articleList = res.articles || [];
-      articleSelect.innerHTML = '<option value="">-- 記事を選ぶ --</option>';
-      for (const a of articleList) {
-        const opt = document.createElement('option');
-        opt.value = a.id;
-        opt.textContent = a.name;
-        articleSelect.appendChild(opt);
-      }
-    } catch (e) {
-      console.error('記事リスト取得失敗:', e);
-      articleSelect.innerHTML = '<option value="">読み込み失敗</option>';
-      showToast('記事リスト取得失敗: ' + (e.message || e), 'error');
+  const LS_DRIVE_ARTICLES_CACHE_KEY = 'kiji-meshi:drive-cache:articles-v1';
+  const DRIVE_RECONNECT_DELAY_MS = 15000;
+  let driveReconnectTimer = null;
+  let driveListRequest = null;
+  let driveLastConnectedAt = 0;
+
+  function setDriveConnectionStatus(state, message) {
+    const el = document.getElementById('drive-connection-status');
+    if (!el) return;
+    el.className = 'drive-connection-status' + (state ? ' is-' + state : '');
+    el.textContent = message;
+  }
+
+  function renderArticleListOptions(list, preferredFolderId) {
+    const keepFolderId = preferredFolderId || articleSelect.value || '';
+    articleList = Array.isArray(list) ? list : [];
+    articleSelect.innerHTML = '<option value="">-- 記事を選ぶ --</option>';
+    for (const a of articleList) {
+      const opt = document.createElement('option');
+      opt.value = a.id;
+      opt.textContent = a.name;
+      articleSelect.appendChild(opt);
+    }
+    if (keepFolderId && articleList.some((a) => a.id === keepFolderId)) {
+      articleSelect.value = keepFolderId;
     }
   }
+
+  function restoreCachedArticleList(preferredFolderId) {
+    try {
+      const raw = localStorage.getItem(LS_DRIVE_ARTICLES_CACHE_KEY);
+      if (!raw) return false;
+      const cached = JSON.parse(raw);
+      if (!cached || !Array.isArray(cached.articles) || cached.articles.length === 0) return false;
+      renderArticleListOptions(cached.articles, preferredFolderId);
+      const ageMinutes = cached.savedAt ? Math.max(0, Math.round((Date.now() - cached.savedAt) / 60000)) : null;
+      setDriveConnectionStatus('cached', '⚡ 前回の記事一覧を表示中・Google Driveへ再接続中' + (ageMinutes === null ? '' : `（${ageMinutes}分前）`));
+      return true;
+    } catch (error) {
+      console.warn('Drive記事一覧キャッシュの復元失敗:', error);
+      return false;
+    }
+  }
+
+  function saveArticleListCache(list) {
+    try {
+      localStorage.setItem(LS_DRIVE_ARTICLES_CACHE_KEY, JSON.stringify({ savedAt: Date.now(), articles: list }));
+    } catch (error) {
+      console.warn('Drive記事一覧キャッシュの保存失敗:', error);
+    }
+  }
+
+  async function fetchJsonWithTimeout(url, options, timeoutMs) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs || 20000);
+    try {
+      const response = await fetch(url, { ...(options || {}), signal: controller.signal });
+      const data = await response.json();
+      if (!response.ok) throw new Error((data && (data.message || data.error)) || `通信エラー (${response.status})`);
+      return data;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  function scheduleDriveReconnect(preferredFolderId) {
+    if (driveReconnectTimer) return;
+    driveReconnectTimer = setTimeout(() => {
+      driveReconnectTimer = null;
+      loadArticleList(preferredFolderId);
+    }, DRIVE_RECONNECT_DELAY_MS);
+  }
+
+  async function loadArticleList(preferredFolderId) {
+    if (driveListRequest) return driveListRequest;
+    driveListRequest = (async () => {
+      const keepFolderId = preferredFolderId || articleSelect.value || localStorage.getItem(LS_LAST_FOLDER_KEY) || '';
+      setDriveConnectionStatus(articleList.length ? 'cached' : 'connecting', articleList.length
+        ? '⚡ 前回の記事一覧を利用中・Google Driveを更新中…'
+        : '☁️ Google Driveへ接続中…');
+      try {
+        const url = GAS_URL + '?' + new URLSearchParams({ token: TOKEN, action: 'listArticles' }).toString();
+        const res = await fetchJsonWithTimeout(url, null, 20000);
+        if (!res.ok) throw new Error(res.message);
+        const freshArticles = res.articles || [];
+        // 通信待ち中にユーザーが別の記事を選んだ場合、その選択を巻き戻さない。
+        renderArticleListOptions(freshArticles, articleSelect.value || keepFolderId);
+        saveArticleListCache(freshArticles);
+        driveLastConnectedAt = Date.now();
+        if (driveReconnectTimer) { clearTimeout(driveReconnectTimer); driveReconnectTimer = null; }
+        setDriveConnectionStatus('', '☁️ Google Drive 接続済み');
+        return true;
+      } catch (e) {
+        console.error('記事リスト取得失敗:', e);
+        if (articleList.length === 0) articleSelect.innerHTML = '<option value="">再接続中…</option>';
+        setDriveConnectionStatus(articleList.length ? 'cached' : 'error', articleList.length
+          ? '⚠️ Driveへ自動再接続中・前回の記事一覧は利用できます'
+          : '⚠️ Google Driveへ自動再接続中…');
+        scheduleDriveReconnect(keepFolderId);
+        if (articleList.length === 0) showToast('Google Driveへ再接続しています。画面はこのままでお待ちください', 'warn');
+        return false;
+      } finally {
+        driveListRequest = null;
+      }
+    })();
+    return driveListRequest;
+  }
+
+  window.addEventListener('online', () => loadArticleList(articleSelect.value || ''));
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState !== 'visible') return;
+    if (!driveLastConnectedAt || Date.now() - driveLastConnectedAt > 5 * 60 * 1000) {
+      loadArticleList(articleSelect.value || '');
+    }
+  });
+
   function getSelectedArticleTitle() { return selectedNewArticle || ''; }
   function getSelectedArticleFolderId() { return articleSelect.value || ''; }
 
@@ -7551,22 +7648,34 @@ ${COMMON_GUARDS}`,
       }
       if (cleared > 0) console.log(`[startup] 編集中フラグを${cleared}件クリア`);
     } catch (e) { console.warn('startup editingWith cleanup failed:', e); }
-    await loadArticleList();
-    // 前回選択していた記事を復元（リロード後もメモ・ファイル一覧が継続）
-    let restoredFolder = '';
+    // 前回の記事一覧を先に表示し、Google Driveの更新は裏側で開始する。
+    // GASの初回応答が遅いときも、記事選択とローカル作業を待たせない。
+    let lastFolder = '';
     try {
-      const lastFolder = localStorage.getItem(LS_LAST_FOLDER_KEY);
-      if (lastFolder && Array.from(articleSelect.options).some(o => o.value === lastFolder)) {
-        articleSelect.value = lastFolder;
-        restoredFolder = lastFolder;
-      }
+      lastFolder = localStorage.getItem(LS_LAST_FOLDER_KEY) || '';
     } catch (e) { console.warn('restore last article failed:', e); }
+    const restoredFromCache = restoreCachedArticleList(lastFolder);
+    const articleRefresh = loadArticleList(lastFolder);
+    // 初回利用などキャッシュがない場合だけ、記事一覧の初回取得を待つ。
+    if (!restoredFromCache) await articleRefresh;
+
+    let restoredFolder = '';
+    if (lastFolder && Array.from(articleSelect.options).some(o => o.value === lastFolder)) {
+      articleSelect.value = lastFolder;
+      restoredFolder = lastFolder;
+    }
     // 🛡 記事の選択を確定してから、その記事のメモ・キューを読み込む
     //   （旧実装は選択前に単一スロットのメモを無条件復元していたため、
     //    前の記事のメモが起動直後から「引き継がれて見える」原因だった）
     loadMemoStateForCurrent();
     try { piReloadForCurrent(); } catch (_) {} // 🛒 この記事の商品情報を復元
     await renderQueue();
+    // カメラ等のローカル機能はDriveの詳細読込を待たずに利用可能にする。
+    await startCamera();
+    setStatus(restoredFromCache ? '準備完了（Drive更新中）' : '準備完了');
+
+    // キャッシュ表示中に開始したDrive更新を完了させる。
+    if (restoredFromCache) await articleRefresh;
     if (restoredFolder) {
       try {
         await loadExistingPrompt(restoredFolder, { silent: true });
@@ -7574,8 +7683,6 @@ ${COMMON_GUARDS}`,
         updateCurrentArticleDisplay();
       } catch (e) { console.warn('restore article data failed:', e); }
     }
-    // 初期はライブカメラ
-    await startCamera();
     setStatus('準備完了');
   })();
 })();
