@@ -186,7 +186,7 @@ SESSION_ROLES = {
     "work": {
         "name": "生産技術主任補佐PDM（本業ツール）セッション",
         "scope": "本業ツール群の調査・修理・開発（plc-debugger／email-assistant／media-transcriber／winding-report／drawing-checker／fp7-diff）。対象リポジトリは work-projects（my-ai-companyとは別リポジトリ）",
-        "files": ["../work-projects/CLAUDE.md", "../work-projects/MEMORY.md", "../work-projects/<対象ツール>/SKILL.md（あれば）"],
+        "files": ["~/work-projects/CLAUDE.md", "~/work-projects/MEMORY.md", "~/work-projects/<対象ツール>/SKILL.md（あれば）"],
         "keywords": ["plc", "本業", "work-projects", "メール秘書", "文字起こし", "巻線", "図面", "検図", "fp7", "smc2"],
         "out_of_scope": "副業リポジトリ（my-ai-company）の編集（引き継ぎ書生成と各MEMORY.mdへのTODO追記のみ可）・記事執筆・SNS投稿・出品作業",
     },
@@ -384,7 +384,7 @@ def main() -> int:
     parser.add_argument("--recent", type=int, default=10,
                         help="含めるユーザー入力の数（デフォルト10）")
     parser.add_argument("--role", choices=list(SESSION_ROLES.keys()),
-                        help="セッション役割（pdm/blog/ec/tools/sns/research/infra）。未指定時は自動推定")
+                        help="セッション役割（pdm/blog/ec/tools/sns/research/infra/work）。未指定時は自動推定")
     args = parser.parse_args()
 
     try:
