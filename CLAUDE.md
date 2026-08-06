@@ -10,8 +10,9 @@
 
 ## プロジェクト概要
 - これは「あなた専用AI会社」システムです
-- 構成：5セクション体制（PDM・ブログ部門・ツール作成部門・SNS部門・リサーチ部門）
-- SNS部門はブログのハブ&スポーク拡散を担いつつ、SNS単独運用にも対応（X／Instagram／YouTube）
+- 構成：4セクション体制（PDM・**コンテンツ部門（ブログ×SNS）**・ツール作成部門・リサーチ部門）
+- 🔴 **2026-08-01：ブログ部門とSNS部門を「コンテンツ部門」に統合**（v5.0）。記事公開→SNS拡散は別工程ではなく**同一ラインの後工程**であり、分けたことが分断点になっていた（実測：12記事公開してSNS拡散ゼロ／SNS部門は新設から約3ヶ月ゼロ稼働／X最終投稿2025年8月）。`publish_article.py` が公開時にSNS原稿キューを自動生成する仕組み（工程⑫）が入り、ツール側は既に統合済みだったため、看板（モード・役割）も実態に合わせた
+- SNS（X／Instagram／YouTube）はブログのハブ&スポーク拡散を担いつつ、SNS単独運用にも対応。**フォルダ構成 `sns/` は従来どおり維持**（中身は健全なので動かさない）
 - リサーチ部門はリベシティ等の外部知識源から副業ネタを収集・統合し、他部門にネタ供給する（2026-05-28新設）
 - 私生活サポート・本業サポートは将来追加予定
 
@@ -22,24 +23,24 @@
 このプロジェクトでは、Claude CodeはPDM（プロダクトマネージャー）として振る舞う。
 PDMは「万能・何でも対応」がデフォルトモード。
 
-### 5つの動作モード
+### 4つの動作モード（2026-08-01：ブログ＋SNSを統合し5→4モードへ）
 
 | モード | 役割 | 起動条件 |
 |-------|------|---------|
 | **PDMモード**（デフォルト） | 万能・調整役・整理整頓・調査・相談・並列ディスパッチ | デフォルト（特定スキル起動なし） |
-| **ブログ専用モード** | 記事執筆に専念 | 「記事書いて」等 → blog/SKILL.md自動起動 |
+| **コンテンツ統括モード（ブログ×SNS）** | 記事の企画・執筆・公開＋**そのSNS拡散原稿の作成・運用**まで一気通貫 | 「記事書いて」「SNS原稿作って」「Xに投稿」等 → blog/SKILL.md ＋（SNS作業時のみ）sns/SKILL.md 自動起動 |
 | **ツール作成モード** | PWA・自動化ツールの開発に専念 | 「ツール作って」「PWA作って」等 → tools/SKILL.md自動起動 |
-| **SNS統括モード** | SNS（X／Instagram／YouTube）の原稿生成・運用 | 「SNS原稿作って」「Xに投稿」等 → sns/SKILL.md自動起動 |
 | **リサーチモード** | リベシティ等から副業ネタを収集し、優良記事×優良記事で新副業を創造／単一記事から自動化案件を抽出／学長マガジン等を要約し副業・投資の考え方を蓄積 | 「リベシティ」「ノウハウ図書館」「副業ネタ」「副業自動化」「学長マガジン」「高配当株」等 → research/SKILL.md自動起動 |
 
 ### モード切替の判定キーワード
-- ブログ・記事・WordPress・キャラ対話・SEO → **ブログ専用モード**
+- ブログ・記事・WordPress・キャラ対話・SEO／**SNS・X（Twitter）・Instagram・YouTube・リール・ショート・ハッシュタグ・投稿原稿** → **コンテンツ統括モード**
 - PWA・アプリ・ツール開発・メルカリ・献立・ライフプラン・自動化 → **ツール作成モード**
-- SNS・X（Twitter）・Instagram・YouTube・リール・ショート・ハッシュタグ・投稿原稿 → **SNS統括モード**
 - リベシティ・ノウハウ図書館・副業ネタ・副業計画・掛け合わせ・新事業アイデア・副業自動化・Claude Codeで・PWA化・ツール化したい・学長マガジン・高配当株マガジン・学長の考え方 → **リサーチモード**
 - それ以外（雑用・調査・整理・相談・PDF作成・Excel処理など） → **PDMモード**
 
-> 「ブログ統括PDM」セッションはブログ＋SNS両モードを兼任する立ち位置（ハブ&スポーク戦略のため）。
+> 🔴 **SNS作業でも「送信」は人間**（統合はAIが投稿することを意味しない）。リプ送信・投稿の最終送信は凍結リスクが高いため、従来どおり [sns/channels/x/SKILL.md](sns/channels/x/SKILL.md) §0-4 のハイブリッド運用を厳守する。AIは原稿・画像・分析・下書き入力まで。
+
+> **再分離の条件（先に決めておく）**：①Instagram／YouTubeの本格運用を開始する ②SNS投稿が週5本を超える ③SNS作業でセッション容量を恒常的に圧迫する ── **このいずれかに達したら `sns` 役割セッションを復活させる**（役割カタログ・handover.py の `--role sns` は残してある）。
 
 ### PDMモードの心得
 - どんな依頼でも受け止める（万能）
@@ -206,10 +207,10 @@ Claude（司令塔）が、必要なときに専門家 **Codex（gpt-5.5）** �
 | 役割キー       | 名称              | 担当範囲                                               | 必須読み込みファイル                                                                                               |
 | ---------- | --------------- | -------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
 | `pdm`      | 総合PdM（CPO）セッション | 全体ルール作成・部門横断調整・整合性チェック                             | CLAUDE.md / global_rules/CLAUDE_global.md                                                                |
-| `blog`     | ブログ執筆セッション      | 記事の企画・執筆・校正・WP投稿                                   | blog/SKILL.md / blog/MEMORY.md                                                                           |
+| `blog`     | **コンテンツ統括セッション（ブログ×SNS）** | 記事の企画・執筆・校正・WP投稿 ＋ **その拡散（X／Instagram／YouTube原稿・運用・sns/配下の編集）**。2026-08-01の統合で `sns` を吸収 | blog/SKILL.md / blog/MEMORY.md ／SNS作業時は sns/SKILL.md・sns/channels/x/SKILL.md も |
 | `ec`       | EC物販セッション       | メルカリ出品・価格・在庫・顧客対応                                  | tools/ec/SKILL.md / tools/ec/MEMORY.md                                                                   |
 | `tools`    | ツール開発セッション      | PWA・自動化スクリプト開発                                     | tools/SKILL.md / tools/MEMORY.md                                                                         |
-| `sns`      | SNS統括セッション      | X/Instagram/YouTube投稿                              | sns/SKILL.md / sns/MEMORY.md                                                                             |
+| `sns`      | SNS統括セッション（**休止中**） | X/Instagram/YouTube投稿。**2026-08-01に `blog` へ統合。通常は起動しない**（再分離条件を満たしたときのみ復活。キー自体は残す） | sns/SKILL.md / sns/MEMORY.md                                                                             |
 | `research` | リサーチセッション       | リベシティ記事収集／掛け合わせ副業創造／単一記事からの自動化案件抽出（tools部門への提案を含む） | research/SKILL.md / research/MEMORY.md / research/skills/{collect,synthesize,automate,digest,handoff}.md |
 | `infra`    | インフラ・全体管理セッション  | hooks・global_rules・session_health等                 | CLAUDE.md / .claude/settings.json                                                                        |
 | `work`     | 生産技術主任補佐PDM（本業ツール）セッション | 本業ツール群（plc-debugger／email-assistant／media-transcriber／winding-report／drawing-checker／fp7-diff）の調査・修理・開発。**対象はwork-projectsリポジトリ（別リポジトリ）** | work-projects/CLAUDE.md / work-projects/MEMORY.md / 対象ツールのSKILL.md（あれば） |
@@ -346,8 +347,9 @@ python3 tools/handover.py
   - [tools/cooking-recipe/SKILL.md](tools/cooking-recipe/SKILL.md) ＋ [tools/cooking-recipe/MEMORY.md](tools/cooking-recipe/MEMORY.md)（献立くん）
   - [tools/life-plan/SKILL.md](tools/life-plan/SKILL.md) ＋ [tools/life-plan/MEMORY.md](tools/life-plan/MEMORY.md)（ライフプランくん）
 
-**SNS部門（X／Instagram／YouTube）**
+**SNS（X／Instagram／YouTube）── コンテンツ部門の一部（2026-08-01統合。フォルダは従来どおり）**
 - 部門共通：[sns/SKILL.md](sns/SKILL.md) ＋ [sns/MEMORY.md](sns/MEMORY.md) ＋ [sns/calendar.md](sns/calendar.md)
+- 拡散キュー：[sns/queue/README.md](sns/queue/README.md)（記事公開時に自動生成される受け渡し場所）
 - チャネル別：
   - [sns/channels/x/SKILL.md](sns/channels/x/SKILL.md)（X／旧Twitter）
   - [sns/channels/instagram/SKILL.md](sns/channels/instagram/SKILL.md)（Instagram）
@@ -381,12 +383,11 @@ python3 tools/handover.py
 
 ### 必須ルール
 1. **1セッション＝1セクション専属とする**
-   - ブログセッション → `blog/` 配下のみ編集
+   - **コンテンツセッション（役割キー `blog`）** → `blog/` ＋ `sns/` 配下を編集可（**2026-08-01の統合により、これが本則**。旧「ブログ統括PDMの例外扱い」は廃止）
    - ツールセッション → `tools/` 配下のみ編集。**research由来の自動化案件の「採用/不採用」ステータス更新は tools側の専権**
-   - SNSセッション → `sns/` 配下のみ編集
    - **リサーチセッション** → `research/` 配下のみ編集。他部門 MEMORY.md は「TODO追記のみ」（書き換え禁止）。特に `tools/MEMORY.md` の「🤖 research由来の自動化案件」セクションへの**追記のみ許可**
-   - **ブログ統括PDMセッション**（兼任型） → `blog/` ＋ `sns/` を編集可（ハブ&スポーク戦略上の例外）
    - PDMセッション → `CLAUDE.md`・全体最適のみ編集
+   - ※ SNS専属セッション（役割キー `sns`）は統合により**通常は起動しない**。再分離条件（モード表の注記参照）を満たしたときのみ復活させ、そのときは `sns/` 配下のみ編集とする
 
 2. **MEMORY.mdは部門別に分ける**
    - 各部門のMEMORY.mdは、その部門のセッションだけが書く
@@ -620,7 +621,8 @@ MEMORY.md（学習・経験の蓄積）
 - ライフプランくん（生涯資産管理PWA） → [tools/life-plan/SKILL.md](tools/life-plan/SKILL.md)
 - 🤖 **research由来の自動化案件**：[tools/MEMORY.md](tools/MEMORY.md) 「🤖 research由来の自動化案件」セクション参照（受領→検討→採用/不採用判断）
 
-**SNS部門（my-ai-companyリポジトリ・2026-05-02新設）**
+**SNS（my-ai-companyリポジトリ・2026-05-02新設 → 2026-08-01 コンテンツ部門へ統合）**
+> 担当は `blog` 役割（コンテンツ統括セッション）。記事公開の後工程として同一セッションが扱う。
 - 部門共通スキル → [sns/SKILL.md](sns/SKILL.md)
 - X（旧Twitter） → [sns/channels/x/SKILL.md](sns/channels/x/SKILL.md)
 - Instagram → [sns/channels/instagram/SKILL.md](sns/channels/instagram/SKILL.md)
@@ -929,14 +931,15 @@ CLAUDE.md の「ツール・アプリ開発の標準パターン」に昇格
 - v2.0：3セクション体制（PDM・blog・tools）に再構成。`tools/`に既存ツール集約
 - v3.0：4セクション体制へ拡張（PDM・blog・tools・sns）。SNS部門新設・ハブ&スポーク戦略採用（2026-05-02）
 - v4.0：5セクション体制へ拡張（PDM・blog・tools・sns・research）。リサーチ部門新設・優良記事×優良記事の掛け合わせで副業創造＋単一記事からの自動化案件抽出機能（2026-05-28）
+- **v5.0：4セクション体制へ集約（PDM・コンテンツ〈blog×sns〉・tools・research）。ブログ部門とSNS部門を統合（2026-08-01）**。理由＝記事公開→SNS拡散は同一ラインの後工程であり、部門を分けたことが分断点になっていた（12記事公開して拡散ゼロ／SNS部門は約3ヶ月ゼロ稼働）。`publish_article.py` の公開後フック（SNS原稿キュー自動生成）でツール側は先に統合済みだったため、看板を実態に合わせた。**フォルダ `sns/` と役割キー `sns` は温存**し、再分離条件（Instagram/YouTube本格運用・週5投稿超・容量圧迫）を満たしたら復活させる
 
 ### 現在の強み（2026-06-13 CPO監査で初回記録）
 - セッション管理基盤（hooks自動同期・健康診断・引き継ぎ書・役割自己伝搬）が仕組みとして完成し実運用されている
 - blog部門は企画→執筆→公開→台帳記録のサイクルが回っている（5月3記事公開）
 - research部門はリベ日課（毎朝ルーチン）＋4ビューア＋承認記録まで整備済み
 
-### 現在の課題（2026-06-13 CPO監査で初回記録）
-- SNS部門が新設以来未稼働（ハブ&スポーク拡散が機会損失中）→ SNS統括セッションで開始/停止の判断待ち
+### 現在の課題（2026-06-13 CPO監査で初回記録／2026-08-01 更新）
+- ~~SNS部門が新設以来未稼働~~ → **2026-08-01：部門統合で構造的に対処**（v5.0）。記事公開時にSNS原稿キューが自動生成され、公開したセッションがその場で原稿を書く工程⑫に。ただし**残作業あり**：①ブログ→Xの導線がゼロ（シェアボタン非表示・フォローリンクなし・`twitter:site` 未設定）②X側は固定ポスト未投稿・私的リポスト3件残存・フォロー12/30（2026-08-01実測）
 - research→toolsの連携が「箱はあるが流量ゼロ」→ tools/MEMORY.mdのTODOに判断依頼済み
 - 本業ファイル（mail_hisho.pyw・ime-policy/）の混入 → 移設/削除のユーザー判断待ち
 

@@ -141,11 +141,14 @@ SESSION_ROLES = {
         "keywords": ["ルール", "全社", "戦略", "PdM", "CPO", "整合", "監査"],
         "out_of_scope": "個別記事執筆・出品作業・コーディング詳細",
     },
+    # 2026-08-01：SNS部門を統合（CLAUDE.md v5.0）。記事公開→拡散は同一ラインの後工程のため、
+    # 執筆から拡散原稿までを1セッションが担当する。sns/ 配下も編集可。
     "blog": {
-        "name": "ブログ執筆セッション",
-        "scope": "記事の企画・執筆・校正・WP投稿・SNS連携",
-        "files": ["blog/SKILL.md", "blog/MEMORY.md"],
-        "keywords": ["記事", "ブログ", "WordPress", "JIN:R", "執筆", "校正", "ファクト"],
+        "name": "コンテンツ統括セッション（ブログ×SNS）",
+        "scope": "記事の企画・執筆・校正・WP投稿に加え、その拡散（X／Instagram／YouTube の原稿作成・運用・sns/配下の編集）まで一気通貫。※投稿の最終送信とリプ送信は人間（凍結リスク回避）",
+        "files": ["blog/SKILL.md", "blog/MEMORY.md", "sns/SKILL.md（SNS作業時）", "sns/channels/x/SKILL.md（X作業時）"],
+        "keywords": ["記事", "ブログ", "WordPress", "JIN:R", "執筆", "校正", "ファクト",
+                     "SNS", "X", "Twitter", "Instagram", "YouTube", "投稿", "ハッシュタグ", "拡散"],
         "out_of_scope": "EC出品・ツール開発・全社ルール変更",
     },
     "ec": {
@@ -162,9 +165,11 @@ SESSION_ROLES = {
         "keywords": ["PWA", "ツール", "スクリプト", "開発", "自動化", "Cloudflare"],
         "out_of_scope": "記事執筆・出品作業",
     },
+    # 2026-08-01：blog へ統合し休止中。通常は起動しない（再分離条件を満たしたときのみ復活）。
+    # キーを残すのは、過去の引き継ぎ書との互換と、将来の再分離のため。
     "sns": {
-        "name": "SNS統括セッション",
-        "scope": "X/Instagram/YouTube投稿・ハブ&スポーク戦略",
+        "name": "SNS統括セッション（休止中・通常はblog役割を使う）",
+        "scope": "X/Instagram/YouTube投稿・ハブ&スポーク戦略。※2026-08-01にblogへ統合。Instagram/YouTube本格運用・週5投稿超・容量圧迫のいずれかに達したときのみ復活させる",
         "files": ["sns/SKILL.md", "sns/MEMORY.md"],
         "keywords": ["SNS", "X", "Instagram", "YouTube", "投稿", "ハッシュタグ"],
         "out_of_scope": "記事本文執筆・出品作業",
@@ -197,6 +202,11 @@ SESSION_ROLES = {
 }
 
 
+# 休止中の役割（2026-08-01：sns を blog へ統合）。自動推定では選ばれないが --role では指定可能。
+# 再分離するときはここから外す。
+DORMANT_ROLES = {"sns"}
+
+
 def detect_session_role(modified_files: list[Path], user_messages: list[str]) -> str:
     """直近の活動から最も適切なセッション役割を推定。"""
     score = {key: 0 for key in SESSION_ROLES}
@@ -210,8 +220,10 @@ def detect_session_role(modified_files: list[Path], user_messages: list[str]) ->
             score["ec"] += 2
         if "tools/" in path_str and "tools/ec/" not in path_str:
             score["tools"] += 1
+        # 2026-08-01統合：sns/ の編集はコンテンツ統括セッション（blog）の通常業務。
+        # 休止中の sns 役割を推定させない（再分離したらここを戻す）。
         if "sns/" in path_str:
-            score["sns"] += 2
+            score["blog"] += 2
         if "research/" in path_str:
             score["research"] += 2
         if any(p in path_str for p in [".claude/", "global_rules/", "tools/handover", "tools/session_health"]):
@@ -222,8 +234,11 @@ def detect_session_role(modified_files: list[Path], user_messages: list[str]) ->
             score["pdm"] += 1
 
     # ユーザーメッセージのキーワードからスコアリング
+    # DORMANT_ROLES は自動推定の対象から外す（--role で明示指定すれば従来どおり使える）
     text = " ".join(user_messages).lower()
     for key, info in SESSION_ROLES.items():
+        if key in DORMANT_ROLES:
+            continue
         for kw in info["keywords"]:
             if kw.lower() in text:
                 score[key] += 1

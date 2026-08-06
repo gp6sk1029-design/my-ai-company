@@ -1,7 +1,11 @@
-# ブログ部門 SKILL.md
+# コンテンツ部門 SKILL.md（ブログ×SNS）
 # 「生産技術ガジェット研究所」運営スキル
 
 > 🔗 関連: [この部門の学び・記事台帳 MEMORY.md](MEMORY.md) ・ [目次](../目次.md) ・ [全社ルール CLAUDE.md](../CLAUDE.md)
+
+> 🔴 **2026-08-01：ブログとSNSを統合**（CLAUDE.md v5.0）。この部門は**記事の企画・執筆・公開だけでなく、その拡散（X／Instagram／YouTube）まで**を担当する。
+> SNS作業に入るときは [sns/SKILL.md](../sns/SKILL.md) ＋ [sns/channels/x/SKILL.md](../sns/channels/x/SKILL.md) を読む。**記事を公開したら工程⑫（SNS原稿キュー）まで終えて初めて完了**とする。
+> 🚫 送信は人間：リプ送信・投稿の最終送信はAIが行わない（凍結リスク・[sns/channels/x/SKILL.md](../sns/channels/x/SKILL.md) §0-4）。
 
 ## 自己改善ループ（CLAUDE.mdに準拠）
 タスク完了のたびに振り返りレポートを出力し、SKILL.mdとMEMORY.mdを更新し続ける。
