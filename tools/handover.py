@@ -187,6 +187,10 @@ SESSION_ROLES = {
         "name": "生産技術主任補佐PDM（本業ツール）セッション",
         "scope": "本業ツール群の調査・修理・開発（plc-debugger／email-assistant／media-transcriber／winding-report／drawing-checker／fp7-diff）。対象リポジトリは work-projects（my-ai-companyとは別リポジトリ）",
         "files": ["~/work-projects/CLAUDE.md", "~/work-projects/MEMORY.md", "~/work-projects/<対象ツール>/SKILL.md（あれば）"],
+        "startup_check": [
+            "実績を読む前に `git -C ~/work-projects fetch origin` を実行し、GitHubの最新履歴を取得する。",
+            "未保存変更がなければ `git -C ~/work-projects pull --ff-only origin main` で同期する。未保存変更・競合がある場合は自動統合せず、状況を報告する。",
+        ],
         "keywords": ["plc", "本業", "work-projects", "メール秘書", "文字起こし", "巻線", "図面", "検図", "fp7", "smc2"],
         "out_of_scope": "副業リポジトリ（my-ai-company）の編集（引き継ぎ書生成と各MEMORY.mdへのTODO追記のみ可）・記事執筆・SNS投稿・出品作業",
     },
@@ -237,6 +241,10 @@ def generate_role_prompt(role: str, handover_filename: str) -> str:
     """
     info = SESSION_ROLES[role]
     files_list = "\n".join(f"- {f}" for f in info["files"])
+    startup_check = info.get("startup_check", [])
+    startup_block = ""
+    if startup_check:
+        startup_block = "\n作業開始前のGitHub同期：\n" + "\n".join(f"- {step}" for step in startup_check) + "\n"
 
     return f"""あなたは「{info['name']}」として動作してください。
 
@@ -246,6 +254,7 @@ def generate_role_prompt(role: str, handover_filename: str) -> str:
 このセッション固有の参照ファイル：
 {files_list}
 - handover/{handover_filename}（前セッションからの引き継ぎ）
+{startup_block}
 
 🎭 このセッションの役割キーは `{role}` です。
 このセッションで引き継ぎ書を作るときは、役割の推測に頼らず必ず
