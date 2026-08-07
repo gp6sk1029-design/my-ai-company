@@ -38,6 +38,8 @@ function doPost(e) {
   if (!verifyToken_(p.token)) return jsonResponse_({ ok: false, message: 'unauthorized' });
 
   if (p.action === 'uploadSmall') return handleUploadSmall_(p);
+  if (p.action === 'resumableBatch') return handleResumableBatch_(p);
+  if (p.action === 'finalizeFastUploads') return handleFinalizeFastUploads_(p);
   if (p.action === 'savePrompt') return handleSavePrompt_(p);
   if (p.action === 'replaceFile') return handleReplaceFile_(p);
   if (p.action === 'renameArticle') return handleRenameArticle_(p);
@@ -794,6 +796,130 @@ function handleResumableUrl_(p) {
     });
   } catch (err) {
     return jsonResponse_({ ok: false, message: err.message });
+  }
+}
+
+// ─── 高速一括転送：軽いセッションだけGASで並列発行 ─────────────────────
+function handleResumableBatch_(p) {
+  try {
+    let items;
+    try { items = JSON.parse(p.itemsJson || '[]'); } catch (_) { items = null; }
+    if (!Array.isArray(items) || items.length < 3 || items.length > 6) {
+      return jsonResponse_({ ok: false, message: 'itemsJson must contain 3 to 6 items' });
+    }
+    const folder = resolveArticleFolder_(p);
+    const usedNames = {};
+    const prepared = [];
+    const responseItems = [];
+
+    for (var i = 0; i < items.length; i++) {
+      const item = items[i] || {};
+      if (!item.fileName || !item.totalBytes || !item.hash) {
+        responseItems[i] = { ok: false, message: 'fileName/totalBytes/hash required' };
+        continue;
+      }
+      const existing = findByHash(String(item.hash), folder.getId());
+      if (existing) {
+        responseItems[i] = {
+          ok: true, result: 'skipped', existingFileId: existing.fileId,
+          fileId: existing.fileId, fileName: existing.fileName, hash: String(item.hash),
+        };
+        continue;
+      }
+      const capturedAt = item.capturedAt ? new Date(item.capturedAt) : new Date();
+      const normalizedName = normalizeFilename(String(item.fileName), capturedAt);
+      const finalName = resolveBatchFilename_(folder, normalizedName, usedNames);
+      usedNames[finalName] = true;
+      prepared.push({
+        responseIndex: i,
+        hash: String(item.hash),
+        sizeBytes: Number(item.totalBytes),
+        fileName: finalName,
+        mimeType: String(item.mimeType || 'application/octet-stream'),
+        articleFolderId: folder.getId(),
+      });
+    }
+
+    if (prepared.length > 0) {
+      const sessions = startResumableUploadsBatch(prepared.map(function (item) {
+        return {
+          articleFolderId: item.articleFolderId,
+          fileName: item.fileName,
+          mimeType: item.mimeType,
+          totalBytes: item.sizeBytes,
+        };
+      }));
+      for (var j = 0; j < prepared.length; j++) {
+        const meta = prepared[j];
+        const session = sessions[j] || { ok: false, message: 'session missing' };
+        responseItems[meta.responseIndex] = session.ok ? {
+          ok: true, result: 'ready', uploadUrl: session.uploadUrl,
+          fileName: meta.fileName, hash: meta.hash, sizeBytes: meta.sizeBytes,
+        } : session;
+      }
+    }
+    return jsonResponse_({
+      ok: true, result: 'ready', items: responseItems,
+      articleFolderId: folder.getId(), articleFolderName: folder.getName(),
+    });
+  } catch (err) {
+    Logger.log('handleResumableBatch_ error: ' + err.message + '\n' + err.stack);
+    return jsonResponse_({ ok: false, message: err.message });
+  }
+}
+
+function resolveBatchFilename_(folder, baseName, usedNames) {
+  let candidate = resolveFilenameConflict(folder, baseName);
+  if (!usedNames[candidate]) return candidate;
+  const dot = baseName.lastIndexOf('.');
+  const stem = dot > 0 ? baseName.substring(0, dot) : baseName;
+  const ext = dot > 0 ? baseName.substring(dot) : '';
+  for (var n = 1; n <= 99; n++) {
+    candidate = stem + '_' + String(n).padStart(2, '0') + ext;
+    if (!usedNames[candidate] && !folder.getFilesByName(candidate).hasNext()) return candidate;
+  }
+  throw new Error('ファイル名衝突が多すぎます: ' + baseName);
+}
+
+// 直接アップロード完了後にハッシュ台帳と転送ログだけをまとめて確定する。
+function handleFinalizeFastUploads_(p) {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    let items;
+    try { items = JSON.parse(p.itemsJson || '[]'); } catch (_) { items = null; }
+    if (!Array.isArray(items) || items.length === 0 || items.length > 30) {
+      return jsonResponse_({ ok: false, message: 'itemsJson must contain 1 to 30 items' });
+    }
+    const folder = getArticleFolderById(p.articleFolderId);
+    let finalized = 0;
+    for (var i = 0; i < items.length; i++) {
+      const item = items[i] || {};
+      if (!item.fileId || !item.hash) continue;
+      const file = DriveApp.getFileById(String(item.fileId));
+      let inFolder = false;
+      const parents = file.getParents();
+      while (parents.hasNext()) {
+        if (parents.next().getId() === folder.getId()) { inFolder = true; break; }
+      }
+      if (!inFolder) continue;
+      const existing = findByHash(String(item.hash), folder.getId());
+      if (!existing) {
+        addHashRecord(String(item.hash), file.getId(), file.getName(), folder.getId());
+        appendLog({
+          articleTitle: folder.getName(), fileName: file.getName(),
+          sizeBytes: Number(item.sizeBytes || file.getSize()), hash: String(item.hash),
+          result: '高速転送成功', note: '',
+        });
+      }
+      finalized++;
+    }
+    return jsonResponse_({ ok: true, result: 'finalized', count: finalized });
+  } catch (err) {
+    Logger.log('handleFinalizeFastUploads_ error: ' + err.message + '\n' + err.stack);
+    return jsonResponse_({ ok: false, message: err.message });
+  } finally {
+    lock.releaseLock();
   }
 }
 

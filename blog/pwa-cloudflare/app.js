@@ -6,6 +6,9 @@
   const TOKEN = '';
   const SMALL_FILE_LIMIT = CFG.SMALL_FILE_LIMIT || 20 * 1024 * 1024;
   const CHUNK_SIZE = 8 * 1024 * 1024;
+  const FAST_BATCH_MIN_ITEMS = 3;
+  const FAST_BATCH_MAX_ITEMS = 6;
+  const FAST_UPLOAD_CONCURRENCY = 3;
 
   // ─── DOM 参照 ─────────────────────
   const $ = (id) => document.getElementById(id);
@@ -393,7 +396,10 @@
         ? 'この記事の一時保存はありません（他の記事に未転送が' + othersCount + '件あります。その記事を選ぶと表示されます）'
         : '撮ったもの・選んだものがここに並びます';
     }
-    uploadAllCount.textContent = items.length > 0 ? `${items.length}件を送信` : '';
+    const fastEligibleCount = items.filter((item) => !item.replaceDriveFileId).length;
+    uploadAllCount.textContent = items.length > 0
+      ? `${items.length}件を送信${fastEligibleCount >= FAST_BATCH_MIN_ITEMS ? ' · 🚀高速' : ''}`
+      : '';
     for (const item of items) {
       const div = document.createElement('div');
       div.className = 'queue-item queue-item-unified';
@@ -5915,6 +5921,61 @@ ${COMMON_GUARDS}`,
     updateLockProgress(xfer);
     // 役割→[ファイル名+fileId] の記録（PROMPT.mdに反映するため）
     const roleUploadMap = {};
+    // 3枚以上の新規画像は、GASから軽量な転送セッションだけまとめて受け取り、
+    // 画像本体をGoogle Driveへ直接並列転送する。失敗した項目は後段の従来経路で再試行。
+    const fastResultById = new Map();
+    const fastBytesCounted = new Set();
+    const fastFinalizeItems = [];
+    const fastCandidates = items.filter((item) => !item.replaceDriveFileId);
+    if (fastCandidates.length >= FAST_BATCH_MIN_ITEMS) {
+      showToast(`🚀 ${fastCandidates.length}枚を高速一括転送します`, 'success');
+      setStatus('高速一括転送の準備中…');
+      for (let batchStart = 0; batchStart < fastCandidates.length; batchStart += FAST_BATCH_MAX_ITEMS) {
+        const batch = fastCandidates.slice(batchStart, batchStart + FAST_BATCH_MAX_ITEMS);
+        if (batch.length < FAST_BATCH_MIN_ITEMS) break; // 余り1〜2枚は従来経路が速く安定
+        try {
+          const prepared = await prepareFastUploadBatch(batch, articleTitle, articleFolderId);
+          const ready = [];
+          prepared.forEach((session, index) => {
+            const item = batch[index];
+            if (session && session.ok && session.result === 'skipped') {
+              fastResultById.set(item.id, session);
+            } else if (session && session.ok && session.result === 'ready') {
+              ready.push({ item, session });
+            }
+          });
+
+          for (let i = 0; i < ready.length; i += FAST_UPLOAD_CONCURRENCY) {
+            const group = ready.slice(i, i + FAST_UPLOAD_CONCURRENCY);
+            await Promise.all(group.map(async ({ item, session }) => {
+              let sent = 0;
+              try {
+                const result = await uploadViaPreparedSession(item, session, (n) => {
+                  sent += n;
+                  xfer.bytesDone += n;
+                  updateLockProgress(xfer);
+                });
+                fastResultById.set(item.id, result);
+                fastBytesCounted.add(item.id);
+                if (result.fileId) {
+                  fastFinalizeItems.push({
+                    fileId: result.fileId,
+                    hash: session.hash,
+                    sizeBytes: item.size || 0,
+                  });
+                }
+              } catch (e) {
+                // 進捗二重計上を避け、後段の従来経路でこの1枚だけ再試行。
+                xfer.bytesDone = Math.max(0, xfer.bytesDone - sent);
+                console.warn('fast upload fallback:', item.originalName, e);
+              }
+            }));
+          }
+        } catch (e) {
+          console.warn('fast batch prepare failed; using stable upload path:', e);
+        }
+      }
+    }
 
     for (const item of items) {
       setStatus('転送中 ' + (success + skipped + failed + 1) + '/' + items.length);
@@ -5923,13 +5984,15 @@ ${COMMON_GUARDS}`,
         //   replaceDriveFileId を扱えず新規ファイルを作ってしまう＝「更新されない」原因になるため。
         if (item.replaceDriveFileId) didReplace = true;
         const isLarge = item.size > SMALL_FILE_LIMIT && !item.replaceDriveFileId;
-        const result = isLarge
+        const fastResult = fastResultById.get(item.id);
+        const result = fastResult || (isLarge
           ? await uploadLarge(item, articleTitle, articleFolderId, (n) => {
               xfer.bytesDone += n; // 大容量はチャンクごとに加算（進捗がなめらかに動く）
               updateLockProgress(xfer);
             })
-          : await uploadSmall(item, articleTitle, articleFolderId);
-        if (!isLarge) xfer.bytesDone += item.size || 0;
+          : await uploadSmall(item, articleTitle, articleFolderId));
+        if (fastResult && !fastBytesCounted.has(item.id)) xfer.bytesDone += item.size || 0;
+        else if (!fastResult && !isLarge) xfer.bytesDone += item.size || 0;
         if (result.ok && result.result === 'success') {
           success++;
           // 上書き保存した画像は、手元のblobを新fileIdに紐づけて一覧サムネに使う（Driveサムネ遅延回避）
@@ -6041,6 +6104,14 @@ ${COMMON_GUARDS}`,
         console.error('role memo save error:', e);
       }
     }
+    if (fastFinalizeItems.length > 0) {
+      // 画像と用途メモの保存完了後に、遅い台帳更新だけをバックグラウンド実行。
+      // keepalive付きで、完了直後に画面が切り替わっても小さな確定通信を継続する。
+      void finalizeFastUploads(articleFolderId, fastFinalizeItems).catch((e) => {
+        // 画像本体はすでにDrive保存済み。台帳確定失敗で重複再転送はしない。
+        console.warn('fast upload finalize failed:', e);
+      });
+    }
     isUploading = false; // 🛡 転送中ロック解除
     unlockUI();
     await renderQueue();
@@ -6122,6 +6193,92 @@ ${COMMON_GUARDS}`,
       headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
     });
     return res.json();
+  }
+
+  async function sha256Blob(blob) {
+    const digest = await crypto.subtle.digest('SHA-256', await blob.arrayBuffer());
+    return Array.from(new Uint8Array(digest))
+      .map((byte) => byte.toString(16).padStart(2, '0'))
+      .join('');
+  }
+
+  async function prepareFastUploadBatch(items, articleTitle, articleFolderId) {
+    const metadata = [];
+    // スマホのメモリ使用量を抑えるためハッシュ計算は1枚ずつ行う。
+    for (const item of items) {
+      metadata.push({
+        fileName: item.originalName,
+        mimeType: item.mimeType,
+        totalBytes: item.size,
+        capturedAt: new Date(item.createdAt).toISOString(),
+        hash: await sha256Blob(item.blob),
+      });
+    }
+    const body = new URLSearchParams({
+      token: TOKEN,
+      action: 'resumableBatch',
+      articleTitle: articleTitle || '',
+      articleFolderId: articleFolderId || '',
+      itemsJson: JSON.stringify(metadata),
+    });
+    const res = await fetch(GAS_URL, {
+      method: 'POST',
+      body: body.toString(),
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
+    });
+    const json = await res.json();
+    if (!json.ok || !Array.isArray(json.items)) throw new Error(json.message || '高速転送の準備に失敗');
+    return json.items;
+  }
+
+  async function uploadViaPreparedSession(item, session, onChunk) {
+    const total = item.size;
+    let offset = 0;
+    while (offset < total) {
+      const end = Math.min(offset + CHUNK_SIZE, total);
+      const chunk = item.blob.slice(offset, end);
+      const resp = await fetch(session.uploadUrl, {
+        method: 'PUT',
+        headers: { 'Content-Range': 'bytes ' + offset + '-' + (end - 1) + '/' + total },
+        body: chunk,
+      });
+      if (resp.status === 308) {
+        offset = end;
+        if (onChunk) onChunk(chunk.size);
+        continue;
+      }
+      if (resp.status === 200 || resp.status === 201) {
+        if (onChunk) onChunk(chunk.size);
+        let uploaded = {};
+        try { uploaded = await resp.json(); } catch (_) {}
+        return {
+          ok: true,
+          result: 'success',
+          fileId: uploaded.id || '',
+          fileName: uploaded.name || session.fileName || item.originalName,
+        };
+      }
+      throw new Error('Drive直接転送失敗: ' + resp.status);
+    }
+    throw new Error('Drive直接転送が完了しませんでした');
+  }
+
+  async function finalizeFastUploads(articleFolderId, items) {
+    const body = new URLSearchParams({
+      token: TOKEN,
+      action: 'finalizeFastUploads',
+      articleFolderId: articleFolderId || '',
+      itemsJson: JSON.stringify(items),
+    });
+    const res = await fetch(GAS_URL, {
+      method: 'POST',
+      body: body.toString(),
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8' },
+      keepalive: true,
+    });
+    const json = await res.json();
+    if (!json.ok) throw new Error(json.message || '高速転送の確定に失敗');
+    return json;
   }
 
   async function uploadLarge(item, articleTitle, articleFolderId, onChunk) {

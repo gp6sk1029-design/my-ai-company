@@ -20,7 +20,7 @@ blog/apps-script/blog-capture/
 ├── Normalizer.gs     … ファイル名正規化（YYYYMMDD_HHMMSS.ext）
 ├── Deduper.gs        … SHA-256 ハッシュで重複排除
 ├── Logger.gs         … 転送ログをスプレッドシートに記録
-├── Resumable.gs      … 20MB超の動画用 Resumable Upload
+├── Resumable.gs      … 大容量・高速一括転送用 Resumable Upload
 ├── index.html        … PWA エントリ
 ├── styles.html       … 全 CSS
 ├── app.html          … 全 JavaScript（カメラ・IndexedDB・アップロード）
@@ -138,6 +138,8 @@ ls -la /Users/shoheikoda/Documents/my-ai-company/blog/images/raw
 4. **動画** タブ：録画開始／停止
 5. **取り込み** タブ：端末のファイル選択、または Android なら他アプリの共有シート経由
 6. 撮った分が一時保存に溜まる → 空いた時間に **すべて転送**
+
+3枚以上の新規素材は高速一括転送が自動で選ばれる。転送セッションを最大6件ずつ一括発行し、ブラウザからDriveへ最大3件を並列転送する。個別失敗は従来経路で自動再試行される。
 
 ### 転送後
 
