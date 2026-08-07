@@ -811,6 +811,10 @@ function handleResumableBatch_(p) {
     const usedNames = {};
     const prepared = [];
     const responseItems = [];
+    const hashes = items.map(function (item) { return String((item || {}).hash || ''); });
+    // 画像ごとに台帳を読み直すと、一括転送の準備時間が画像数分だけ伸びる。
+    // 同じ記事内の照合は1回でまとめて実行する。
+    const existingByHash = findByHashesInFolder_(hashes, folder.getId());
 
     for (var i = 0; i < items.length; i++) {
       const item = items[i] || {};
@@ -818,7 +822,7 @@ function handleResumableBatch_(p) {
         responseItems[i] = { ok: false, message: 'fileName/totalBytes/hash required' };
         continue;
       }
-      const existing = findByHash(String(item.hash), folder.getId());
+      const existing = existingByHash[String(item.hash)];
       if (existing) {
         responseItems[i] = {
           ok: true, result: 'skipped', existingFileId: existing.fileId,

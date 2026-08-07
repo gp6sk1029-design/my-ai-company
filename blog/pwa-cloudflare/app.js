@@ -8,7 +8,8 @@
   const CHUNK_SIZE = 8 * 1024 * 1024;
   const FAST_BATCH_MIN_ITEMS = 3;
   const FAST_BATCH_MAX_ITEMS = 6;
-  const FAST_UPLOAD_CONCURRENCY = 3;
+  // Google Drive直送は6件同時まで実測で安定。画像本体の転送待ちを縮める。
+  const FAST_UPLOAD_CONCURRENCY = 6;
 
   // ─── DOM 参照 ─────────────────────
   const $ = (id) => document.getElementById(id);
@@ -5926,6 +5927,7 @@ ${COMMON_GUARDS}`,
     const fastResultById = new Map();
     const fastBytesCounted = new Set();
     const fastFinalizeItems = [];
+    const fastStats = { used: false, bytes: 0, prepareMs: 0, uploadMs: 0 };
     const fastCandidates = items.filter((item) => !item.replaceDriveFileId);
     if (fastCandidates.length >= FAST_BATCH_MIN_ITEMS) {
       showToast(`🚀 ${fastCandidates.length}枚を高速一括転送します`, 'success');
@@ -5934,7 +5936,10 @@ ${COMMON_GUARDS}`,
         const batch = fastCandidates.slice(batchStart, batchStart + FAST_BATCH_MAX_ITEMS);
         if (batch.length < FAST_BATCH_MIN_ITEMS) break; // 余り1〜2枚は従来経路が速く安定
         try {
+          const prepareStartedAt = performance.now();
           const prepared = await prepareFastUploadBatch(batch, articleTitle, articleFolderId);
+          fastStats.used = true;
+          fastStats.prepareMs += performance.now() - prepareStartedAt;
           const ready = [];
           prepared.forEach((session, index) => {
             const item = batch[index];
@@ -5947,11 +5952,15 @@ ${COMMON_GUARDS}`,
 
           for (let i = 0; i < ready.length; i += FAST_UPLOAD_CONCURRENCY) {
             const group = ready.slice(i, i + FAST_UPLOAD_CONCURRENCY);
+            const uploadStartedAt = performance.now();
+            if (xfer.bytesDone === 0) xfer.startTs = Date.now(); // 準備時間を通信速度に含めない
+            setStatus(`🚀 Driveへ高速転送中… ${group.length}件同時`);
             await Promise.all(group.map(async ({ item, session }) => {
               let sent = 0;
               try {
                 const result = await uploadViaPreparedSession(item, session, (n) => {
                   sent += n;
+                  fastStats.bytes += n;
                   xfer.bytesDone += n;
                   updateLockProgress(xfer);
                 });
@@ -5967,9 +5976,11 @@ ${COMMON_GUARDS}`,
               } catch (e) {
                 // 進捗二重計上を避け、後段の従来経路でこの1枚だけ再試行。
                 xfer.bytesDone = Math.max(0, xfer.bytesDone - sent);
+                fastStats.bytes = Math.max(0, fastStats.bytes - sent);
                 console.warn('fast upload fallback:', item.originalName, e);
               }
             }));
+            fastStats.uploadMs += performance.now() - uploadStartedAt;
           }
         } catch (e) {
           console.warn('fast batch prepare failed; using stable upload path:', e);
@@ -6117,6 +6128,10 @@ ${COMMON_GUARDS}`,
     await renderQueue();
     uploadAllBtn.disabled = false;
     let msg = '✅成功 ' + success + ' / スキップ ' + skipped + ' / 失敗 ' + failed;
+    if (fastStats.used && fastStats.uploadMs > 0) {
+      const directBps = fastStats.bytes / (fastStats.uploadMs / 1000);
+      msg += ' / 🚀直送 ' + fmtSpeed_(directBps) + '（準備' + (fastStats.prepareMs / 1000).toFixed(1) + '秒）';
+    }
     if (promptSaved) msg = '📝メモ保存 / ' + msg;
     setStatus(msg);
     showToast(msg, failed > 0 ? 'error' : 'success');

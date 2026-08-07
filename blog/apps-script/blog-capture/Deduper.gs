@@ -58,6 +58,46 @@ function findByHash(hash, articleFolderId) {
 }
 
 /**
+ * 高速一括転送用：同一記事内の複数ハッシュを、台帳1回の読み込みでまとめて照合する。
+ * 見つかった候補だけDriveの存在確認を行うため、画像ごとのスプレッドシート往復を避けられる。
+ * @param {Array<string>} hashes
+ * @param {string} articleFolderId
+ * @return {Object<string, Object>} hashをキーにした既存レコード
+ */
+function findByHashesInFolder_(hashes, articleFolderId) {
+  const wanted = {};
+  (hashes || []).forEach(function (hash) {
+    if (hash) wanted[String(hash)] = true;
+  });
+  if (Object.keys(wanted).length === 0) return {};
+
+  const sheet = getHashSheet_();
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return {};
+  const values = sheet.getRange(2, 1, lastRow - 1, 5).getValues();
+  const found = {};
+  for (let i = 0; i < values.length; i++) {
+    const hash = values[i][0];
+    if (!wanted[hash] || found[hash]) continue;
+    if (articleFolderId && values[i][3] !== articleFolderId) continue;
+    try {
+      const file = DriveApp.getFileById(values[i][1]);
+      if (file.isTrashed()) continue;
+      found[hash] = {
+        hash: hash,
+        fileId: values[i][1],
+        fileName: values[i][2],
+        articleFolderId: values[i][3],
+        uploadedAt: values[i][4],
+      };
+    } catch (_) {
+      // 削除済みの台帳行は重複扱いしない。
+    }
+  }
+  return found;
+}
+
+/**
  * ハッシュ台帳に追加
  */
 function addHashRecord(hash, fileId, fileName, articleFolderId) {
