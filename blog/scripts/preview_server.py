@@ -435,6 +435,7 @@ class PreviewHandler(BaseHTTPRequestHandler):
         # Chrome の Private Network Access（公開サイト→localhost の遮断）を明示的に許可する
         self.send_header("Access-Control-Allow-Private-Network", "true")
         self.end_headers()
+        self.wfile.write(body)
 
     def do_OPTIONS(self):
         """PNA/CORS のプリフライトに応答する（画像を他オリジンから取得させるため）"""
@@ -445,7 +446,6 @@ class PreviewHandler(BaseHTTPRequestHandler):
         self.send_header("Access-Control-Allow-Headers", "*")
         self.send_header("Content-Length", "0")
         self.end_headers()
-        self.wfile.write(body)
 
     def log_message(self, fmt, *args):
         pass  # アクセスログ抑制
