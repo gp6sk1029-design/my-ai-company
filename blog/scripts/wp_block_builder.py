@@ -149,7 +149,8 @@ def block_image(wp_id: int, url: str, alt: str = '') -> str:
 
 
 def block_product_box(name: str, image: str = '', amazon: str = '',
-                      rakuten: str = '', yahoo: str = '') -> str:
+                      rakuten: str = '', yahoo: str = '',
+                      rakuten_label: str = '楽天市場で購入') -> str:
     """商品リンクボックス（Amazon/楽天/Yahooのアフィリボタン付きカード）。
     テーマに依存しないよう全てインラインCSSで自己完結させる（JIN:R以外でも崩れない）。
     ボタンは URL が指定されたものだけ表示する（Amazonのみでも成立）。
@@ -183,7 +184,11 @@ def block_product_box(name: str, image: str = '', amazon: str = '',
     if amazon:
         btns.append(btn(amazon, 'Amazonで購入', 'linear-gradient(180deg,#ff9b45,#f97316)'))
     if rakuten:
-        btns.append(btn(rakuten, '楽天市場で購入', 'linear-gradient(180deg,#e2467a,#bf0043)'))
+        btns.append(btn(
+            rakuten,
+            md_to_html_inline(rakuten_label),
+            'linear-gradient(180deg,#e2467a,#bf0043)',
+        ))
     if yahoo:
         btns.append(btn(yahoo, 'Yahoo!で購入', 'linear-gradient(180deg,#5b8def,#2f5fd0)'))
     btns_html = (
@@ -432,7 +437,10 @@ def markdown_to_blocks(md_text: str) -> str:
             i += 1
             fields = {}
             while i < len(lines) and lines[i].strip() != ':::':
-                mkv = re.match(r'^\s*(name|image|amazon|rakuten|yahoo)\s*:\s*(.+?)\s*$', lines[i])
+                mkv = re.match(
+                    r'^\s*(name|image|amazon|rakuten|rakuten_label|yahoo)\s*:\s*(.+?)\s*$',
+                    lines[i],
+                )
                 if mkv:
                     fields[mkv.group(1)] = mkv.group(2)
                 i += 1
@@ -444,6 +452,7 @@ def markdown_to_blocks(md_text: str) -> str:
                 amazon=fields.get('amazon', ''),
                 rakuten=fields.get('rakuten', ''),
                 yahoo=fields.get('yahoo', ''),
+                rakuten_label=fields.get('rakuten_label', '楽天市場で購入'),
             ))
             continue
 

@@ -164,7 +164,10 @@ def render_body(md: str) -> tuple[str, str]:
             i += 1
             fields = {}
             while i < len(lines) and lines[i].strip() != ':::':
-                mkv = re.match(r'^\s*(name|image|amazon|rakuten|yahoo)\s*:\s*(.+?)\s*$', lines[i])
+                mkv = re.match(
+                    r'^\s*(name|image|amazon|rakuten|rakuten_label|yahoo)\s*:\s*(.+?)\s*$',
+                    lines[i],
+                )
                 if mkv:
                     fields[mkv.group(1)] = mkv.group(2)
                 i += 1
@@ -177,7 +180,11 @@ def render_body(md: str) -> tuple[str, str]:
             ) if img else ''
             btn_specs = [
                 ('amazon', 'Amazonで購入', 'linear-gradient(180deg,#ff9b45,#f97316)'),
-                ('rakuten', '楽天市場で購入', 'linear-gradient(180deg,#e2467a,#bf0043)'),
+                (
+                    'rakuten',
+                    md_inline(fields.get('rakuten_label', '楽天市場で購入')),
+                    'linear-gradient(180deg,#e2467a,#bf0043)',
+                ),
                 ('yahoo', 'Yahoo!で購入', 'linear-gradient(180deg,#5b8def,#2f5fd0)'),
             ]
             btns = ''.join(
