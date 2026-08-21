@@ -1,29 +1,27 @@
-# sns/scripts/ — 自動化基盤の実装計画
+# sns/scripts/ — SNS下書き自動化基盤
 
-> 本ディレクトリはSNS関連の自動化スクリプトを格納する。**Phase 0時点ではコード未実装、計画書のみ**。
+> 投稿そのものは自動化せず、分析・原稿・画像・投稿画面への入力までを自動化する。
 
 ---
 
-## Phase 1: 原稿一括生成スクリプト（次に実装）
+## Phase 1: X拡散セット生成（実装済み）
 
-### 想定ファイル名
-`sns_draft_generator.py`
+### ファイル
+`build_x_campaign.py`
 
 ### 機能
-- 入力：ブログ記事のWP投稿ID または ローカル `articles/xxx.md` パス
-- 出力：X / Instagram / YouTube の投稿原稿セット（コピペ可能形式）
-
-### 実装方針（既存資産の再利用）
-- `blog/scripts/wp_api.py` — WP記事取得
-- `blog/scripts/wp_block_builder.py` — テキスト変換ロジック参考
-- 各チャネルのSKILL.mdをパースしてテンプレート適用
+- 入力：記事分析・投稿本文・返信・カード内容を記述したJSON
+- 出力：1200×1200pxのPNG最大4枚＋`campaign.md`
+- 自動検査：本文140字以内／本文URLなし／タグ1〜2個／返信URLあり／長辺1800px以内
+- 安全策：既存画像は上書きしない
 
 ### コマンド例
 ```bash
-python3 sns/scripts/sns_draft_generator.py --post-id 703
-python3 sns/scripts/sns_draft_generator.py --post-id 703 --channels x,instagram
-python3 sns/scripts/sns_draft_generator.py --file blog/articles/huawei-gt-runner2-review.md
+python3 sns/scripts/build_x_campaign.py \
+  --spec sns/campaigns/<campaign-name>/campaign.json
 ```
+
+カード種別は `photo_hook`（実写フック）、`comparison`（比較）、`breakdown`（内訳）、`warning`（注意点）。出力後は必ず画像を目視し、文字切れ・数字・添付順を確認する。
 
 ---
 

@@ -1,0 +1,71 @@
+{
+  "brand": "生産技術ガジェット研究所",
+  "width": 1200,
+  "height": 1200,
+  "output_dir": "assets",
+  "analysis": [
+    "最大のフックは車種名よりも、同条件比較で15,920円安くなった実測値",
+    "2枚目で比較条件を明示し、根拠のない安さ訴求に見せない",
+    "3枚目で楽天側の内訳を開示し、投稿だけでも役立つ内容にする",
+    "4枚目に同一ショップ必須の注意点を置き、保存したくなる失敗防止情報にする",
+    "本文にはURLを置かず、記事リンクとPR表記は投稿後の返信へ分離する"
+  ],
+  "post": {
+    "main": "タイヤ4本、店舗より15,920円安く交換できました。\n\n楽天の「タイヤ交換チケット」は便利ですが、ショップ選びには見落としやすい注意点も。\n\nC26セレナで見積もりから交換予約まで、実際の金額と手順をブログにまとめました。\n\n#セレナ #タイヤ交換",
+    "reply": "【PR】店舗見積もりと楽天の総額比較、交換チケットで間違えやすい「同じショップ」の注意点をまとめました。\nhttps://www.ootanisatan.com/serena-c26-tire-16inch-mp7-rv505/"
+  },
+  "cards": [
+    {
+      "type": "photo_hook",
+      "filename": "01-hook-15920yen.png",
+      "photo": "blog/articles/serena-c26-tire-16inch-mp7-rv505_images/eyecatch-c26-mp7-installed.jpg",
+      "focus": [0.54, 0.45],
+      "eyebrow": "C26セレナ実例",
+      "headline": ["タイヤ4本", "15,920円差"],
+      "subhead": "店舗 75,600円 → 楽天 59,680円",
+      "note": "同じ追加費用で比較／2026年8月14日時点"
+    },
+    {
+      "type": "comparison",
+      "filename": "02-total-cost-comparison.png",
+      "eyebrow": "タイヤ代だけで比べない",
+      "title": "交換完了までの総額比較",
+      "values": [
+        {"label": "店舗見積もり", "value": 75600, "display": "75,600円", "color": "#64748B"},
+        {"label": "楽天の同条件計算", "value": 59680, "display": "59,680円", "color": "#F97316"}
+      ],
+      "difference": "差額 15,920円",
+      "condition": "タイヤ4本＋交換＋ゴムバルブ＋廃タイヤ処理／ポイント還元は除外"
+    },
+    {
+      "type": "breakdown",
+      "filename": "03-rakuten-cost-breakdown.png",
+      "eyebrow": "楽天側の計算",
+      "title": "59,680円の内訳",
+      "items": [
+        {"label": "タイヤ4本", "amount": "46,440円"},
+        {"label": "交換チケット", "amount": "9,240円"},
+        {"label": "ゴムバルブ", "amount": "2,400円"},
+        {"label": "廃タイヤ処理", "amount": "1,600円"}
+      ],
+      "total_label": "交換完了までの合計",
+      "total_amount": "59,680円"
+    },
+    {
+      "type": "warning",
+      "filename": "04-same-shop-warning.png",
+      "eyebrow": "ここで失敗しやすい",
+      "title": "タイヤと交換チケットは同じショップ",
+      "wrong_pair": [
+        {"label": "タイヤ", "shop": "ショップA"},
+        {"label": "交換チケット", "shop": "ショップB"}
+      ],
+      "wrong_note": "別ショップの組み合わせは利用できない",
+      "solution_title": "ショップを変更したら",
+      "solution_lines": [
+        "古い交換チケットもカートから削除",
+        "新しいショップの商品ページから選び直す"
+      ]
+    }
+  ]
+}
