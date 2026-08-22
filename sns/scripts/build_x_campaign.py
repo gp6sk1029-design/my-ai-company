@@ -202,8 +202,9 @@ def validate_post(post: dict) -> None:
     if "http://" in main or "https://" in main:
         raise ValueError("X本文にURLを入れないでください。URLは返信へ分離します")
     hashtags = [token for token in main.split() if token.startswith("#")]
-    if not 1 <= len(hashtags) <= 2:
-        raise ValueError(f"ハッシュタグは1〜2個にしてください: {hashtags}")
+    max_hashtags = int(post.get("max_hashtags", 2))
+    if not 1 <= len(hashtags) <= max_hashtags:
+        raise ValueError(f"ハッシュタグは1〜{max_hashtags}個にしてください: {hashtags}")
     reply = post["reply"]
     if "http" not in reply:
         raise ValueError("返信文に記事URLがありません")
