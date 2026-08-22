@@ -231,7 +231,7 @@ def write_manifest(spec: dict, spec_path: Path, outputs: list[Path]) -> Path:
     post = spec["post"]
     link_strategy = post.get("link_strategy", "reply")
     link_block = (
-        ["## 記事リンク", "", "本文に【PR】表記と記事URLを掲載。追加返信は不要。"]
+        ["## 記事リンク", "", "本文に記事URLを掲載。PR表記は投稿依頼・提供品等がある場合のみ追加し、追加返信は不要。"]
         if link_strategy == "main"
         else ["## 返信（記事リンク）", "", post["reply"]]
     )
@@ -256,7 +256,7 @@ def write_manifest(spec: dict, spec_path: Path, outputs: list[Path]) -> Path:
         "",
         "- [ ] 本文が140字以内",
         "- [ ] 画像4枚が01→04の順番",
-        "- [ ] 【PR】表記と記事URLの位置がlink_strategyと一致",
+        "- [ ] 記事URLの位置がlink_strategyと一致し、必要な案件だけ本文上部に【PR】表記がある",
         "- [ ] 最後の『ポストする』はユーザーが押す",
         "",
         f"生成元: `{spec_path}`",
