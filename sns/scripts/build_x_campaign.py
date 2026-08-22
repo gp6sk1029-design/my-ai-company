@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 from pathlib import Path
 
 from PIL import Image, ImageDraw, ImageEnhance, ImageFont
@@ -195,24 +196,45 @@ RENDERERS = {
 }
 
 
+URL_RE = re.compile(r"https?://\S+")
+
+
+def x_effective_length(text: str) -> int:
+    """XではURLが長さに関係なくt.coの23文字として数えられる。"""
+    return len(URL_RE.sub("x" * 23, text))
+
+
 def validate_post(post: dict) -> None:
     main = post["main"].strip()
-    if len(main) > 140:
-        raise ValueError(f"X本文が140字を超えています: {len(main)}字")
-    if "http://" in main or "https://" in main:
-        raise ValueError("X本文にURLを入れないでください。URLは返信へ分離します")
+    effective_length = x_effective_length(main)
+    if effective_length > 140:
+        raise ValueError(f"X本文が実質140字を超えています: {effective_length}字")
+    link_strategy = post.get("link_strategy", "reply")
+    main_has_url = URL_RE.search(main) is not None
+    if link_strategy == "reply" and main_has_url:
+        raise ValueError("link_strategy=reply のときはURLを返信へ分離します")
+    if link_strategy == "main" and not main_has_url:
+        raise ValueError("link_strategy=main ですが本文に記事URLがありません")
+    if link_strategy not in {"main", "reply"}:
+        raise ValueError(f"未対応のlink_strategyです: {link_strategy}")
     hashtags = [token for token in main.split() if token.startswith("#")]
     max_hashtags = int(post.get("max_hashtags", 2))
     if not 1 <= len(hashtags) <= max_hashtags:
         raise ValueError(f"ハッシュタグは1〜{max_hashtags}個にしてください: {hashtags}")
-    reply = post["reply"]
-    if "http" not in reply:
+    reply = post.get("reply", "")
+    if link_strategy == "reply" and "http" not in reply:
         raise ValueError("返信文に記事URLがありません")
 
 
 def write_manifest(spec: dict, spec_path: Path, outputs: list[Path]) -> Path:
     output_dir = outputs[0].parent
     post = spec["post"]
+    link_strategy = post.get("link_strategy", "reply")
+    link_block = (
+        ["## 記事リンク", "", "本文に【PR】表記と記事URLを掲載。追加返信は不要。"]
+        if link_strategy == "main"
+        else ["## 返信（記事リンク）", "", post["reply"]]
+    )
     lines = [
         "# X拡散セット",
         "",
@@ -220,13 +242,11 @@ def write_manifest(spec: dict, spec_path: Path, outputs: list[Path]) -> Path:
         "",
         *[f"- {item}" for item in spec.get("analysis", [])],
         "",
-        "## 投稿本文（URLなし）",
+        f"## 投稿本文（URL{'あり' if link_strategy == 'main' else 'なし'}・X換算{x_effective_length(post['main'])}字）",
         "",
         post["main"],
         "",
-        "## 返信（記事リンク）",
-        "",
-        post["reply"],
+        *link_block,
         "",
         "## 添付画像（順番固定）",
         "",
@@ -236,8 +256,7 @@ def write_manifest(spec: dict, spec_path: Path, outputs: list[Path]) -> Path:
         "",
         "- [ ] 本文が140字以内",
         "- [ ] 画像4枚が01→04の順番",
-        "- [ ] 本文にURLを入れていない",
-        "- [ ] 投稿後の返信に【PR】と記事URLを入れる",
+        "- [ ] 【PR】表記と記事URLの位置がlink_strategyと一致",
         "- [ ] 最後の『ポストする』はユーザーが押す",
         "",
         f"生成元: `{spec_path}`",
