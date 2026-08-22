@@ -204,7 +204,14 @@ def x_effective_length(text: str) -> int:
     return len(URL_RE.sub("x" * 23, text))
 
 
-def validate_post(post: dict) -> None:
+COMMERCIAL_RELATIONS = {"self_paid", "affiliate_only", "provided", "sponsored", "own_product"}
+
+
+def validate_post(post: dict, commercial_relation: str) -> None:
+    if commercial_relation not in COMMERCIAL_RELATIONS:
+        raise ValueError(
+            "commercial_relation は self_paid / affiliate_only / provided / sponsored / own_product のいずれかにしてください"
+        )
     main = post["main"].strip()
     effective_length = x_effective_length(main)
     if effective_length > 140:
@@ -221,6 +228,14 @@ def validate_post(post: dict) -> None:
     max_hashtags = int(post.get("max_hashtags", 2))
     if not 1 <= len(hashtags) <= max_hashtags:
         raise ValueError(f"ハッシュタグは1〜{max_hashtags}個にしてください: {hashtags}")
+    if commercial_relation == "affiliate_only" and "アフィリエイト" not in main:
+        raise ValueError("affiliate_only はX本文内にアフィリエイト表示が必要です")
+    if commercial_relation == "provided" and "提供" not in main:
+        raise ValueError("provided はX本文上部に提供元の表示が必要です")
+    if commercial_relation == "sponsored" and ("PR" not in main or "提供" not in main):
+        raise ValueError("sponsored はX本文1行目に【PR】と提供元の表示が必要です")
+    if commercial_relation == "own_product" and not any(label in main for label in ("自社", "当研究所")):
+        raise ValueError("own_product は自社商品・当研究所のサービスであることを本文内に明記してください")
     reply = post.get("reply", "")
     if link_strategy == "reply" and "http" not in reply:
         raise ValueError("返信文に記事URLがありません")
@@ -231,7 +246,7 @@ def write_manifest(spec: dict, spec_path: Path, outputs: list[Path]) -> Path:
     post = spec["post"]
     link_strategy = post.get("link_strategy", "reply")
     link_block = (
-        ["## 記事リンク", "", "本文に記事URLを掲載。PR表記は投稿依頼・提供品等がある場合のみ追加し、追加返信は不要。"]
+        ["## 記事リンク", "", "本文に記事URLを掲載。commercial_relationに応じた商用表示を同じ本文内に置き、追加返信は不要。"]
         if link_strategy == "main"
         else ["## 返信（記事リンク）", "", post["reply"]]
     )
@@ -256,7 +271,7 @@ def write_manifest(spec: dict, spec_path: Path, outputs: list[Path]) -> Path:
         "",
         "- [ ] 本文が140字以内",
         "- [ ] 画像4枚が01→04の順番",
-        "- [ ] 記事URLの位置がlink_strategyと一致し、必要な案件だけ本文上部に【PR】表記がある",
+        f"- [ ] commercial_relation={spec['commercial_relation']} に合う表示が同じ本文内にある",
         "- [ ] 最後の『ポストする』はユーザーが押す",
         "",
         f"生成元: `{spec_path}`",
@@ -273,7 +288,9 @@ def main() -> None:
 
     spec_path = Path(args.spec).expanduser().resolve()
     spec = json.loads(spec_path.read_text(encoding="utf-8"))
-    validate_post(spec["post"])
+    if "commercial_relation" not in spec:
+        raise ValueError("キャンペーンJSONにcommercial_relationを指定してください")
+    validate_post(spec["post"], spec["commercial_relation"])
 
     width = int(spec.get("width", 1200))
     height = int(spec.get("height", 1200))
