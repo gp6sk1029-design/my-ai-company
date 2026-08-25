@@ -1,292 +1,61 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ja">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>学長メソッド研究まとめ - Research Digest</title>
-<style>
-  :root{
-    --bg:#0f172a; --card:#1e293b; --card2:#243449; --line:#334155;
-    --text:#e2e8f0; --muted:#94a3b8;
-    --accent:#38bdf8; --accent2:#fbbf24; --ok:#34d399; --warn:#f87171; --q:#a78bfa;
-  }
-  *{box-sizing:border-box; margin:0; padding:0;}
-  body{
-    background:linear-gradient(160deg,#0b1220 0%,#0f172a 100%);
-    color:var(--text);
-    font-family:"Hiragino Kaku Gothic ProN","Yu Gothic",-apple-system,sans-serif;
-    line-height:1.75; padding:32px 18px; -webkit-font-smoothing:antialiased;
-  }
-  .wrap{max-width:1080px; margin:0 auto;}
-
-  header{text-align:center; margin-bottom:30px;}
-  header .badge{display:inline-block; font-size:12px; letter-spacing:2px; color:var(--accent); border:1px solid var(--accent); border-radius:999px; padding:4px 14px; margin-bottom:14px;}
-  header h1{font-size:28px; font-weight:800; letter-spacing:1px;}
-  header h1 span{color:var(--accent);}
-  header .sub{color:var(--muted); font-size:14px; margin-top:8px;}
-
-  .disclaimer{background:rgba(248,113,113,.1); border:1px solid var(--warn); border-radius:12px; padding:14px 18px; margin:0 0 30px; color:#fecaca; font-size:13.5px;}
-  .disclaimer b{color:var(--warn);}
-
-  .section-title{display:flex; align-items:center; gap:10px; font-size:20px; font-weight:700; margin:8px 0 16px; padding-bottom:10px; border-bottom:2px solid var(--line);}
-  .section-title .emoji{font-size:24px;}
-  .section-title .count{margin-left:auto; font-size:12px; color:var(--muted); background:var(--card); border:1px solid var(--line); border-radius:999px; padding:3px 12px; font-weight:500;}
-
-  /* 号カード */
-  .issue{background:var(--card); border:1px solid var(--line); border-radius:16px; padding:18px 18px 8px; margin-bottom:28px; box-shadow:0 8px 24px rgba(0,0,0,.25);}
-  .issue-head{display:flex; align-items:center; gap:10px; margin-bottom:6px;}
-  .issue-head .ttl{font-weight:700; font-size:16px;}
-  .issue-head .date{margin-left:auto; font-size:12px; color:var(--muted);}
-  .issue-note{font-size:12px; color:var(--muted); margin-bottom:14px;}
-
-  /* Q&A */
-  .qa{background:var(--card2); border:1px solid var(--line); border-left:4px solid var(--q); border-radius:10px; padding:14px 16px; margin-bottom:12px;}
-  .qa .cat{display:inline-block; font-size:11px; color:var(--q); border:1px solid var(--q); border-radius:6px; padding:1px 8px; margin-bottom:8px; font-weight:600;}
-  .qa .qn{color:var(--q); font-weight:800; margin-right:6px;}
-  .qa .ques{font-weight:600; font-size:14.5px; margin-bottom:10px;}
-  .qa .ans{font-size:14px; color:#dbe4ee; display:flex; gap:8px;}
-  .qa .ans .lion{flex:none;}
-  .qa .ans b{color:var(--accent2);}
-  .qa .ans .point{color:var(--ok); font-weight:600;}
-
-  /* シンプルカード（参考・高配当株） */
-  .grid{display:grid; gap:16px; margin-bottom:34px;}
-  .card{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:18px 20px; box-shadow:0 8px 24px rgba(0,0,0,.25);}
-  .card-head{display:flex; align-items:center; gap:12px; margin-bottom:12px;}
-  .num{flex:none; width:32px; height:32px; border-radius:9px; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:14px; color:#0f172a; background:linear-gradient(135deg,var(--accent),#0ea5e9);}
-  .num.gold{background:linear-gradient(135deg,var(--accent2),#f59e0b);}
-  .card-head .topic{font-weight:700; font-size:15px;}
-  .card-head .date{margin-left:auto; font-size:12px; color:var(--muted); white-space:nowrap;}
-  .tag{display:inline-block; font-size:11px; color:var(--accent2); border:1px solid var(--accent2); border-radius:6px; padding:1px 8px; margin-bottom:10px;}
-  .row{display:grid; grid-template-columns:110px 1fr; gap:14px; padding:8px 0; border-top:1px dashed var(--line);}
-  .row:first-of-type{border-top:none;}
-  .row .label{color:var(--muted); font-size:13px; font-weight:600;}
-  .row .val{font-size:14px;}
-  .row.warn .val{color:#fca5a5;}
-  .src{margin-top:10px; font-size:11px; color:var(--muted);}
-
-  footer{text-align:center; color:var(--muted); font-size:12px; margin-top:24px; padding-top:18px; border-top:1px solid var(--line);}
-
-  @media (max-width:640px){ .row{grid-template-columns:1fr; gap:3px;} header h1{font-size:22px;} }
-  @media print{ body{background:#fff; color:#111;} .card,.issue,.qa,.disclaimer{box-shadow:none;} }
-</style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>学長マガジン 直近1か月まとめ</title>
+  <style>
+    :root{--ink:#1f2937;--muted:#667085;--line:#dce3ea;--paper:#fff;--bg:#f3f6f9;--blue:#2367a8;--blue-soft:#eaf3fb;--green:#20735a;--green-soft:#eaf7f1;--amber-soft:#fff5df}
+    *{box-sizing:border-box}body{margin:0;color:var(--ink);background:var(--bg);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Hiragino Sans","Yu Gothic",sans-serif;line-height:1.65;letter-spacing:0}
+    header{color:#fff;background:#245f97;border-bottom:5px solid #d9a52e}.header-inner,main,footer{width:min(1080px,calc(100% - 32px));margin:0 auto}.header-inner{padding:34px 0 30px}
+    h1{margin:0 0 8px;font-size:clamp(26px,4vw,40px);line-height:1.25}.lead{margin:0;max-width:760px;color:#eef6ff;font-size:16px}.period{display:inline-flex;margin-top:18px;padding:7px 12px;color:#183754;background:#fff;border-radius:6px;font-weight:700;font-size:14px}
+    main{padding:28px 0 42px}.notice{padding:15px 18px;background:var(--amber-soft);border:1px solid #ecd190;border-left:5px solid #d39021;border-radius:6px;color:#62430f}
+    .section-head{margin:34px 0 14px}.section-head h2{margin:0;font-size:24px;line-height:1.35}.section-head p{margin:5px 0 0;color:var(--muted)}.summary-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+    .card{padding:20px;background:var(--paper);border:1px solid var(--line);border-radius:7px;box-shadow:0 2px 10px rgba(31,41,55,.05)}.card h3{margin:0 0 8px;font-size:18px;line-height:1.45}.card p{margin:0;color:#3c4653}.date{display:block;margin-top:12px;color:var(--muted);font-size:13px}
+    .tag{display:inline-block;margin-bottom:10px;padding:3px 8px;border-radius:4px;background:var(--blue-soft);color:var(--blue);font-size:12px;font-weight:700}.tag.green{background:var(--green-soft);color:var(--green)}
+    .qa-list{display:grid;gap:12px}.qa{display:grid;grid-template-columns:150px minmax(0,1fr);overflow:hidden;background:var(--paper);border:1px solid var(--line);border-radius:7px}.qa .category{display:flex;align-items:center;padding:18px;color:var(--blue);background:var(--blue-soft);font-size:14px;font-weight:700}.qa .body{padding:17px 20px}.qa .question{margin:0 0 6px;font-weight:700}.qa .answer{margin:0;color:#44505c}
+    .principles{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.principle{padding:17px;background:#fff;border-top:4px solid var(--green);border-radius:6px}.principle strong{display:block;margin-bottom:5px}.source{margin-top:30px;padding:17px 19px;background:#fff;border:1px solid var(--line);border-radius:7px;color:var(--muted);font-size:13px}footer{padding:0 0 35px;color:var(--muted);text-align:center;font-size:12px}
+    @media(max-width:720px){.header-inner,main,footer{width:min(100% - 22px,1080px)}.header-inner{padding:26px 0 24px}.summary-grid,.principles{grid-template-columns:1fr}.qa{grid-template-columns:1fr}.qa .category{padding:9px 16px}.qa .body{padding:15px 16px}.section-head{margin-top:28px}.section-head h2{font-size:21px}}
+  </style>
 </head>
 <body>
-<div class="wrap">
-
-  <header>
-    <div class="badge">RESEARCH DIGEST</div>
-    <h1>学長メソッド<span>研究まとめ</span></h1>
-    <div class="sub">リベシティ学長マガジン／高配当株マガジンの要点蓄積　|　詳細版（自分の言葉で要約）</div>
-  </header>
-
-  <div class="disclaimer">
-    🚨 <b>これは投資助言ではありません。</b>「学長がこう考えている」という事実の記録であり、個別銘柄の売買推奨ではありません。最終判断はご自身で行ってください。<br>
-    ※ 私的利用限定・本文転載なし（学長の発言を自分の言葉で要約）・ブログ／SNSへの転載は不可。
-  </div>
-
-  <!-- ① 最新マガジン（リベ日課で随時追記） -->
-  <h2 class="section-title"><span class="emoji">🆕</span>学長マガジン 最新記事<span class="count">6/05–6/06</span></h2>
-  <div class="grid">
-    <div class="card">
-      <div class="card-head"><div class="num">6</div><div class="topic">6/06「moomoo証券、監視委が処分勧告」</div><div class="date">取得 2026-06-08</div></div>
-      <span class="tag">学長マガジン</span>
-      <div class="row"><div class="label">考え方の要点</div><div class="val">moomoo証券が<b>NISA対象外の商品を「対象」と虚偽説明</b>していたとして、証券取引等監視委員会が行政処分を勧告。学長は「証券会社の言いなりにならず、自分で制度を理解する重要性」を改めて指摘。</div></div>
-      <div class="row"><div class="label">副業への示唆</div><div class="val">金融リテラシー啓発（守る力）。「業者を鵜呑みにしない」発信ネタ。</div></div>
-      <div class="row warn"><div class="label">注意</div><div class="val">事実の記録であり特定業者への評価・投資助言ではない。最終判断は自分。</div></div>
-    </div>
-    <div class="card">
-      <div class="card-head"><div class="num">7</div><div class="topic">6/05「5月の投資トピック総まとめ」</div><div class="date">取得 2026-06-08</div></div>
-      <span class="tag">学長マガジン</span>
-      <div class="row"><div class="label">考え方の要点</div><div class="val">株式投資に役立つ5月の投資トピックを学長が総まとめ。日本株の好調や相場の動きを月次で振り返る内容（詳細は本文・月次相場の事実整理）。</div></div>
-      <div class="row"><div class="label">副業への示唆</div><div class="val">月次で相場・経済を振り返る「定点観測」の型。</div></div>
-      <div class="row warn"><div class="label">注意</div><div class="val">相場の事実整理であり売買助言ではない。</div></div>
-    </div>
-    <div class="card">
-      <div class="card-head"><div class="num">4</div><div class="topic">6/03「リースバックにご用心」</div><div class="date">取得 2026-06-03</div></div>
-      <span class="tag">学長マガジン</span>
-      <div class="row"><div class="label">考え方の要点</div><div class="val">持ち家を売って同じ家に賃貸で住み続ける「リースバック」を学長は<b>“毒キノコ”</b>と警告。国交省が25年実態調査でトラブル多発→ガイドライン策定（解約／更新可否の告知義務化）。約半数の業者が<b>買取価格＝相場の6〜7割</b>、契約の約半数が<b>定期借家</b>＝数年で追い出されても対抗手段なし（例：5000万の家を3000万で買われ後に退去）。リバースモーゲージも同類。</div></div>
-      <div class="row"><div class="label">副業への示唆</div><div class="val">高齢者向け「不動産・お金のトラブル防止」啓発コンテンツの需要（守る力・ブログネタ）。</div></div>
-      <div class="row warn"><div class="label">注意</div><div class="val">持ち家・老後世帯に銀行／不動産業者が好条件を装い接近する。事実の記録であり助言ではない。</div></div>
-    </div>
-    <div class="card">
-      <div class="card-head"><div class="num">5</div><div class="topic">6/02「価値ある投資アドバイス5選」</div><div class="date">取得 2026-06-03</div></div>
-      <span class="tag">学長マガジン</span>
-      <div class="row"><div class="label">考え方の要点</div><div class="val">素人がプロに期待する①銘柄選定②売買タイミングは<b>当て続けられる人が存在しない</b>（できるなら自分の投資だけで儲かる）。バンガード曰く本当に価値ある助言は別の5つ＝<span class="point">①低コストファンド選定②リバランス③投資行動コーチング④アセットロケーション（課税/非課税口座の使い分け）⑤引出戦略</span>。</div></div>
-      <div class="row"><div class="label">基準／数値</div><div class="val">良い助言は年率<b>約+3%</b>の付加価値（内訳：投資行動コーチング+1.5%が最大／低コスト+0.34%／リバランス+0.26%）。100万円30年運用で4%→約320万・7%→約760万。</div></div>
-      <div class="row"><div class="label">副業への示唆</div><div class="val">「予測」でなく「仕組み・行動の型」を売る情報発信が価値を生む。research投資助言NG方針と整合。</div></div>
-    </div>
-  </div>
-
-  <!-- ② 最新ライブQ&A（リベ日課で毎回最新日に差し替え） -->
-  <h2 class="section-title"><span class="emoji">🔴</span>学長マガジン ライブQ&A（最新）<span class="count">6/21 全7問</span></h2>
-  <div class="issue">
-    <div class="issue-head">
-      <div class="ttl">6月21日 ライブで拾いきれなかった質問への回答</div>
-      <div class="date">取得 2026-06-23</div>
-    </div>
-    <div class="issue-note">※学長が朝ライブ後に「ざっくり回答」した全7問。回答は主旨を自分の言葉で要約。学長はほぼ毎朝このQ&Aを投稿。</div>
-
-    <div class="qa"><span class="cat">育児・教育</span><div class="ques"><span class="qn">Q1</span>子に習い事をさせる？決める基準は？</div><div class="ans"><span class="lion">🦁</span><div>本人が「やりたい・興味がある」ものをやらせる。親の「やらせたい」で詰め込まず、<span class="point">興味を応援する方が続く</span>。</div></div></div>
-    <div class="qa"><span class="cat">お金・投資</span><div class="ques"><span class="qn">Q2</span>夫婦でNISA1800万を使い切った後の置き場は？特定口座か妻のNISAか</div><div class="ans"><span class="lion">🦁</span><div><b>妻のNISA枠が最優先</b>。非課税の箱を使わないのは損。順番は<span class="point">妻NISA→こどもNISA→特定口座</span>。世帯で非課税枠を埋める。</div></div></div>
-    <div class="qa"><span class="cat">副業・転職・独立</span><div class="ques"><span class="qn">Q3</span>双子育児の教員夫婦。異動で適応障害ぎみ、朝4時から家事＋持ち帰り仕事</div><div class="ans"><span class="lion">🦁</span><div>まず体が心配。<b>稼ぐ力は健康という土台があってこそ</b>。今は起業準備より<span class="point">休養と負荷軽減を優先</span>。</div></div></div>
-    <div class="qa"><span class="cat">家計・節約</span><div class="ques"><span class="qn">Q4</span>貯蓄型保険（毒キノコ）を解約予定だが、新しい掛捨てにまだ未加入</div><div class="ans"><span class="lion">🦁</span><div><b>新しい掛捨てに入ってから解約</b>。解約と新規の間に<span class="point">無保険の空白期間を作らない</span>。</div></div></div>
-    <div class="qa"><span class="cat">家族・人間関係</span><div class="ques"><span class="qn">Q5</span>相続放棄予定。故人口座から葬儀代を引き出すと放棄できなくなる？</div><div class="ans"><span class="lion">🦁</span><div>法律案件なので断言しない。<b>私的流用は相続承認とみなされ放棄不可の恐れ</b>。常識的な葬儀費用は影響しにくいが<span class="point">領収書等の証憑を残す</span>。専門家に確認を。</div></div></div>
-    <div class="qa"><span class="cat">テック・AI</span><div class="ques"><span class="qn">Q6</span>効率化アプリを作りたい。CodexとClaude Codeどちらがおすすめ？</div><div class="ans"><span class="lion">🦁</span><div><b>どちらも優秀で悩まなくていい</b>。Claude Codeは設計意図を汲んで丁寧に書き<span class="point">会話で詰めるのに向く</span>。Codexも実装力が高い。</div></div></div>
-    <div class="qa"><span class="cat">その他</span><div class="ques"><span class="qn">Q7</span>カオスヘッジするなら現物の金とビットコインどちら？</div><div class="ans"><span class="lion">🦁</span><div><b>カオスヘッジ目的ならワシは現物の金</b>を選ぶ（手元で持てる安心）。BTCはウォレット管理の自己責任が重い。</div></div></div>
-  </div>
-
-  <!-- ③ 前回ライブQ&A（降格） -->
-  <h2 class="section-title"><span class="emoji">📰</span>学長マガジン ライブQ&A（前回・参考）<span class="count">6/7 全10問</span></h2>
-  <div class="issue">
-    <div class="issue-head">
-      <div class="ttl">6月7日 ライブで拾いきれなかった質問への回答</div>
-      <div class="date">取得 2026-06-08</div>
-    </div>
-    <div class="issue-note">※前回分（参考）。最新は上の6/21。</div>
-
-    <div class="qa"><span class="cat">事業・起業</span><div class="ques"><span class="qn">Q1</span>8年続けた飲食店をやめるか悩んでいる。人生の一部で喪失感もすごい。人生の決断で学長が大事にしていることは？</div><div class="ans"><span class="lion">🦁</span><div>8年続けたのは本当に凄い（飲食は特に維持が難しい）。喪失感があって当たり前。ワシが決断で大事にしてるのは<b>「自分が後悔しない道を選ぶ」</b>。後で失敗だったとしても<span class="point">納得できる方</span>の道。</div></div></div>
-    <div class="qa"><span class="cat">お金・投資</span><div class="ques"><span class="qn">Q2</span>楽天証券で学長の高配当株ポートフォリオ通りに買おうとしたが、金額指定で買えない銘柄もある。正しい買い方は？</div><div class="ans"><span class="lion">🦁</span><div>楽天なら<b>「かぶミニ」で1株単位の買付</b>ができるので、欲しい銘柄を1株ずつ買い増しを。リアルタイム取引と寄付でしか買えない銘柄があるが最初は気にしなくてOK。買い方が不安ならオフ会等で人に聞くのも◎。</div></div></div>
-    <div class="qa"><span class="cat">育児・教育</span><div class="ques"><span class="qn">Q3</span>1歳3歳のシングルマザー。時短パートを始めたが子の体調不良で当日欠勤が続き、また休むのではと不安。</div><div class="ans"><span class="lion">🦁</span><div><b>まず自分を責めないで</b>。1歳3歳でシングルで時短パートはスーパーママ。小さい子が体調を崩すのは当たり前で誰のせいでもない。嵐はいずれ過ぎる。働くなら<span class="point">「休んでも怒られにくい環境」</span>を選ぶのが大事。</div></div></div>
-    <div class="qa"><span class="cat">家族・人間関係</span><div class="ques"><span class="qn">Q4</span>共働き・資産2500万。自分の保険は解約したが、もやもや病の持病がある夫が終身・医療保険(月2万)をやめてくれない。</div><div class="ans"><span class="lion">🦁</span><div>持病があると感情的にやめづらい。本来は公的保険＋貯蓄・投資で備える方が筋だが、<b>本人の安心料として持ちたいなら尊重</b>を。ただ月2万は重いので<span class="point">保障を見直し本当に必要な部分だけ残す</span>。夫婦でリベのFPに相談を。</div></div></div>
-    <div class="qa"><span class="cat">家計・節約</span><div class="ques"><span class="qn">Q5</span>持ち家の火災保険。案内のまま風災・盗難・破損も付けて高い。見直すべき？</div><div class="ans"><span class="lion">🦁</span><div>火災保険は<b>「確率低・損失大」に備えるもの</b>で入っておいて正解。ただし<span class="point">自分の地域・リスクに合わせて不要な補償は外す</span>。シンプルな構成でよい。</div></div></div>
-    <div class="qa"><span class="cat">住宅・不動産</span><div class="ques"><span class="qn">Q6</span>14年住む賃貸で家賃値上げ通知（書類＋返信用レターパック同封）。断れる？</div><div class="ans"><span class="lion">🦁</span><div><b>断れる</b>。普通借家契約なら家主は勝手に値上げできない。「家賃の値上げはお断りします。今まで通りの条件で更新を」と一文返せばOK。<span class="point">相手の同意書にサインしない</span>こと。</div></div></div>
-    <div class="qa"><span class="cat">テック・AI</span><div class="ques"><span class="qn">Q7</span>運送業で電波品質・データ容量が重要。au＋UQの2台持ちから乗り換え検討。おすすめキャリアは？</div><div class="ans"><span class="lion">🦁</span><div>仕事で重要なら<b>メイン回線はドコモかauの大手</b>が安心。格安SIMは昼の混雑時に速度低下。2台持ちでリスク分散するなら<span class="point">ドコモ系とau系で回線を分ける</span>。</div></div></div>
-    <div class="qa"><span class="cat">副業・独立</span><div class="ques"><span class="qn">Q8</span>フルタイム勤務の母。社内オンライン講師業を家族にも有料で教えたいが会社バレが不安。</div><div class="ans"><span class="lion">🦁</span><div>就業規則次第。<b>副業OKなら問題なし</b>。禁止なら住民税を確定申告で「自分で納付」にすればバレにくい。ただ今回は<span class="point">社内の延長で話が出てバレやすい</span>ので、いっそ上司・人事に相談する手も。</div></div></div>
-    <div class="qa"><span class="cat">事業・起業</span><div class="ques"><span class="qn">Q9</span>FIRE済。高配当株もオルカンも各「小金持ち山1つ分」以上＋現金。いつまで高配当株を買い続ける？</div><div class="ans"><span class="lion">🦁</span><div>目的が<b>「生活費を配当でまかなう(サイドFIRE)」</b>なら、<span class="point">必要なキャッシュフローに到達した時点で買い増しを止めてよい</span>。遊ぶ金まで資産所得で賄うと無限に資産が要り時間も足りなくなる。</div></div></div>
-    <div class="qa"><span class="cat">その他</span><div class="ques"><span class="qn">Q10</span>生活防衛費・特別費は全部現金で持つ考えでよい？いざという時インデックス取り崩しは？</div><div class="ans"><span class="lion">🦁</span><div>その考えでOK。<b>生活防衛費・特別費は現金（普通預金）が正解</b>。<span class="point">インデックス取り崩しは非推奨</span>（いざという時に限って暴落中で、売ると長期投資の前提が崩れる）。</div></div></div>
-  </div>
-
-  <!-- ④ 過去ログ -->
-  <h2 class="section-title">
-    <span class="emoji">🗄️</span>学長マガジン ライブQ&A（過去ログ）
-    <span class="count">5/28 全10問</span>
-  </h2>
-
-  <div class="issue">
-    <div class="issue-head">
-      <div class="ttl">5月28日 ライブで拾いきれなかった質問への回答</div>
-      <div class="date">取得 2026-05-30</div>
-    </div>
-    <div class="issue-note">※学長が「ざっくり回答」として答えた全10問を、ジャンル別に要約。回答は学長の主旨を自分の言葉でまとめたものです。</div>
-
-    <div class="qa">
-      <span class="cat">テック・AI</span>
-      <div class="ques"><span class="qn">Q1</span>Claude（クロコ）は Haiku と Sonnet どっちがおすすめ？</div>
-      <div class="ans"><span class="lion">🦁</span><div>用途で使い分けるのが良い。<b>普段使いは Sonnet で十分</b>（レスポンスが速くコスパも良い）。複雑なコーディング・長文分析・深い思考が必要な<b>難しいタスクは Opus に切り替える</b>。</div></div>
-    </div>
-
-    <div class="qa">
-      <span class="cat">副業・転職・独立</span>
-      <div class="ques"><span class="qn">Q2</span>助産師の経験（病棟・管理職・インストラクター）を活かした起業はどう？</div>
-      <div class="ans"><span class="lion">🦁</span><div>あり。専門性が高く「人の生」に関わる領域は<span class="point">AIに代替されにくく需要も消えない</span>。ただし起業で大事なのは資格の有無ではなく<b>「お金を払う顧客がいるか」</b>。産前産後ケア／両親学級／母乳相談／ベビーマッサージ／オンライン相談／企業向け女性健康セミナーなど切り口は多い。対象層・悩み・価格・届け方を<b>1つに絞って小さく試す</b>。AIは肯定的に返しがちなので、市場の声は実際の見込み客に聞く。リベシティ内の先輩起業者にも相談を。</div></div>
-    </div>
-
-    <div class="qa">
-      <span class="cat">お金・投資</span>
-      <div class="ques"><span class="qn">Q3</span>確定拠出年金も資産に入れて計算すべき？株と現金の比率調整は？</div>
-      <div class="ans"><span class="lion">🦁</span><div>確定拠出年金も自分の資産なので<b>計算に入れる</b>（60歳まで引き出せない制約はあるが積み上がる資産）。中身（オルカン・S&P500等）は<span class="point">「株」の枠としてカウント</span>。総資産の株：現金比率を見るときは確定拠出年金の株式分も合算する。そうしないと「実は株多め・現金少なすぎ」等のズレが出る。</div></div>
-    </div>
-
-    <div class="qa">
-      <span class="cat">住宅・不動産</span>
-      <div class="ques"><span class="qn">Q4</span>車庫証明の承諾書で不動産会社に11,000円。拒否や減額できる？</div>
-      <div class="ans"><span class="lion">🦁</span><div>保管場所使用承諾書は本来オーナーが無料で書くことも多いが、不動産会社が間に入ると事務手数料5,000〜15,000円を取るケースは結構ある。<b>法定金額ではないので交渉次第で安く・無料になることも</b>。まず「自分でオーナーに直接お願いできないか」を聞く。ダメなら素直に値下げ交渉。ただ強くこだわる額でもないので気持ちよく払うのも一手。次回は重要事項説明の段階で事務手数料の有無を先に確認。</div></div>
-    </div>
-
-    <div class="qa">
-      <span class="cat">その他</span>
-      <div class="ques"><span class="qn">Q5</span>FP3級に1ヶ月9割で合格。次に FP2級を取るのはどう？</div>
-      <div class="ans"><span class="lion">🦁</span><div>おめでとう（1ヶ月9割は立派）。ただ<b>FP2級はその業界で働く人でないと正直そこまで必要ない資格</b>。自分の稼ぐ力・資産アップに結びつくか一度立ち止まって考える。保険・金融で働きたい／副業で活かす等の<span class="point">明確な目的があるなら取る</span>。「楽しい・知りたい」が動機だと資格マニア方向に行きがちで、副業など他のことに時間を使う方がリターンは大きい。時間は有限。</div></div>
-    </div>
-
-    <div class="qa">
-      <span class="cat">事業・起業</span>
-      <div class="ques"><span class="qn">Q6</span>せどり月3万でインボイス登録、簡易課税で消費税20万。登録をやめてBtoCに戻すべき？</div>
-      <div class="ans"><span class="lion">🦁</span><div>インボイスは非常にややこしいので<b>税理士に相談を</b>（リベシティの「税金相談チャット」で聞くのが良い）。簡易課税の業種区分や、登録取消のタイミングのルールもある。</div></div>
-    </div>
-
-    <div class="qa">
-      <span class="cat">家計・節約</span>
-      <div class="ques"><span class="qn">Q7</span>車検見積60万、うち30万は「今すぐ不要」だった。工場選びの基準は？</div>
-      <div class="ans"><span class="lion">🦁</span><div>不信感を持つのは当然（60万のうち30万が「今でなくていい」なら最初から説明があって然るべき）。<b>信頼できる工場は見積時に「必須」と「今は不要（任意・予防整備）」を分けて説明してくれる</b>。口コミを見て他の工場やガソリンスタンドに変えるのも手。最安は<b>ユーザー車検で自分でやる</b>。シティ内の車検関連チャットでも相談を。</div></div>
-    </div>
-
-    <div class="qa">
-      <span class="cat">副業・SNS</span>
-      <div class="ques"><span class="qn">Q8</span>顔出しなしTikTok（美容・ライフ）8千人、企業PRで稼ぐが波あり。もっと大きく稼ぐには？</div>
-      <div class="ans"><span class="lion">🦁</span><div>8千人で企業PRを取れているのは凄い。大きく2つの道。<b>①フォロワー（ファン）を増やし広告に振り切る</b>（波はあるが年間では大きく稼げる可能性）。<b>②自分の商品を持つ</b>（ブランディングできれば企業の都合に振り回されない）。美容・ライフ系なら自社商品（コスメ・小物）、オリジナルブランド、デジタルコンテンツ（有料note・オンラインサロン・講座）が王道。顔出しなし運用は強みでもある。</div></div>
-    </div>
-
-    <div class="qa">
-      <span class="cat">テック・AI</span>
-      <div class="ques"><span class="qn">Q9</span>GoogleがAI検索に刷新。アフィリは大打撃と聞いたが学長の考えは？</div>
-      <div class="ans"><span class="lion">🦁</span><div>同意見で、<b>SEO頼みのアフィリはこれから厳しくなる一方</b>。数年前から「検索順位だけに頼るビジネスは危ない」と言われ続け、AI検索でそれが加速。ただアフィリ（商品紹介で報酬）の仕組み自体が消えるわけではなく、なくなるのは「検索上位で流入を集める」という1チャネル。今後生き残るのは <span class="point">(a)SNS・YouTubeで指名検索される個人 (b)コミュニティ・メルマガで直接つながる発信者 (c)AIに引用される一次情報を持つ人</span>。「人に信頼され選ばれる発信者になる」本質は変わらない。</div></div>
-    </div>
-
-    <div class="qa">
-      <span class="cat">育児・教育</span>
-      <div class="ques"><span class="qn">Q10</span>子が工業高校・情報技術科志望。AIで将来性が心配、機械科や電気科の方が良い？</div>
-      <div class="ans"><span class="lion">🦁</span><div>どの科でも<b>将来性は本人次第</b>。AIに代替されるのは「単純作業の繰り返し」で、情報技術科で学ぶ基礎やプログラミング的思考はAI時代でも武器になる。機械科・電気科だからAIに強いわけでもない。どの分野でもAIを使いこなせる人が有利。結局は本人がどれだけ興味を持って学べるか。<span class="point">「一番ワクワクする科」を選ばせる</span>（好きな方が伸びる・続く）。ただ食べられる仕事かは見ておくと良い。</div></div>
-    </div>
-
-  </div>
-
-  <!-- 参考：5/19 -->
-  <h2 class="section-title"><span class="emoji">🗒️</span>参考：5/19 ライブQ&A（要点のみ）<span class="count">1件</span></h2>
-  <div class="grid">
-    <div class="card">
-      <div class="card-head"><div class="num">2</div><div class="topic">5/19 ライブQ&A</div><div class="date">取得 2026-05-28</div></div>
-      <span class="tag">学長マガジン</span>
-      <div class="row"><div class="label">要点</div><div class="val">法人保険の節税は課税繰延で筋悪／不動産の「投資元本」＝自己資金／AIは“使い方を知らない”だけ・月20ドルで試す／60歳出口は定率5%取崩＋現金補填／個人国債の買替は中途換金コストで非推奨</div></div>
-      <div class="row"><div class="label">副業への示唆</div><div class="val">AI活用の裾野を広げる／副業＝人間関係と収入の自由</div></div>
-    </div>
-  </div>
-
-  <!-- ② 高配当株 -->
-  <h2 class="section-title"><span class="emoji">💰</span>高配当株メソッド（考え方の記録）<span class="count">5件</span></h2>
-  <div class="grid">
-    <div class="card">
-      <div class="card-head"><div class="num gold">7</div><div class="topic">8/21 第124回 コムチュア分析</div><div class="date">取得 2026-08-26</div></div>
-      <span class="tag">高配当株マガジン</span>
-      <div class="row"><div class="label">考え方の要点</div><div class="val">増配・好財務だけでなく、高利回りになった理由を確認する。<b>業績成長に株価が追いつかない横ばい型</b>と、<b>成長鈍化を織り込む下落型</b>ではリスクが異なる。</div></div>
-      <div class="row"><div class="label">基準／数値</div><div class="val">利回り3.53%／増配率16.3%・19年減配なし／自己資本比率76.6%／営業CF10年連続黒字／予想PER20.87倍・PBR2.43倍</div></div>
-      <div class="row warn"><div class="label">注意・リスク</div><div class="val">人件費上昇で利益成長・利益率・ROEが鈍化。2027年予想の配当性向は73.7%。紹介記録であり売買推奨ではない。</div></div>
-    </div>
-    <div class="card">
-      <div class="card-head"><div class="num gold">6</div><div class="topic">7月→8月 モデルPF更新（第119・122回）</div><div class="date">取得 2026-08-26</div></div>
-      <span class="tag">高配当株マガジン</span>
-      <div class="row"><div class="label">考え方の要点</div><div class="val">7月は構成変更なし。8月は三井住友トラストGを除外し、コムチュアを追加。除外は売却推奨ではなく、利回り3%未満になったためモデルPFで新規購入しないという判断。</div></div>
-      <div class="row"><div class="label">基準／数値</div><div class="val">PF利回り 7月4.21%→8月4.25%／構成36銘柄／元本30万円換算の年間配当12,630円→12,750円</div></div>
-      <div class="row warn"><div class="label">注意・リスク</div><div class="val">東計電算の高利回りは有価証券売却益による一時的な増配。差分は事実の記録であり投資助言ではない。</div></div>
-    </div>
-    <div class="card">
-      <div class="card-head"><div class="num gold">1</div><div class="topic">5/06 第113回 相場解説</div><div class="date">取得 2026-05-28</div></div>
-      <span class="tag">高配当株マガジン</span>
-      <div class="row"><div class="label">考え方の要点</div><div class="val">月初は相場感を共有。2026年4月の日本株急騰・日経平均6万円台・実質賃金2ヶ月連続プラス。TOPIXと日経平均の構成の違い（歪み）を図解。</div></div>
-      <div class="row"><div class="label">基準／数値</div><div class="val">日本株 年初来 約+7.2%／1ドル160円が当面の天井か／日銀は金利維持</div></div>
-      <div class="row warn"><div class="label">注意・リスク</div><div class="val">米国高配当株は好成績も「欲しい利回り」ではない／中東リスク・原油高継続</div></div>
-    </div>
-    <div class="card">
-      <div class="card-head"><div class="num gold">2</div><div class="topic">5/22 第114回 銘柄紹介</div><div class="date">取得 2026-05-28</div></div>
-      <span class="tag">高配当株マガジン</span>
-      <div class="row"><div class="label">考え方の要点</div><div class="val">「もし学長が今投資するなら」の観点で毎回1銘柄を図解紹介。今回は<b>サカタインクス</b>（印刷用インキ）。</div></div>
-      <div class="row"><div class="label">基準／数値</div><div class="val">詳細数値は図解画像にあり（未取得）</div></div>
-      <div class="row warn"><div class="label">注意・リスク</div><div class="val">個別銘柄の紹介＝買い推奨ではない・最終判断は自分</div></div>
-    </div>
-    <div class="card">
-      <div class="card-head"><div class="num gold">3</div><div class="topic">紹介銘柄の通史（第105〜114回）</div><div class="date">取得 2026-05-28</div></div>
-      <span class="tag">高配当株マガジン</span>
-      <div class="row"><div class="label">考え方の要点</div><div class="val">学長が取り上げた銘柄の記録：船井総研HD／マークラインズ／日本ゼオン／クレスコ／東計電算／長谷川香料／サカタインクス（第107・110・113回は相場解説で銘柄紹介なし）。</div></div>
-      <div class="row"><div class="label">基準／数値</div><div class="val">配分％・利回りは各回の図解画像（未取得）</div></div>
-      <div class="row warn"><div class="label">注意・リスク</div><div class="val">学長の紹介記録であり買い推奨ではない・最終判断は自分</div></div>
-    </div>
-  </div>
-
-  <footer>
-    出典：リベシティ「学長マガジンチャット」「学長高配当株マガジンチャット」　|　要約：research/digest（自分の言葉）　|　私的利用限定　|　最終更新 2026-08-26（高配当株分析）
-  </footer>
-
-</div>
+  <header><div class="header-inner">
+    <h1>学長マガジン 直近1か月まとめ</h1>
+    <p class="lead">学長マガジンの投稿を期間単位で読み、重複する話題をまとめた自分用の要点メモです。</p>
+    <span class="period">対象期間：2026年7月27日〜8月26日</span>
+  </div></header>
+  <main>
+    <div class="notice">今回は期間指定がなかったため、直近1か月を対象にしました。次回からは、期間指定があればその期間だけ、指定がなければ更新日から直近1か月だけを表示します。</div>
+    <section>
+      <div class="section-head"><h2>この1か月の主要テーマ</h2><p>投稿を時系列に並べず、繰り返し語られた考え方を6テーマに統合しています。</p></div>
+      <div class="summary-grid">
+        <article class="card"><span class="tag">家計・人生設計</span><h3>貯めるだけでなく、使う時期まで決める</h3><p>資産形成は残高を増やすことだけが目的ではない。生活防衛資金を確保したうえで、ライフプランを定期的に見直し、健康や経験に使える時期を逃さないことが繰り返し強調された。</p><span class="date">主な投稿：8/1、8/6、8/7、8/15〜17</span></article>
+        <article class="card"><span class="tag">詐欺・営業対策</span><h3>うまい話より、相手の利益構造を見る</h3><p>「AIで自動的に稼げる」、被害回復のための先払い、無料相談、複雑な通信契約などは、提案者がどこで利益を得るかを確認する。急がせる、仕組みを説明しない、先払いを求める案件から距離を置く。</p><span class="date">主な投稿：8/3、8/12、8/15、8/24〜25</span></article>
+        <article class="card"><span class="tag green">住まい・固定費</span><h3>家賃や通信契約は、通知を受けても即同意しない</h3><p>普通借家の家賃値上げは一方的に確定するものではない。通信契約も高速プランや乗り換え特典だけで判断せず、必要な性能、解約条件、総支払額を確認してから決める。</p><span class="date">主な投稿：8/5、8/14、8/24</span></article>
+        <article class="card"><span class="tag green">保険・備え</span><h3>小さな損失まで保険で埋めようとしない</h3><p>公的保障、手元資金、起きたときの損失額を順番に確認する。低確率でも生活が破綻する損失に絞って備え、貯蓄型保険や借入を組み合わせた複雑な商品は構造を分解して考える。</p><span class="date">主な投稿：8/2、8/5、8/17、8/23</span></article>
+        <article class="card"><span class="tag">副業・事業</span><h3>小さく試し、実績が出た型を横展開する</h3><p>楽に稼げる方法を探すより、見込み客に会い、需要を確かめ、再現できた販売・発信の型を育てる。提案時は成果物と進め方を示しつつ、中核ノウハウを無償で渡し切らない。</p><span class="date">主な投稿：8/13〜14、8/17、8/22</span></article>
+        <article class="card"><span class="tag">家族・意思決定</span><h3>相手を変える前に、自分で小さな結果を作る</h3><p>家計改善や住まいの判断で家族を説得するときは、正論で押し切らない。自分の支出から直し、元に戻せる小さな変更で効果を見せ、必要なら利害関係の薄い第三者を交える。</p><span class="date">主な投稿：8/5、8/12、8/25</span></article>
+      </div>
+    </section>
+    <section>
+      <div class="section-head"><h2>代表的なQ&amp;A</h2><p>期間中の全質問は保存せず、他の場面にも応用しやすいものだけを抜粋しています。</p></div>
+      <div class="qa-list">
+        <article class="qa"><div class="category">高齢家族の資産</div><div class="body"><p class="question">十分な現金と年金がある高齢の家族にも、投資を勧めるべきか。</p><p class="answer">増やす必要性が低いなら、無理に価格変動のある資産へ移さない。本人の安心と、資産を失わないことを優先する。</p></div></article>
+        <article class="qa"><div class="category">仕事の提案</div><div class="body"><p class="question">研修や業務改善を提案するとき、どこまで無料で見せるべきか。</p><p class="answer">完成イメージ、進め方、期待効果は示す。一方で、相手がそのまま実行できる中核手順まで先に渡さず、費用は概算から合意する。</p></div></article>
+        <article class="qa"><div class="category">独立の判断</div><div class="body"><p class="question">会社を辞めて独立できる状態か、何を基準に判断するか。</p><p class="answer">当面の現金、事業収入で生活できる見通し、失敗時の戻り道を確認する。勢いだけで退職せず、先に小さな売上と継続性を作る。</p></div></article>
+        <article class="qa"><div class="category">家族との家計改善</div><div class="body"><p class="question">家計改善に消極的な配偶者へ、どう働きかけるか。</p><p class="answer">まず自分の固定費で効果を出す。小さく元に戻せる変更から提案し、対立が続くなら中立的な専門家を交えて判断材料をそろえる。</p></div></article>
+      </div>
+    </section>
+    <section>
+      <div class="section-head"><h2>今月の判断原則</h2></div>
+      <div class="principles">
+        <div class="principle"><strong>仕組みを見る</strong>価格や特典より、誰がどこで利益を得るかを確認する。</div>
+        <div class="principle"><strong>小さく試す</strong>大きく賭ける前に、戻せる範囲で需要と効果を確かめる。</div>
+        <div class="principle"><strong>目的から逆算する</strong>資産額や正解探しではなく、望む生活に必要な条件を決める。</div>
+      </div>
+    </section>
+    <div class="source">出典：リベシティ「学長マガジンチャット」。本文や図解は転載せず、自分の言葉で要点のみ整理しています。私的利用限定です。</div>
+  </main>
+  <footer>最終更新：2026年8月26日</footer>
 </body>
 </html>
