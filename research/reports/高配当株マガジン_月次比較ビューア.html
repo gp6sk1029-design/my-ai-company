@@ -77,6 +77,7 @@
   .updater .h{font-weight:700; font-size:13px; margin-bottom:6px;}
   .updater button{margin-top:8px; background:var(--navy); color:#fff; border:0; border-radius:7px; padding:8px 16px; font-weight:700; cursor:pointer;}
   .updater button:disabled{background:#94a3b8; cursor:not-allowed;}
+  .updater button.secondary{margin-left:6px; background:#fff; color:var(--navy); border:1px solid var(--navy);}
   .dropzone{margin-top:10px; min-height:112px; border:2px dashed #94a3b8; border-radius:9px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:5px; padding:16px; text-align:center; background:#f8fafc; color:var(--muted); cursor:pointer; transition:.15s ease;}
   .dropzone:hover,.dropzone.drag{border-color:var(--accent); background:#eff6ff; color:var(--navy);}
   .dropzone:focus-visible{outline:3px solid #93c5fd; outline-offset:2px;}
@@ -149,7 +150,8 @@
       </div>
       <div class="file-status" id="fileStatus" role="status" aria-live="polite"></div>
       <button id="applyFileButton" type="button" disabled>このファイルで更新</button>
-      <div class="privacy">🔒 ファイルはこのブラウザ内だけで処理され、外部へ送信されません。更新すると現在の保有一覧全体を置き換えます。</div>
+      <button id="resetHoldingsButton" class="secondary" type="button">初期データに戻す</button>
+      <div class="privacy">🔒 ファイルは外部へ送信されません。更新結果はこの端末のブラウザに保存され、現在の保有一覧全体を置き換えます。PCとスマホの間では自動同期しません。</div>
     </div>
   </div>
 
@@ -198,7 +200,9 @@ const MAGAZINE = {
 };
 // 自分の保有スナップショット（l-haitouツールより・日本株のみ）
 // 2026-06-08 リベ日課でl-haitouのlocalStorage(rakutenStocks+sbiStocks)を読み取り照合→75銘柄・5/31から変更なしを確認（コード一致）。銘柄名はビューア側の整形版を維持
-let HOLD_DATE = "2026-06-08";
+const HOLD_DATE_DEFAULT = "2026-06-08";
+const HOLDINGS_STORAGE_KEY = "haitou-magazine-holdings-v1";
+let HOLD_DATE = HOLD_DATE_DEFAULT;
 const HOLDINGS_DEFAULT = {
 "1343":"NF J-REIT","1414":"ショーボンドHD","1928":"積水ハウス","1951":"エクシオグループ","2003":"日東富士製粉","2169":"CDS","2296":"伊藤ハム米久HD","2393":"日本ケアサプライ","2659":"サンエー","2914":"日本たばこ産業","3003":"ヒューリック","3076":"あいホールディングス","3231":"野村不動産HD","3333":"あさひ","3817":"SRA HD","3834":"朝日ネット","3901":"マークラインズ","4008":"住友精化","4042":"東ソー","4097":"高圧ガス","4205":"日本ゼオン","4220":"リケンテクノス","4248":"竹本容器","4452":"花王","4503":"アステラス製薬","4523":"エーザイ","4540":"ツムラ","4578":"大塚HD","4633":"サカタインクス","4641":"アルプス技研","4674":"クレスコ","4719":"アルファシステムズ","4752":"昭和システム","5108":"ブリヂストン","5388":"クニミネ工業","6073":"アサンテ","6301":"小松製作所","6326":"クボタ","6345":"アイチコーポレーション","6381":"アネスト岩田","6432":"竹内製作所","6458":"新晃工業","6539":"MS-Japan","6785":"鈴木","7203":"トヨタ自","7483":"ドウシシャ","7723":"愛知時計","7820":"ニホンフラッシュ","7989":"立川ブラインド","7994":"オカムラ","8001":"伊藤忠","8031":"三井物産","8058":"三菱商事","8130":"サンゲツ","8306":"三菱UFJ","8309":"三井住友トラストG","8316":"三井住友","8584":"ジャックス","8593":"三菱HCキャピタル","8697":"JPX","8725":"MS&AD","8766":"東京海上","9057":"遠州トラック","9069":"センコーHD","9303":"住友倉","9304":"渋沢倉","9364":"上組","9381":"エーアイテイー","9432":"NTT","9433":"KDDI","9513":"Jパワー","9757":"船井総研HD","9769":"学究社","9795":"ステップ","9986":"蔵王産業"
 };
@@ -333,6 +337,7 @@ function applyPendingHoldings(){
   if(!PENDING_HOLDINGS) return;
   HOLDINGS={...PENDING_HOLDINGS};
   HOLD_DATE=new Intl.DateTimeFormat('ja-JP',{year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date()).replaceAll('/','-');
+  try{ localStorage.setItem(HOLDINGS_STORAGE_KEY,JSON.stringify({date:HOLD_DATE,holdings:HOLDINGS})); }catch(_){ /* 保存不可でも今回の比較は続行 */ }
   renderT2();
   const status=document.getElementById('fileStatus');
   status.className='file-status show ok';
@@ -340,9 +345,25 @@ function applyPendingHoldings(){
   document.getElementById('applyFileButton').disabled=true;
   PENDING_HOLDINGS=null;
 }
+function resetHoldings(){
+  HOLDINGS={...HOLDINGS_DEFAULT}; HOLD_DATE=HOLD_DATE_DEFAULT; PENDING_HOLDINGS=null;
+  try{ localStorage.removeItem(HOLDINGS_STORAGE_KEY); }catch(_){ /* 保存領域が使えない場合 */ }
+  document.getElementById('holdFile').value='';
+  document.getElementById('applyFileButton').disabled=true;
+  const status=document.getElementById('fileStatus');
+  status.className='file-status show ok'; status.textContent='初期データに戻しました。';
+  renderT2();
+}
+function loadSavedHoldings(){
+  try{
+    const saved=JSON.parse(localStorage.getItem(HOLDINGS_STORAGE_KEY));
+    if(saved?.holdings && Object.keys(saved.holdings).length){ HOLDINGS={...saved.holdings}; HOLD_DATE=saved.date||HOLD_DATE_DEFAULT; }
+  }catch(_){ /* 壊れた保存データは初期値で表示 */ }
+}
 
 // 初期化
 (function init(){
+  loadSavedHoldings();
   const keys=Object.keys(MAGAZINE);
   keys.forEach(k=>{ mFrom.add(new Option(MAGAZINE[k].label,k)); mTo.add(new Option(MAGAZINE[k].label,k)); mPick.add(new Option(MAGAZINE[k].label,k)); });
   mFrom.value=keys[keys.length-2]||keys[0]; mTo.value=keys[keys.length-1]; mPick.value=keys[keys.length-1];
@@ -355,6 +376,7 @@ function applyPendingHoldings(){
   ['dragleave','drop'].forEach(type=>zone.addEventListener(type,e=>{ e.preventDefault(); zone.classList.remove('drag'); }));
   zone.addEventListener('drop',e=>prepareHoldingFile(e.dataTransfer.files[0]));
   document.getElementById('applyFileButton').onclick=applyPendingHoldings;
+  document.getElementById('resetHoldingsButton').onclick=resetHoldings;
   renderT1(); renderT2();
 })();
 </script>
