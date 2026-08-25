@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """
-セッション容量・健康診断ツール（v2: 実コンテキスト方式・2026-06-13改修）
+セッション容量・健康診断ツール（v3: 自動圧縮対応・2026-08-26改修）
 
-現在のClaude Codeセッション（jsonl）を分析し、健康状態をチェックする。
-Stop hookから呼ばれて、警告閾値を超えたときだけ画面に出力する。
+Claude Codeセッション（jsonl）を分析し、健康状態をチェックする。
+Codexと自動圧縮が有効なClaude Codeでは、通常の容量警告を出さない。
+製品側が会話を自動圧縮して継続できるため、閾値警告による引き継ぎは不要。
 
 🔴 v2の本質（戻すな）：
   旧方式は「ファイル累計サイズ・累計入力回数」で判定していたが、これは
@@ -24,6 +25,7 @@ Stop hookから呼ばれて、警告閾値を超えたときだけ画面に出�
   python3 tools/session_health.py --json     # JSON出力
   python3 tools/session_health.py --session /path/to/xxxxx.jsonl
   python3 tools/session_health.py --window 200000   # 窓サイズを手動指定
+  python3 tools/session_health.py --force           # 自動圧縮中でも診断を強制表示
 """
 from __future__ import annotations
 
@@ -41,12 +43,6 @@ THRESHOLDS = {
     "images": {"warn": 25, "crit": 40},        # 現コンテキスト内の画像数
 }
 
-# 旧方式フォールバック用（usage情報が取れない異常時のみ）
-LEGACY_THRESHOLDS = {
-    "size_mb": {"warn": 5, "crit": 9},
-    "turns": {"warn": 30, "crit": 50},
-}
-
 # モデル→コンテキスト窓サイズ（tokens）
 # 根拠: 2026-05-03 claude-opus-4-7 が967,345tokensで自動圧縮（auto）＝窓100万。
 #       claude-opus-4-8 は457k到達でも自動圧縮なし＝窓>457k。
@@ -58,6 +54,27 @@ MODEL_WINDOWS = [
 ]
 DEFAULT_WINDOW = 200_000
 STANDARD_WINDOWS = [200_000, 500_000, 1_000_000]
+
+
+def detect_runtime(explicit: str) -> str:
+    """実行環境を判定する。フックは --runtime で明示するのを正とする。"""
+    if explicit != "auto":
+        return explicit
+    if os.environ.get("CODEX_SESSION_ID") or os.environ.get("CODEX_THREAD_ID") \
+            or os.environ.get("CODEX_SHELL"):
+        return "codex"
+    return "manual"
+
+
+def auto_compaction_enabled(runtime: str) -> bool:
+    """製品標準の自動圧縮が利用できるか返す。"""
+    if runtime == "codex":
+        return True
+    if runtime == "claude-code":
+        disabled = os.environ.get("DISABLE_AUTO_COMPACT") == "1" \
+            or os.environ.get("DISABLE_COMPACT") == "1"
+        return not disabled
+    return False
 
 
 def session_from_hook_stdin() -> tuple[Path | None, bool]:
@@ -320,11 +337,9 @@ def evaluate(metrics: dict, window: int | None = None) -> dict:
         levels["images"] = "CRIT" if v >= t["crit"] else "WARN" if v >= t["warn"] else "OK"
         metrics["judge_mode"] = "v2(実コンテキスト)"
     else:
-        # usage情報なし＝異常系。旧方式（累計）にフォールバック
-        for key, value in [("size_mb", metrics["size_mb"]), ("turns", metrics["user_turns"])]:
-            t = LEGACY_THRESHOLDS[key]
-            levels[key] = "CRIT" if value >= t["crit"] else "WARN" if value >= t["warn"] else "OK"
-        metrics["judge_mode"] = "legacy(累計・参考値)"
+        # 累計値は圧縮後も減らないため判定に使わない。usage不明なら警告せず保留。
+        levels["usage"] = "OK"
+        metrics["judge_mode"] = "unavailable(usage情報なし・判定保留)"
 
     if "CRIT" in levels.values():
         overall = "CRIT"
@@ -386,24 +401,40 @@ def format_report(metrics: dict, evaluation: dict) -> str:
                     f"あと約{est['remaining_turns_now']}回の入力で到達する見込み）"
                 )
     else:
-        # legacyフォールバック表示
-        lines.append("   ⚠️ usage情報が読めないため旧方式（累計・精度低）で判定:")
-        lines.append(f"   📦 累計サイズ: {metrics['size_mb']}MB / 💬 累計入力: {metrics['user_turns']}回")
-        if overall in ("WARN", "CRIT"):
-            lines.append("   👉 `/compact` で圧縮、または『引き継ぎ準備して』で新セッションへ")
+        lines.append("   ℹ️ usage情報を取得できないため容量判定は保留しました。")
+        lines.append(f"   📦 累計サイズ: {metrics['size_mb']}MB / 💬 累計入力: {metrics['user_turns']}回（参考・判定外）")
 
     return "\n".join(lines)
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="セッション健康診断（v2: 実コンテキスト方式）")
+    parser = argparse.ArgumentParser(description="セッション健康診断（v3: 自動圧縮対応）")
     parser.add_argument("--quiet", action="store_true",
                         help="OK時は何も出力しない（Stop hook向け）")
     parser.add_argument("--json", action="store_true", help="JSON出力")
     parser.add_argument("--session", type=Path, help="特定セッションを指定")
     parser.add_argument("--window", type=int,
                         help="コンテキスト窓サイズを手動指定（tokens）")
+    parser.add_argument("--runtime", choices=("auto", "codex", "claude-code", "manual"),
+                        default="auto", help="実行環境（通常は自動判定）")
+    parser.add_argument("--force", action="store_true",
+                        help="自動圧縮が有効でも従来の容量診断を強制実行")
     args = parser.parse_args()
+
+    runtime = detect_runtime(args.runtime)
+    if auto_compaction_enabled(runtime) and not args.force:
+        if args.json:
+            print(json.dumps({
+                "overall": "OK",
+                "runtime": runtime,
+                "auto_compaction": True,
+                "warning_suppressed": True,
+                "reason": "製品標準の自動圧縮が有効なため容量警告は不要",
+            }, ensure_ascii=False, indent=2))
+        elif not args.quiet:
+            product = "Codex" if runtime == "codex" else "Claude Code"
+            print(f"✅ セッション健康診断: {product}の自動圧縮が有効（容量警告なし）")
+        return 0
 
     # 優先順位: ①--session明示指定 ②hookのstdin(transcript_path＝正確)
     #          ③hook起動だが対象未作成＝新セッション→健康扱い(推測しない)
