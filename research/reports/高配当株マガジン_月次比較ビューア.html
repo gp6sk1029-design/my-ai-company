@@ -75,18 +75,9 @@
 
   .updater{margin-top:20px; background:var(--card); border:1px solid var(--line); border-radius:10px; padding:14px;}
   .updater .h{font-weight:700; font-size:13px; margin-bottom:6px;}
-  .updater button{margin-top:8px; background:var(--navy); color:#fff; border:0; border-radius:7px; padding:8px 16px; font-weight:700; cursor:pointer;}
-  .updater button:disabled{background:#94a3b8; cursor:not-allowed;}
-  .updater button.secondary{margin-left:6px; background:#fff; color:var(--navy); border:1px solid var(--navy);}
-  .dropzone{margin-top:10px; min-height:112px; border:2px dashed #94a3b8; border-radius:9px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:5px; padding:16px; text-align:center; background:#f8fafc; color:var(--muted); cursor:pointer; transition:.15s ease;}
-  .dropzone:hover,.dropzone.drag{border-color:var(--accent); background:#eff6ff; color:var(--navy);}
-  .dropzone:focus-visible{outline:3px solid #93c5fd; outline-offset:2px;}
-  .dropzone .icon{font-size:25px; line-height:1;}
-  .dropzone .pick{font-weight:800; color:var(--accent);}
-  .file-status{display:none; margin-top:10px; border-radius:7px; padding:9px 11px; font-size:12.5px;}
-  .file-status.show{display:block;}
-  .file-status.ok{background:var(--okbg); color:#065f46;}
-  .file-status.error{background:var(--delbg); color:#991b1b;}
+  .source-link{display:inline-flex; align-items:center; margin-top:10px; background:var(--navy); color:#fff; border-radius:7px; padding:9px 14px; font-weight:700; font-size:13px; text-decoration:none;}
+  .source-link:hover{background:var(--accent);}
+  .sync-status{margin-top:10px; padding:10px 12px; border-radius:7px; background:var(--okbg); color:#065f46; font-size:12.5px;}
   .privacy{margin-top:8px; color:var(--muted); font-size:11.5px;}
   .small{font-size:12px; color:var(--muted);}
   footer{margin-top:30px; padding-top:16px; border-top:1px solid var(--line); color:var(--muted); font-size:11.5px; text-align:center;}
@@ -140,23 +131,16 @@
       <div class="col mine"><div class="ch">自分のみ保有（マガジン外）</div><div class="cnt" id="cMine">-</div><ul id="lMine"></ul></div>
     </div>
     <div class="updater">
-      <div class="h">📁 保有銘柄をファイルで更新（任意）</div>
-      <div class="small">保有一覧のファイルを選ぶと、現在のスナップショットとの差分を確認してから更新できます。銘柄コードを含む CSV・TSV・TXT・JSON に対応しています。</div>
-      <input id="holdFile" type="file" accept=".csv,.tsv,.txt,.json,text/csv,text/tab-separated-values,text/plain,application/json" hidden>
-      <div class="dropzone" id="dropzone" role="button" tabindex="0" aria-controls="holdFile">
-        <div class="icon">📄</div>
-        <div><span class="pick">ファイルを選択</span> またはここへドラッグ＆ドロップ</div>
-        <div class="small">ファイル内の4桁の銘柄コードを自動で読み取ります</div>
-      </div>
-      <div class="file-status" id="fileStatus" role="status" aria-live="polite"></div>
-      <button id="applyFileButton" type="button" disabled>このファイルで更新</button>
-      <button id="resetHoldingsButton" class="secondary" type="button">初期データに戻す</button>
-      <div class="privacy">🔒 ファイルは外部へ送信されません。更新結果はこの端末のブラウザに保存され、現在の保有一覧全体を置き換えます。PCとスマホの間では自動同期しません。</div>
+      <div class="h">🔄 l-haitouから保有銘柄を更新</div>
+      <div class="small">保有情報の正本はl-haitouです。Codexがログイン済みの「保有一覧」画面から銘柄コードと銘柄名を読み取り、このビューアへ反映します。</div>
+      <a class="source-link" href="https://worksnow.online/l-haitou/portfolio.html" target="_blank" rel="noopener">l-haitouの保有一覧を開く ↗</a>
+      <div class="sync-status"><b>反映済み：</b>2026-08-26時点・79銘柄（前回75銘柄から4銘柄追加）</div>
+      <div class="privacy">更新するときはCodexに「l-haitouから保有銘柄を反映して」と依頼してください。ファイル貼り付けやPC・スマホごとの設定保存は不要です。</div>
     </div>
   </div>
 
   <footer>
-    出典：リベシティ「学長高配当株マガジンチャット」モデルポートフォリオ（第110/113/119/122回＝本文・図解から構成、第116回＝本文の追加除外リストから構成）　|　保有データ：l-haitouツール（楽天・SBI）より・2026-06-08照合　|　最終更新 2026-08-26　|　私的利用限定・blog/SNS送出不可
+    出典：リベシティ「学長高配当株マガジンチャット」モデルポートフォリオ（第110/113/119/122回＝本文・図解から構成、第116回＝本文の追加除外リストから構成）　|　保有データ：l-haitou「保有一覧」より・2026-08-26照合　|　最終更新 2026-08-26　|　私的利用限定・blog/SNS送出不可
   </footer>
 </div>
 
@@ -198,16 +182,27 @@ const MAGAZINE = {
   "2026-07": { label:"2026年7月（第119回）", codes:CODES_JUL, yield:4.21, dividend:12630 },
   "2026-08": { label:"2026年8月（第122回）", codes:CODES_AUG, yield:4.25, dividend:12750 }
 };
-// 自分の保有スナップショット（l-haitouツールより・日本株のみ）
-// 2026-06-08 リベ日課でl-haitouのlocalStorage(rakutenStocks+sbiStocks)を読み取り照合→75銘柄・5/31から変更なしを確認（コード一致）。銘柄名はビューア側の整形版を維持
-const HOLD_DATE_DEFAULT = "2026-06-08";
-const HOLDINGS_STORAGE_KEY = "haitou-magazine-holdings-v1";
-let HOLD_DATE = HOLD_DATE_DEFAULT;
-const HOLDINGS_DEFAULT = {
-"1343":"NF J-REIT","1414":"ショーボンドHD","1928":"積水ハウス","1951":"エクシオグループ","2003":"日東富士製粉","2169":"CDS","2296":"伊藤ハム米久HD","2393":"日本ケアサプライ","2659":"サンエー","2914":"日本たばこ産業","3003":"ヒューリック","3076":"あいホールディングス","3231":"野村不動産HD","3333":"あさひ","3817":"SRA HD","3834":"朝日ネット","3901":"マークラインズ","4008":"住友精化","4042":"東ソー","4097":"高圧ガス","4205":"日本ゼオン","4220":"リケンテクノス","4248":"竹本容器","4452":"花王","4503":"アステラス製薬","4523":"エーザイ","4540":"ツムラ","4578":"大塚HD","4633":"サカタインクス","4641":"アルプス技研","4674":"クレスコ","4719":"アルファシステムズ","4752":"昭和システム","5108":"ブリヂストン","5388":"クニミネ工業","6073":"アサンテ","6301":"小松製作所","6326":"クボタ","6345":"アイチコーポレーション","6381":"アネスト岩田","6432":"竹内製作所","6458":"新晃工業","6539":"MS-Japan","6785":"鈴木","7203":"トヨタ自","7483":"ドウシシャ","7723":"愛知時計","7820":"ニホンフラッシュ","7989":"立川ブラインド","7994":"オカムラ","8001":"伊藤忠","8031":"三井物産","8058":"三菱商事","8130":"サンゲツ","8306":"三菱UFJ","8309":"三井住友トラストG","8316":"三井住友","8584":"ジャックス","8593":"三菱HCキャピタル","8697":"JPX","8725":"MS&AD","8766":"東京海上","9057":"遠州トラック","9069":"センコーHD","9303":"住友倉","9304":"渋沢倉","9364":"上組","9381":"エーアイテイー","9432":"NTT","9433":"KDDI","9513":"Jパワー","9757":"船井総研HD","9769":"学究社","9795":"ステップ","9986":"蔵王産業"
+// 自分の保有スナップショット（l-haitou「保有一覧」画面より・日本株のみ）
+// 2026-08-26 Codexが表示中の保有一覧表を読み取り、79銘柄を照合。銘柄名はビューア向けに整形。
+const HOLD_DATE = "2026-08-26";
+const HOLDINGS = {
+  "1343":"NF J-REIT", "1414":"ショーボンドHD", "1928":"積水ハウス", "1951":"エクシオグループ", "2003":"日東富士製粉",
+  "2169":"CDS", "2296":"伊藤ハム米久HD", "2393":"日本ケアサプライ", "2659":"サンエー", "2914":"日本たばこ産業",
+  "3003":"ヒューリック", "3076":"あいホールディングス", "3231":"野村不動産HD", "3333":"あさひ", "3817":"SRA HD",
+  "3834":"朝日ネット", "3901":"マークラインズ", "4008":"住友精化", "4042":"東ソー", "4097":"高圧ガス",
+  "4205":"日本ゼオン", "4206":"アイカ工業", "4220":"リケンテクノス", "4248":"竹本容器", "4290":"プレステージ・インターナショナル",
+  "4452":"花王", "4503":"アステラス製薬", "4523":"エーザイ", "4540":"ツムラ", "4578":"大塚HD",
+  "4633":"サカタインクス", "4641":"アルプス技研", "4674":"クレスコ", "4719":"アルファシステムズ", "4752":"昭和システム",
+  "5108":"ブリヂストン", "5388":"クニミネ工業", "6073":"アサンテ", "6301":"小松製作所", "6326":"クボタ",
+  "6345":"アイチコーポレーション", "6381":"アネスト岩田", "6432":"竹内製作所", "6458":"新晃工業", "6539":"MS-Japan",
+  "6785":"鈴木", "7203":"トヨタ自", "7483":"ドウシシャ", "7723":"愛知時計", "7820":"ニホンフラッシュ",
+  "7989":"立川ブラインド", "7994":"オカムラ", "8001":"伊藤忠", "8031":"三井物産", "8058":"三菱商事",
+  "8130":"サンゲツ", "8306":"三菱UFJ", "8309":"三井住友トラストG", "8316":"三井住友", "8584":"ジャックス",
+  "8593":"三菱HCキャピタル", "8697":"JPX", "8725":"MS&AD", "8766":"東京海上", "9039":"サカイ引越センター",
+  "9057":"遠州トラック", "9069":"センコーHD", "9303":"住友倉", "9304":"渋沢倉", "9364":"上組",
+  "9381":"エーアイテイー", "9432":"NTT", "9433":"KDDI", "9513":"Jパワー", "9757":"船井総研HD",
+  "9769":"学究社", "9795":"ステップ", "9986":"蔵王産業", "9989":"サンドラッグ"
 };
-let HOLDINGS = {...HOLDINGS_DEFAULT};
-let PENDING_HOLDINGS = null;
 
 // ===== ロジック =====
 function switchTab(t){
@@ -272,111 +267,12 @@ function renderT2(){
   lMine.innerHTML = mine.map(c=>`<li><span class="chip-code">${c}</span>${escapeHtml(HOLDINGS[c]||'')}</li>`).join('');
 }
 
-function addHolding(map, rawCode, rawName=''){
-  const match=String(rawCode??'').match(/(?:^|\D)(\d{4})(?:\D|$)/);
-  if(!match) return;
-  const code=match[1];
-  let name=String(rawName??'').trim().replace(/^[:：,，;；\t\s]+/,'');
-  if(!name || /^\d+(?:\.\d+)?$/.test(name)) name=(PF_2026[code]||HOLDINGS_DEFAULT[code]||[''])[0]||'';
-  map[code]=name;
-}
-function collectJsonHoldings(value,map){
-  if(Array.isArray(value)){ value.forEach(v=>collectJsonHoldings(v,map)); return; }
-  if(!value || typeof value!=='object') return;
-  const code=value.code ?? value.stockCode ?? value.symbol ?? value['銘柄コード'] ?? value['コード'];
-  const name=value.name ?? value.stockName ?? value.companyName ?? value['銘柄名'] ?? value['名称'] ?? '';
-  if(code!=null) addHolding(map,code,name);
-  Object.values(value).forEach(v=>{ if(v && typeof v==='object') collectJsonHoldings(v,map); });
-}
-function parseHoldings(text,fileName){
-  const map={};
-  const trimmed=text.replace(/^\uFEFF/,'').trim();
-  if(!trimmed) return map;
-  if(/\.json$/i.test(fileName) || /^[\[{]/.test(trimmed)){
-    try{ collectJsonHoldings(JSON.parse(trimmed),map); if(Object.keys(map).length) return map; }catch(_){ /* 行形式として再解析 */ }
-  }
-  trimmed.split(/\r?\n/).forEach(line=>{
-    const cells=line.split(/\t|,(?=(?:[^"']|"[^"]*"|'[^']*')*$)/).map(v=>v.trim().replace(/^['"]|['"]$/g,''));
-    const codeIndex=cells.findIndex(v=>/(?:^|\D)\d{4}(?:\D|$)/.test(v));
-    if(cells.length>1 && codeIndex>=0){ addHolding(map,cells[codeIndex],cells[codeIndex+1]||cells[codeIndex-1]||''); return; }
-    const match=line.match(/(?:^|\D)(\d{4})(?:\D|$)(.*)/);
-    if(match) addHolding(map,match[1],match[2]);
-  });
-  return map;
-}
-async function readHoldingFile(file){
-  const buffer=await file.arrayBuffer();
-  let text=new TextDecoder('utf-8',{fatal:false}).decode(buffer);
-  const bad=(text.match(/\uFFFD/g)||[]).length;
-  if(bad>Math.max(2,text.length*0.01)){
-    try{ text=new TextDecoder('shift_jis').decode(buffer); }catch(_){ /* UTF-8の結果を使う */ }
-  }
-  return text;
-}
-async function prepareHoldingFile(file){
-  const status=document.getElementById('fileStatus');
-  const button=document.getElementById('applyFileButton');
-  PENDING_HOLDINGS=null; button.disabled=true;
-  if(!file) return;
-  try{
-    const parsed=parseHoldings(await readHoldingFile(file),file.name);
-    const nextCodes=Object.keys(parsed), currentCodes=Object.keys(HOLDINGS);
-    if(!nextCodes.length) throw new Error('4桁の銘柄コードを見つけられませんでした。');
-    const current=new Set(currentCodes), next=new Set(nextCodes);
-    const added=nextCodes.filter(c=>!current.has(c)).length;
-    const removed=currentCodes.filter(c=>!next.has(c)).length;
-    PENDING_HOLDINGS=parsed; button.disabled=false;
-    status.className='file-status show ok';
-    status.innerHTML=`<b>${escapeHtml(file.name)}</b><br>${nextCodes.length}銘柄を検出しました。現在 ${currentCodes.length}銘柄 → 更新後 ${nextCodes.length}銘柄（追加 ${added}・削除 ${removed}）`;
-  }catch(error){
-    status.className='file-status show error';
-    status.textContent=`読み込めませんでした：${error.message}`;
-  }
-}
-function applyPendingHoldings(){
-  if(!PENDING_HOLDINGS) return;
-  HOLDINGS={...PENDING_HOLDINGS};
-  HOLD_DATE=new Intl.DateTimeFormat('ja-JP',{year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date()).replaceAll('/','-');
-  try{ localStorage.setItem(HOLDINGS_STORAGE_KEY,JSON.stringify({date:HOLD_DATE,holdings:HOLDINGS})); }catch(_){ /* 保存不可でも今回の比較は続行 */ }
-  renderT2();
-  const status=document.getElementById('fileStatus');
-  status.className='file-status show ok';
-  status.innerHTML=`<b>更新しました。</b> ${Object.keys(HOLDINGS).length}銘柄を比較に反映しています。`;
-  document.getElementById('applyFileButton').disabled=true;
-  PENDING_HOLDINGS=null;
-}
-function resetHoldings(){
-  HOLDINGS={...HOLDINGS_DEFAULT}; HOLD_DATE=HOLD_DATE_DEFAULT; PENDING_HOLDINGS=null;
-  try{ localStorage.removeItem(HOLDINGS_STORAGE_KEY); }catch(_){ /* 保存領域が使えない場合 */ }
-  document.getElementById('holdFile').value='';
-  document.getElementById('applyFileButton').disabled=true;
-  const status=document.getElementById('fileStatus');
-  status.className='file-status show ok'; status.textContent='初期データに戻しました。';
-  renderT2();
-}
-function loadSavedHoldings(){
-  try{
-    const saved=JSON.parse(localStorage.getItem(HOLDINGS_STORAGE_KEY));
-    if(saved?.holdings && Object.keys(saved.holdings).length){ HOLDINGS={...saved.holdings}; HOLD_DATE=saved.date||HOLD_DATE_DEFAULT; }
-  }catch(_){ /* 壊れた保存データは初期値で表示 */ }
-}
-
 // 初期化
 (function init(){
-  loadSavedHoldings();
   const keys=Object.keys(MAGAZINE);
   keys.forEach(k=>{ mFrom.add(new Option(MAGAZINE[k].label,k)); mTo.add(new Option(MAGAZINE[k].label,k)); mPick.add(new Option(MAGAZINE[k].label,k)); });
   mFrom.value=keys[keys.length-2]||keys[0]; mTo.value=keys[keys.length-1]; mPick.value=keys[keys.length-1];
   mFrom.onchange=mTo.onchange=renderT1; mPick.onchange=renderT2;
-  const input=document.getElementById('holdFile'), zone=document.getElementById('dropzone');
-  zone.onclick=()=>input.click();
-  zone.onkeydown=e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); input.click(); } };
-  input.onchange=()=>prepareHoldingFile(input.files[0]);
-  ['dragenter','dragover'].forEach(type=>zone.addEventListener(type,e=>{ e.preventDefault(); zone.classList.add('drag'); }));
-  ['dragleave','drop'].forEach(type=>zone.addEventListener(type,e=>{ e.preventDefault(); zone.classList.remove('drag'); }));
-  zone.addEventListener('drop',e=>prepareHoldingFile(e.dataTransfer.files[0]));
-  document.getElementById('applyFileButton').onclick=applyPendingHoldings;
-  document.getElementById('resetHoldingsButton').onclick=resetHoldings;
   renderT1(); renderT2();
 })();
 </script>

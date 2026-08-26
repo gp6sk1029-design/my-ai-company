@@ -111,14 +111,14 @@ description: リベ日課スキル。リベシティのノウハウ図書館「�
 🔴 月次比較ビューアの「②自分の保有 vs マガジン」の保有を、毎回 l-haitou から読み取って自動更新する（ユーザーはコピペ不要・l-haitou本体は読むだけ＝無改修）。
 
 1. `https://worksnow.online/l-haitou/dashboard.html` を Chrome で navigate（ログイン/アクセスコード `appAccessCode` 済み前提。未ログインなら案内し中断）。
-2. `javascript_tool` で localStorage を読み、**`rakutenStocks` と `sbiStocks` の2配列を `code` でマージ**して現在保有を得る：
-   ```js
-   const m={}; ['rakutenStocks','sbiStocks'].forEach(k=>{try{JSON.parse(localStorage.getItem(k)||'[]').forEach(s=>{if(s.code)m[String(s.code)]=(s.name||'').replace(/"/g,'')})}catch(_){}}); m
-   ```
-   （各要素は `{code,name,shares,acquisitionPrice,currentPrice,...}`。保有判定は `code` の集合でOK）
+2. ナビゲーションの「保有一覧」を開き、表示された「保有株式一覧」表の各行から**コード列と銘柄名列**を読み取る。ブラウザのlocalStorage・Cookie・認証情報は読まない。
+   - 表のヘッダー行を除外し、4桁のコードがある行だけを対象にする。
+   - 同一コードが複数口座にある場合でも、画面上の統合済み1行を1銘柄として数える。
+   - 取得額・評価額・損益・配当額などはビューアへ保存しない。保有判定に必要なコードと名称だけを扱う。
 3. ビューア `高配当株マガジン_月次比較ビューア.html` の `HOLDINGS_DEFAULT` のコード集合と照合：
    - **コードに変化があれば** `HOLDINGS_DEFAULT` を現在保有で差し替え＋`HOLD_DATE` を当日に。銘柄名はビューア側の整形版を優先（l-haitouは全角・略称で読みにくいので、新規コードのみ補う）。
-   - **変化なければ** `HOLD_DATE` だけ当日に更新し「保有：5/xxから変更なし（75銘柄）」と報告。
+   - **変化なければ** `HOLD_DATE` だけ当日に更新し「保有：前回から変更なし（N銘柄）」と報告。
+   - ビューア内のファイル取込や端末別localStorageは使わない。`l-haitou`を唯一の正本とし、Codexが読み取ったスナップショットをHTMLへ反映する。
 4. 🚨 投資助言NG：保有の可視化＝事実の記録のみ。「買うべき」は出さない。l-haitouは worksnow.online（リポジトリ外）なので**読み取り専用**（本体改修はしない）。
 
 ---
