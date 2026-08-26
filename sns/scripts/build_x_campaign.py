@@ -188,11 +188,115 @@ def render_warning(card: dict, common: dict, spec_dir: Path, size: tuple[int, in
     return image
 
 
+def render_tool_hook(card: dict, common: dict, spec_dir: Path, size: tuple[int, int]) -> Image.Image:
+    image = gradient(size, "#EFF6FF", "#FFFFFF")
+    draw = ImageDraw.Draw(image)
+    rounded(draw, (70, 58, 700, 122), "#E8F5EE", radius=28, outline="#A7D7BC", width=2)
+    draw.text((96, 73), card.get("eyebrow", "買い物判断ツール"), font=font(28, True), fill="#166534")
+    y = 160
+    for line in card["headline"]:
+        centered(draw, line, y, font(63, True), "#0F3B5D")
+        y += 82
+    centered(draw, card["subhead"], y + 10, font(30, True), "#475569")
+
+    source = Image.open(resolve_path(card["screenshot"], spec_dir)).convert("RGB")
+    source.thumbnail((1040, 530), Image.Resampling.LANCZOS)
+    shot_x = (size[0] - source.width) // 2
+    shot_y = 485
+    shadow = Image.new("RGBA", size, (0, 0, 0, 0))
+    shadow_draw = ImageDraw.Draw(shadow)
+    shadow_draw.rounded_rectangle(
+        (shot_x - 18, shot_y - 18, shot_x + source.width + 18, shot_y + source.height + 24),
+        radius=30,
+        fill=(15, 59, 93, 28),
+    )
+    image = Image.alpha_composite(image.convert("RGBA"), shadow).convert("RGB")
+    image.paste(source, (shot_x, shot_y))
+    draw = ImageDraw.Draw(image)
+    draw.rounded_rectangle(
+        (shot_x - 2, shot_y - 2, shot_x + source.width + 2, shot_y + source.height + 2),
+        radius=18,
+        outline="#94A3B8",
+        width=2,
+    )
+    brand_footer(draw, common["brand"], card["page"], card["total"], *size)
+    return image
+
+
+def render_tool_result(card: dict, common: dict, spec_dir: Path, size: tuple[int, int]) -> Image.Image:
+    image = gradient(size, "#FFF7ED", "#FFFFFF")
+    draw = ImageDraw.Draw(image)
+    centered(draw, card.get("eyebrow", "実際の入力例"), 62, font(30, True), "#C2410C")
+    centered(draw, card["item"], 122, font(42, True), "#334155")
+    centered(draw, card["result"], 210, font(82, True), "#0F5D8A")
+    centered(draw, card["annual"], 320, font(38, True), "#0F172A")
+    x = 74
+    for item in card["conditions"]:
+        rounded(draw, (x, 425, x + 320, 575), "#FFFFFF", radius=26, outline="#FED7AA", width=3)
+        centered_x = x + 160
+        bbox = draw.textbbox((0, 0), item["label"], font=font(25, True))
+        draw.text((centered_x - (bbox[2] - bbox[0]) // 2, 458), item["label"], font=font(25, True), fill="#64748B")
+        bbox = draw.textbbox((0, 0), item["value"], font=font(40, True))
+        draw.text((centered_x - (bbox[2] - bbox[0]) // 2, 503), item["value"], font=font(40, True), fill="#0F172A")
+        x += 365
+    rounded(draw, (105, 650, 1095, 865), "#EFF6FF", radius=34, outline="#93C5FD", width=3)
+    centered(draw, card["decision"], 696, font(44, True), "#0F3B5D")
+    centered(draw, card["note"], 775, font(29), "#475569")
+    brand_footer(draw, common["brand"], card["page"], card["total"], *size)
+    return image
+
+
+def render_feature_grid(card: dict, common: dict, spec_dir: Path, size: tuple[int, int]) -> Image.Image:
+    image = gradient(size, "#EFF6FF", "#FFFFFF")
+    draw = ImageDraw.Draw(image)
+    centered(draw, card.get("eyebrow", "価格だけでは見えない"), 60, font(30, True), "#2563EB")
+    for idx, line in enumerate(card["title"]):
+        centered(draw, line, 116 + idx * 68, font(54, True), "#0F172A")
+    boxes = [(72, 320, 565, 565), (635, 320, 1128, 565), (72, 620, 565, 865), (635, 620, 1128, 865)]
+    colors = ["#E0F2FE", "#ECFDF5", "#FFF7ED", "#F5F3FF"]
+    outlines = ["#38BDF8", "#34D399", "#FB923C", "#A78BFA"]
+    for idx, (item, box) in enumerate(zip(card["items"], boxes)):
+        rounded(draw, box, colors[idx], radius=30, outline=outlines[idx], width=3)
+        centered_x = (box[0] + box[2]) // 2
+        bbox = draw.textbbox((0, 0), item["label"], font=font(42, True))
+        draw.text((centered_x - (bbox[2] - bbox[0]) // 2, box[1] + 48), item["label"], font=font(42, True), fill="#0F3B5D")
+        bbox = draw.textbbox((0, 0), item["description"], font=font(27))
+        draw.text((centered_x - (bbox[2] - bbox[0]) // 2, box[1] + 132), item["description"], font=font(27), fill="#475569")
+    brand_footer(draw, common["brand"], card["page"], card["total"], *size)
+    return image
+
+
+def render_tool_steps(card: dict, common: dict, spec_dir: Path, size: tuple[int, int]) -> Image.Image:
+    image = gradient(size, "#FFFFFF", "#F0FDF4")
+    draw = ImageDraw.Draw(image)
+    centered(draw, card.get("eyebrow", "使い方は3ステップ"), 60, font(30, True), "#15803D")
+    centered(draw, card["title"], 120, font(55, True), "#0F172A")
+    y = 270
+    for idx, item in enumerate(card["steps"], 1):
+        rounded(draw, (85, y, 1115, y + 142), "#FFFFFF", radius=28, outline="#BBF7D0", width=3)
+        rounded(draw, (115, y + 27, 205, y + 117), "#0F5D8A", radius=45)
+        number = str(idx)
+        bbox = draw.textbbox((0, 0), number, font=font(43, True))
+        draw.text((160 - (bbox[2] - bbox[0]) // 2, y + 45), number, font=font(43, True), fill="#FFFFFF")
+        draw.text((245, y + 30), item["label"], font=font(36, True), fill="#0F172A")
+        draw.text((245, y + 82), item["description"], font=font(26), fill="#64748B")
+        y += 170
+    rounded(draw, (110, 820, 1090, 975), "#0F3B5D", radius=34)
+    centered(draw, card["result"], 850, font(40, True), "#FFFFFF")
+    centered(draw, card["privacy"], 912, font(27, True), "#BFDBFE")
+    brand_footer(draw, common["brand"], card["page"], card["total"], *size)
+    return image
+
+
 RENDERERS = {
     "photo_hook": render_photo_hook,
     "comparison": render_comparison,
     "breakdown": render_breakdown,
     "warning": render_warning,
+    "tool_hook": render_tool_hook,
+    "tool_result": render_tool_result,
+    "feature_grid": render_feature_grid,
+    "tool_steps": render_tool_steps,
 }
 
 

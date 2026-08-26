@@ -1,0 +1,76 @@
+{
+  "brand": "生産技術ガジェット研究所",
+  "width": 1200,
+  "height": 1200,
+  "output_dir": "assets",
+  "commercial_relation": "own_product",
+  "analysis": [
+    "最大のフックはツールの存在ではなく、59,800円の買い物が約13か月で回収できるという具体的な判断結果",
+    "読者の悩みを『欲しいが、本当に元が取れるか分からない』に絞り、買わせるためではなく買う・見送るを判断する道具として訴求する",
+    "2枚目で入力条件を明示し、約13か月という数字が都合のよい宣伝値に見えないようにする",
+    "3枚目で時短・電気代・消耗品・維持費を示し、ガジェット以外の家電や消耗品にも使えることを伝える",
+    "4枚目で3ステップ、登録不要、入力非保存、結果共有を示し、利用前の不安と面倒そうという印象を減らす",
+    "当研究所が提供するツールのため、投稿本文で関係性を明示する"
+  ],
+  "post": {
+    "main": "59,800円のロボット掃除機、元が取れるまで約13か月。\n\n「欲しい」で買う前に、時短・電気代・消耗品を自分の条件で計算できます。\n\n当研究所のROI計算ツール👇\nhttps://www.ootanisatan.com/gadget-roi-calculator/\n#ガジェット #費用対効果",
+    "max_hashtags": 2,
+    "link_strategy": "main",
+    "reply": ""
+  },
+  "cards": [
+    {
+      "type": "tool_hook",
+      "filename": "01-roi-tool-hook.png",
+      "screenshot": "source/roi-calculator-site.jpg",
+      "eyebrow": "登録不要・入力内容は保存しません",
+      "headline": [
+        "そのガジェット、",
+        "何か月で元が取れる？"
+      ],
+      "subhead": "買う前に、自分の条件で数字を確認"
+    },
+    {
+      "type": "tool_result",
+      "filename": "02-robot-vacuum-example.png",
+      "eyebrow": "実際の入力例",
+      "item": "59,800円のロボット掃除機",
+      "result": "約13か月で回収",
+      "annual": "1年間に得られる価値 54,600円",
+      "conditions": [
+        {"label": "短縮時間", "value": "1日10分"},
+        {"label": "使用頻度", "value": "週7回"},
+        {"label": "時間の価値", "value": "1,500円/時"}
+      ],
+      "decision": "条件を変えて、買う・見送るを判断",
+      "note": "活用割合60%で計算した一例です"
+    },
+    {
+      "type": "feature_grid",
+      "filename": "03-calculation-items.png",
+      "eyebrow": "価格だけでは見えない",
+      "title": [
+        "4つの効果をまとめて計算"
+      ],
+      "items": [
+        {"label": "時短", "description": "浮く時間を金額換算"},
+        {"label": "電気代", "description": "新旧の消費電力を比較"},
+        {"label": "消耗品", "description": "交換費用の差を計算"},
+        {"label": "維持費", "description": "購入後の費用も差し引く"}
+      ]
+    },
+    {
+      "type": "tool_steps",
+      "filename": "04-how-to-use.png",
+      "eyebrow": "約60秒・3ステップ",
+      "title": "入力するのは、いつもの使い方",
+      "steps": [
+        {"label": "買う金額", "description": "本体価格や初期費用を入力"},
+        {"label": "浮く時間・費用", "description": "時短、電気代、消耗品など"},
+        {"label": "使う頻度", "description": "週何回・何年間使うかを入力"}
+      ],
+      "result": "結果はLINE・メール・Xなどで共有",
+      "privacy": "登録不要・入力内容は保存しません"
+    }
+  ]
+}
