@@ -8,6 +8,10 @@ import shutil
 import subprocess
 import sys
 try:
+    from .collaboration_history import History
+except ImportError:
+    from collaboration_history import History
+try:
     import tomllib
 except ImportError:
     import tomli as tomllib
@@ -71,11 +75,15 @@ def main(argv=None):
     parser.add_argument("target", choices=("codex", "claude"))
     parser.add_argument("action", choices=("check", "ask", "review", "implement"))
     args = parser.parse_args(argv)
+    history = None
     try:
         if os.environ.get("AI_COLLAB_CHILD"):
             raise SubscriptionError("Recursive collaboration is disabled.")
         if args.target == "claude" and args.action not in {"check", "ask"}:
             raise SubscriptionError("Claude collaboration currently supports advice only.")
+        if args.action != "check":
+            history = History(args.target, args.action)
+            print(f"連携履歴: {history.path}", file=sys.stderr)
         env = clean_env(os.environ)
         prefix = command_prefix(args.target)
         verify(args.target, prefix, env)
@@ -85,6 +93,7 @@ def main(argv=None):
         prompt = "" if args.action == "review" else sys.stdin.read().strip()
         if args.action != "review" and not prompt:
             raise SubscriptionError("A prompt must be supplied on stdin.")
+        history.update("回答待ち", prompt=prompt or "未コミットの変更をレビューしてください。")
         if args.target == "claude":
             # No shell, plugins, or MCP: the reviewer cannot launch another billed AI.
             command = prefix + ["-p", "--model", "opus", "--tools", "",
@@ -99,10 +108,24 @@ def main(argv=None):
             prompt = ("AI collaboration: do not invoke other AI agents or paid APIs. "
                       "Do not change authentication or billing settings.\n" + prompt)
         # No retries, billing fallback, shell expansion, or caller-supplied CLI options.
-        return subprocess.run(command, input=prompt, text=True, env=env, cwd=ROOT).returncode
+        result = subprocess.run(command, input=prompt, text=True, env=env, cwd=ROOT,
+                                capture_output=True)
+        answer = result.stdout or ""
+        history.update("完了" if result.returncode == 0 else "停止（実行エラー）", answer=answer)
+        if answer:
+            print(answer, end="" if answer.endswith("\n") else "\n")
+        if result.returncode:
+            print("連携が停止しました。APIへの切替・再試行は行いません。", file=sys.stderr)
+        return result.returncode
     except (SubscriptionError, OSError, ValueError, subprocess.TimeoutExpired) as exc:
+        if history:
+            history.update("停止（認証・入力・実行を確認してください）")
         print(f"Subscription-only: {exc}", file=sys.stderr)
         return 2
+    except KeyboardInterrupt:
+        if history:
+            history.update("中断")
+        return 130
 
 
 if __name__ == "__main__":

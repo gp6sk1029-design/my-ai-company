@@ -7,6 +7,11 @@ from tools import subscription_ai as bridge
 
 
 class SubscriptionTests(unittest.TestCase):
+    def setUp(self):
+        history = patch.object(bridge, "History")
+        history.start()
+        self.addCleanup(history.stop)
+
     def test_environment_drops_credentials_and_overrides(self):
         env = bridge.clean_env({"HOME": "/home/test", "PATH": "/bin",
                                 "ANTHROPIC_API_KEY": "secret",

@@ -57,3 +57,6 @@ blog/apps-script/**/node_modules/
 .obsidian/workspace-mobile.json
 .obsidian/cache
 .trash/
+
+# AI間の依頼・回答はローカル限定（業務情報を含む）
+.ai-collaboration/
