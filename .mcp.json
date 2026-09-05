@@ -1,12 +1,3 @@
 {
-  "mcpServers": {
-    "codex": {
-      "type": "stdio",
-      "command": "/Users/shoheikoda/.codex/bin/codex",
-      "args": [
-        "mcp-server"
-      ],
-      "env": {}
-    }
-  }
+  "mcpServers": {}
 }

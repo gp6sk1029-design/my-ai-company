@@ -1,6 +1,4 @@
 sandbox_mode = "danger-full-access"
 model_verbosity = "medium"
 approval_policy = "never"
-[mcp_servers.codex]
-command = "/Users/shoheikoda/.codex/bin/codex"
-args = ["mcp-server"]
+forced_login_method = "chatgpt"

@@ -1,22 +1,11 @@
 ---
-description: 設計・難所をCodexに質問してセカンドオピニオンをもらう（壁打ち・調査）
-allowed-tools: Bash(/Users/shoheikoda/.codex/bin/codex exec*)
+description: 契約利用枠だけでCodexに質問する
 ---
 
-あなたは司令塔です。専門家Codex（gpt-5.5）に壁打ち・調査として質問を投げ、別視点の意見を得ます。
+質問: $ARGUMENTS
 
-質問内容: $ARGUMENTS
-
-## Codexの回答
-!`/Users/shoheikoda/.codex/bin/codex exec -c model_reasoning_effort="low" "あなたはセカンドオピニオンを求められた専門家です。次の問いに、根拠とともに簡潔に答えてください（コードは書かず助言のみ）: $ARGUMENTS"`
-
-<!-- コスト最小化：推論low既定（モデルはgpt-5.5のまま）。難しい設計課題で深く考えさせたい時はClaudeが `-c model_reasoning_effort="high"` に上げてよい。 -->
-
-
-## あなた（Claude）の仕事
-上のCodexの回答を踏まえ、日本語で：
-1. **Codexの意見の要点**
-2. **あなたの見解との一致/相違**（同じならその旨、違うなら両論併記して推奨を示す）
-3. **結論と次の一手**
-
-⚠️ Codexの意見は参考。最終判断はあなたがユーザーの文脈（CLAUDE.md・非エンジニア前提）に照らして行う。
+CLAUDE.md「AI相互連携の課金制限」に従う。
+`python3 tools/subscription_ai.py codex ask` の標準入力へ質問を渡す。
+質問をシェルのコマンド文字列に展開せず、プロセスの標準入力として渡すこと。
+直接のCLI・APIキー利用・別経路での再試行は禁止。失敗したら停止して報告する。
+成功したら回答を検証し、要点・自分の見解・結論を日本語で報告する。
