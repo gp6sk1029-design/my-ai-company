@@ -10,7 +10,7 @@ class HistoryTests(unittest.TestCase):
     def test_escaped_content_and_completed_refresh(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory)
-            history = History("codex", "ask", path)
+            history = History("codex", "ask", path, model="gpt-test")
             history.update("回答待ち", prompt='<script>alert(1)</script>')
             self.assertIn('http-equiv="refresh"', history.path.read_text())
             history.update("完了", answer="回答です。")
@@ -19,6 +19,8 @@ class HistoryTests(unittest.TestCase):
             self.assertIn("&lt;script&gt;", html)
             self.assertNotIn('http-equiv="refresh"', html)
             self.assertIn("回答です。", html)
+            self.assertIn("指定モデル: gpt-test", html)
+            self.assertIn("gpt-test", (path / "index.html").read_text())
             self.assertEqual(history.path.stat().st_mode & 0o777, 0o600)
             self.assertIn(history.id, (path / "index.html").read_text())
 

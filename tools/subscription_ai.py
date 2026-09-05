@@ -3,6 +3,7 @@
 import argparse
 import json
 import os
+import re
 from pathlib import Path
 import shutil
 import subprocess
@@ -21,6 +22,13 @@ ROOT = Path(__file__).resolve().parents[1]
 
 class SubscriptionError(Exception):
     pass
+
+
+def validate_model(target, model):
+    if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}", model):
+        raise SubscriptionError("Invalid model name; no request sent.")
+    if target == "claude" and model != "opus" and not model.startswith("claude-opus-"):
+        raise SubscriptionError("Claude collaboration requires an explicitly selected Opus model.")
 
 
 def clean_env(source):
@@ -74,6 +82,7 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("target", choices=("codex", "claude"))
     parser.add_argument("action", choices=("check", "ask", "review", "implement"))
+    parser.add_argument("--model", help="User-selected model for this request; no default")
     args = parser.parse_args(argv)
     history = None
     try:
@@ -82,8 +91,15 @@ def main(argv=None):
         if args.target == "claude" and args.action not in {"check", "ask"}:
             raise SubscriptionError("Claude collaboration currently supports advice only.")
         if args.action != "check":
-            history = History(args.target, args.action)
+            history = History(args.target, args.action, model=args.model)
             print(f"連携履歴: {history.path}", file=sys.stderr)
+            if not args.model or not args.model.strip():
+                history.update("モデル選択待ち")
+                print(f"{args.target}に依頼するモデルはどれにしますか？ "
+                      "ユーザーに確認し、回答後に --model で指定してください。"
+                      "既定モデルでは実行しません。", file=sys.stderr)
+                return 3
+            validate_model(args.target, args.model)
         env = clean_env(os.environ)
         prefix = command_prefix(args.target)
         verify(args.target, prefix, env)
@@ -96,14 +112,15 @@ def main(argv=None):
         history.update("回答待ち", prompt=prompt or "未コミットの変更をレビューしてください。")
         if args.target == "claude":
             # No shell, plugins, or MCP: the reviewer cannot launch another billed AI.
-            command = prefix + ["-p", "--model", "opus", "--tools", "",
+            command = prefix + ["-p", "--model", args.model, "--tools", "",
                                 "--strict-mcp-config", "--mcp-config", '{"mcpServers":{}}',
                                 "--disable-slash-commands", "--permission-mode", "dontAsk"]
         elif args.action == "review":
-            command = prefix + ["--sandbox", "read-only", "review", "--uncommitted"]
+            command = prefix + ["--model", args.model, "-c", f"review_model={json.dumps(args.model)}",
+                                "--sandbox", "read-only", "review", "--uncommitted"]
         else:
             sandbox = "workspace-write" if args.action == "implement" else "read-only"
-            command = prefix + ["--sandbox", sandbox, "exec", "-"]
+            command = prefix + ["--model", args.model, "--sandbox", sandbox, "exec", "-"]
         if prompt:
             prompt = ("AI collaboration: do not invoke other AI agents or paid APIs. "
                       "Do not change authentication or billing settings.\n" + prompt)

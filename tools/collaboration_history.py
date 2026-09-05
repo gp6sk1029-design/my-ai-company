@@ -47,7 +47,7 @@ def index(directory=DIRECTORY):
     for path in sorted(directory.glob("*.json"), reverse=True):
         data = json.loads(path.read_text(encoding="utf-8"))
         rows.append(f'<a class="row" href="{escape(path.stem)}.html">'
-                    f'<span class="meta">{escape(data["time"])} · {escape(data["route"])}</span>'
+                    f'<span class="meta">{escape(data["time"])} · {escape(data["route"])} · 指定モデル: {escape(data.get("model") or "未指定")}</span>'
                     f'<strong>{escape(data["prompt"][:100] or data["action"])}</strong>'
                     f'<span class="status">{escape(data["status"])}</span></a>')
     body = '<h2>やり取り一覧</h2>' + ("".join(rows) or '<p class="empty">まだ連携の履歴はありません。</p>')
@@ -56,12 +56,13 @@ def index(directory=DIRECTORY):
 
 
 class History:
-    def __init__(self, target, action, directory=DIRECTORY):
+    def __init__(self, target, action, directory=DIRECTORY, model=None):
         self.directory = directory
         self.id = datetime.now().strftime("%Y%m%d-%H%M%S") + "-" + uuid.uuid4().hex[:8]
         self.data = dict(time=datetime.now().astimezone().isoformat(timespec="seconds"),
                          route="Claude Code → Codex" if target == "codex" else "Codex → Claude Code",
-                         action=action, prompt="", answer="", status="契約認証を確認中", events=[])
+                         action=action, model=model, prompt="", answer="",
+                         status="契約認証を確認中" if model else "モデル選択待ち", events=[])
         self.update(self.data["status"])
 
     @property
@@ -77,7 +78,7 @@ class History:
             self.data["answer"] = answer
         active = status in {"契約認証を確認中", "回答待ち"}
         body = (f'<a href="index.html">← 一覧</a><div class="flow">{escape(self.data["route"])}</div>'
-                f'<p class="meta">{escape(self.data["time"])} · {escape(self.data["action"])}</p>'
+                f'<p class="meta">{escape(self.data["time"])} · {escape(self.data["action"])} · 指定モデル: {escape(self.data.get("model") or "未指定")}</p>'
                 f'<p><span class="status">{escape(status)}</span></p>'
                 f'<section><h2>進行状況</h2><pre>{escape(chr(10).join(self.data["events"]))}</pre></section>'
                 f'<section class="request"><h2>依頼</h2><pre>{escape(self.data["prompt"] or "依頼の準備中")}</pre></section>'
