@@ -1,0 +1,9 @@
+period_start,period_end,area,metric,value,unit,evidence,checked_at,decision
+2026-08-30,2026-09-05,blog,published_articles,,count,,,未取得
+2026-08-30,2026-09-05,blog,search_clicks,,count,,,未取得
+2026-08-30,2026-09-05,blog,affiliate_clicks,,count,,,未取得
+2026-08-30,2026-09-05,blog,confirmed_revenue,,JPY,,,未取得
+2026-08-30,2026-09-05,sns,published_posts,,count,,,未取得
+2026-08-30,2026-09-05,sns,blog_visits,,count,,,未取得
+2026-08-30,2026-09-05,tools,actual_uses,,count,,,未取得
+2026-08-30,2026-09-05,tools,measured_time_saved,,minutes,,,未取得

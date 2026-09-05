@@ -1,4 +1,6 @@
 # リサーチ部門 MEMORY.md
+
+> 現在の優先順位・判断・未完了事項は [運営状況の正本](../operations/CURRENT.md) を参照。このファイルの過去TODOや旧手順を、現行指示として自動再開しない。
 # 学び・台帳・実績の蓄積
 
 > 🔗 関連: [この部門の手順 SKILL.md](SKILL.md) ・ [他部門連携 handoff.md](skills/handoff.md) ・ [目次](../目次.md)
@@ -212,7 +214,7 @@ CLAUDE.md準拠の振り返り記録。
 | 2026-05-27 | research部門新設・5セクション体制へ昇格 | SKILL.md・skills/4ファイル新規作成、CLAUDE.md10箇所改訂 |
 | 2026-05-28 | 学長メソッド研究機能を追加。投資助言NGの線引きを全ファイルに明記（金銭事故防止） | digest.md新設・MEMORY2台帳追加・SKILL/handoff/CLAUDE更新・life-plan連携TODO |
 | 2026-08-26 | 学長マガジン画面が古い全履歴と高配当株情報を混在させていた | 学長マガジンを指定期間方式へ変更。未指定は直近1か月、ビューアは毎回差替、高配当株は専用ビューアへ完全分離 |
-| 2026-09-05 | 統合ポータルに同内容の `index.html` と名称付きHTMLがあり、片方だけ更新すると古い表示が残る | 両ファイルを同時更新し、`diff` が空であることを完了条件に追加。今回は完全同期を確認 |
+| 2026-09-05 | ポータルの二重編集を解消 | `index.html` を唯一の正本とし、名称付きHTMLは入口への案内に変更。旧「2ファイル同時更新」は廃止。リンク先と正本の内容を確認する |
 
 ---
 
@@ -266,5 +268,5 @@ CLAUDE.md準拠の振り返り記録。
 ## 📱 リベまとめ スマホ閲覧サイト（2026-06-23デプロイ）
 - URL: https://libe-matome.pages.dev/ （Cloudflare Pages・プロジェクト名 libe-matome）
 - 中身: research/reports/ の3ビューア＋ポータル（index.html=ポータル。旧4月→5月比較は月次ビューアへ統合）
-- 🔴 **要対応（ユーザー作業）**: Cloudflare Zero Trust → Access で「gp6sk1029@gmail.com だけ許可」を設定するまで**公開状態＝リベ規約NG**。設定完了まで URL を共有しない。
+- **2026-09-05確認**: 未認証HEADは401・Basic認証要求。旧記録の「公開状態」という断定は撤回。社内標準のCloudflare Accessへの統一と本人の認証後閲覧は未確認で、operations/CURRENT.mdのOPS-03で管理する。既存保護を弱めず、完了確認まで公開範囲を広げない。
 - 更新方法: リベ日課でreports更新後 `wrangler pages deploy research/reports --project-name=libe-matome --commit-dirty=true --branch=main` で再デプロイ

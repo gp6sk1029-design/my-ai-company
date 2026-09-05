@@ -1,5 +1,15 @@
 # ツール・アプリ作成部門 MEMORY.md
 
+> 現在の優先順位・判断・未完了事項は [運営状況の正本](../operations/CURRENT.md) を参照。このファイルの過去TODOや旧手順を、現行指示として自動再開しない。
+
+## 2026-09-05 運営改善の検証記録
+
+- 終了フックは検査のみへ変更。起動時はローカル変更を保持し、クリーンなmainでのみfast-forward同期。
+- 変更ファイルの簡易検査、既存記事の原稿/本番控え/最新本番の照合ガード、ポータル単一化を実装。
+- `python3 -m unittest discover -s tools/tests`: 32件成功。模擬プロセスによる依頼・応答・エラー・履歴保存を含む（本物のAIではない）。
+- `python3 tools/operations_check.py --init-metrics`: 実測台帳を初期化、既存値は保持。検査時の要確認0件。
+- 残る実運用・成果確認はoperations/CURRENT.mdのみで管理する。詳細な手順をここに複製しない。
+
 > 🔗 関連: [この部門の手順 SKILL.md](SKILL.md) ・ [研究→ツールの送出元 handoff.md](../research/skills/handoff.md) ・ [目次](../目次.md)
 
 ツール・アプリ作成部門の学習・経験の蓄積ファイル。

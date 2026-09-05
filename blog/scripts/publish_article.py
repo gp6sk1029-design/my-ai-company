@@ -47,6 +47,7 @@ from urllib.parse import quote
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "blog" / "scripts"))
 from wp_block_builder import markdown_to_blocks, validate_blocks, block_image  # noqa: E402
+from article_update_guard import require as require_update, verify_live
 
 CONFIG_PATH = ROOT / "blog" / "config.json"
 IMG_EXT = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
@@ -69,6 +70,14 @@ def load_cfg():
 
 def _auth(u, p):
     return "Basic " + b64encode(f"{u}:{p}".encode()).decode()
+
+
+def check_current_post(base, u, p, post_id, approval):
+    req = Request(f"{base}/wp-json/wp/v2/posts/{post_id}?context=edit",
+                  headers={"Authorization": _auth(u, p)})
+    with urlopen(req, timeout=30) as response:
+        current = json.loads(response.read().decode("utf-8"))
+    verify_live(approval, current)
 
 
 def upload_media(base, u, p, path: Path, alt: str):
@@ -186,6 +195,12 @@ def main():
         sys.exit(f"❌ 記事が見つかりません: {md_path}")
     images_dir = Path(args.images_dir) if args.images_dir else ROOT / "blog" / "articles" / f"{args.slug}_images"
     md_text = md_path.read_text(encoding="utf-8")
+    approval = None
+    if args.publish and args.update:
+        try:
+            approval = require_update(args.update, md_path)
+        except (ValueError, OSError, KeyError) as error:
+            sys.exit(str(error))
 
     cats = [int(x) for x in args.categories.split(",") if x.strip()]
     images = collect_images(md_text, images_dir)
@@ -204,6 +219,8 @@ def main():
         print("⚠️ アイキャッチ未検出。--eyecatch で指定するか eyecatch* 命名にしてください")
 
     base, u, p = load_cfg()
+    if approval:
+        check_current_post(base, u, p, args.update, approval)
 
     # 画像アップロード（ドライランはダミーURL）
     media = {}
@@ -267,6 +284,9 @@ def main():
     if args.excerpt:
         payload["excerpt"] = args.excerpt
 
+    if approval:
+        require_update(args.update, md_path)
+        check_current_post(base, u, p, args.update, approval)
     res = wp_post(base, u, p, payload, post_id=args.update)
     print(f"\n✅ {'更新' if args.update else '投稿'}完了: post_id={res['id']}  status={res.get('status')}")
     print(f"   URL: {res.get('link')}")

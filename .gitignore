@@ -60,3 +60,4 @@ blog/apps-script/**/node_modules/
 
 # AI間の依頼・回答はローカル限定（業務情報を含む）
 .ai-collaboration/
+.operations-private/
